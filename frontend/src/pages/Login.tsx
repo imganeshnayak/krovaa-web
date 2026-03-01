@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Mail, Loader2, Eye, EyeOff, ArrowRight, ChevronLeft, Lock } from "lucide-react";
 import TelegramLogin from "@/components/TelegramLogin";
 import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 /* ── Font injection ── */
 if (typeof document !== "undefined" && !document.getElementById("krovaa-login-fonts")) {
@@ -34,6 +35,7 @@ const Field = ({
 const Login = () => {
   const navigate = useNavigate();
   const { login, isLoading } = useAuth();
+  const { toast } = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -49,7 +51,22 @@ const Login = () => {
       const loggedInUser = await login(email.trim().toLowerCase(), password);
       loggedInUser.role === "admin" ? navigate("/admin", { replace: true }) : navigate("/chat", { replace: true });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed");
+      const msg = err instanceof Error ? err.message : "Login failed";
+      // Normalize credential errors to a clear, friendly message
+      if (
+        msg.toLowerCase().includes("invalid credentials") ||
+        msg.toLowerCase().includes("invalid email") ||
+        msg.toLowerCase().includes("invalid password") ||
+        msg.toLowerCase().includes("user not found") ||
+        msg.toLowerCase().includes("wrong password")
+      ) {
+        const friendly = "Invalid credentials. Please check your email and password.";
+        setError(friendly);
+        toast({ title: "Invalid credentials", description: friendly, variant: "destructive" });
+      } else {
+        setError(msg);
+        toast({ title: "Login failed", description: msg, variant: "destructive" });
+      }
     }
   };
 

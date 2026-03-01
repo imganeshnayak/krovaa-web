@@ -65,7 +65,7 @@ router.get('/search', auth, async (req, res) => {
 });
 
 // GET /api/users/username/:username - Get user profile by username
-router.get('/username/:username', auth, async (req, res) => {
+router.get('/username/:username', async (req, res) => {
     try {
         const { username } = req.params;
         const decodedUsername = decodeURIComponent(username);
@@ -81,7 +81,6 @@ router.get('/username/:username', auth, async (req, res) => {
             select: {
                 id: true,
                 username: true,
-                email: true,
                 displayName: true,
                 bio: true,
                 avatarUrl: true,
@@ -90,12 +89,12 @@ router.get('/username/:username', auth, async (req, res) => {
                 role: true,
                 status: true,
                 verified: true,
-                city: true,
-                pincode: true,
+                city: true,          // city (general area) is OK to show
                 createdAt: true,
                 ratingsReceived: {
                     select: { rating: true }
                 }
+                // email, pincode, phoneNumber intentionally excluded — private fields
             },
         });
 

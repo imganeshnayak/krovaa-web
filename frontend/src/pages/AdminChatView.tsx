@@ -22,6 +22,8 @@ const AdminChatView = () => {
     const navigate = useNavigate();
 
     const [messages, setMessages] = useState<MessageType[]>([]);
+
+    type AdminLocalMessage = MessageType & { sender?: { role?: string; avatarUrl?: string; displayName?: string } };
     const [deals, setDeals] = useState<EscrowDeal[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [showTransactions, setShowTransactions] = useState(false);
@@ -175,9 +177,10 @@ const AdminChatView = () => {
                 >
                     <div className="max-w-3xl mx-auto p-4 md:p-8 space-y-8 min-h-full flex flex-col">
                         <div className="flex-1 space-y-8">
-                            {messages.map((msg, index) => {
+                            {messages.map((rawMsg, index) => {
+                                const msg = rawMsg as AdminLocalMessage;
                                 const isSystem = msg.messageType === 'system';
-                                const isSender = (msg as any).sender?.role === 'admin';
+                                const isSender = msg.sender?.role === 'admin';
 
                                 // Check if date changed to show day separator
                                 const showDateSeparator = index === 0 ||
@@ -196,17 +199,17 @@ const AdminChatView = () => {
                                             {!isSystem && (
                                                 <div className={`flex items-center gap-2 mb-2 ${isSender ? 'flex-row-reverse' : ''}`}>
                                                     <Avatar className="h-9 w-9 border-2 border-background shadow-md">
-                                                        <AvatarImage src={(msg as any).sender?.avatarUrl} />
-                                                        <AvatarFallback className="bg-gradient-to-br from-primary/20 to-secondary text-primary text-xs font-bold">
-                                                            {(msg as any).sender?.displayName?.[0] || '?'}
-                                                        </AvatarFallback>
+                                                        <AvatarImage src={msg.sender?.avatarUrl} />
+                                                            <AvatarFallback className="bg-gradient-to-br from-primary/20 to-secondary text-primary text-xs font-bold">
+                                                                {msg.sender?.displayName?.[0] || '?'}
+                                                            </AvatarFallback>
                                                     </Avatar>
                                                     <div className={`flex flex-col ${isSender ? 'items-end' : 'items-start'}`}>
                                                         <div className="flex items-center gap-1.5">
                                                             <span className="text-xs font-bold text-foreground">
-                                                                {(msg as any).sender?.displayName || 'User'}
+                                                                {msg.sender?.displayName || 'User'}
                                                             </span>
-                                                            {(msg as any).sender?.role === 'admin' && <Badge variant="secondary" className="h-3 px-1 text-[8px] uppercase">Admin</Badge>}
+                                                            {msg.sender?.role === 'admin' && <Badge variant="secondary" className="h-3 px-1 text-[8px] uppercase">Admin</Badge>}
                                                         </div>
                                                         <div className="flex items-center gap-2">
                                                             <span className="text-[9px] text-muted-foreground font-medium">

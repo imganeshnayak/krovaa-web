@@ -6,6 +6,11 @@ import { auth, adminOnly } from '../middleware/auth.js';
 const router = express.Router();
 const prisma = new PrismaClient();
 
+function sanitizeNotificationText(text) {
+    if (!text) return text || "";
+    return String(text).replace(/\bescrow\b/gi, 'payment');
+}
+
 
 // GET /api/notifications — fetch notifications for current user (targeted + broadcasts)
 // GET /api/notifications — fetch notifications for current user (targeted + broadcasts)
@@ -194,10 +199,13 @@ router.post('/broadcast', auth, adminOnly, async (req, res) => {
             return res.status(400).json({ error: 'Invalid type' });
         }
 
+        const sanitizedTitle = sanitizeNotificationText(title).trim();
+        const sanitizedMessage = sanitizeNotificationText(message).trim();
+
         const notification = await prisma.notification.create({
             data: {
-                title: title.trim(),
-                message: message.trim(),
+                title: sanitizedTitle,
+                message: sanitizedMessage,
                 type,
                 color,
                 sentBy: req.user.id,
@@ -242,7 +250,7 @@ router.post('/broadcast', auth, adminOnly, async (req, res) => {
                         chatId,
                         senderId: req.user.id, // The admin who sent the broadcast
                         receiverId: user.id,
-                        content: `📢 **${title}**\n\n${message}`,
+                        content: `📢 **${sanitizedTitle}**\n\n${sanitizedMessage}`,
                         messageType: 'text',
                         color: color // Pass the custom color to the message
                     }
@@ -287,10 +295,13 @@ router.post('/broadcast', auth, adminOnly, async (req, res) => {
  */
 export async function sendUserNotification(io, targetUserId, title, message, type = 'info', metadata = null) {
     try {
+        const sanitizedTitle = sanitizeNotificationText(title);
+        const sanitizedMessage = sanitizeNotificationText(message);
+
         const notification = await prisma.notification.create({
             data: {
-                title,
-                message,
+                title: sanitizedTitle,
+                message: sanitizedMessage,
                 type,
                 targetUserId,
                 metadata: metadata ? (typeof metadata === 'string' ? JSON.parse(metadata) : metadata) : null
@@ -326,7 +337,7 @@ export async function sendUserNotification(io, targetUserId, title, message, typ
                         chatId,
                         senderId: admin.id,
                         receiverId: targetUserId,
-                        content: `🔔 **${title}**\n\n${message}`,
+                        content: `🔔 **${sanitizedTitle}**\n\n${sanitizedMessage}`,
                         messageType: 'notification'
                     }
                 });

@@ -30,12 +30,23 @@ const EscrowPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [releasePercent, setReleasePercent] = useState("");
   const [releaseNote, setReleaseNote] = useState("");
+  const [releaseByAmount, setReleaseByAmount] = useState(false);
+  const [releaseAmount, setReleaseAmount] = useState("");
   const [selectedDeal, setSelectedDeal] = useState<number | null>(null);
   const [isReleasing, setIsReleasing] = useState(false);
   const [searchParams] = useSearchParams();
   const [isNewDealOpen, setIsNewDealOpen] = useState(false);
   // New deal form
   const [isCreating, setIsCreating] = useState(false);
+  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
+  const [cancelingDealId, setCancelingDealId] = useState<number | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
+  const presetCancelReasons = [
+    "Project no longer needed",
+    "Vendor unresponsive",
+    "Found alternative provider",
+    "Payment issue / Wrong amount",
+  ];
   const [newDeal, setNewDeal] = useState({
     chatId: "",
     vendorId: "",
@@ -254,20 +265,39 @@ const EscrowPage = () => {
 
   const handleRelease = async (dealId: number) => {
     if (isReleasing) return;
-    const pct = parseFloat(releasePercent);
-    if (!pct || pct < 1 || pct > 100) {
-      toast({
-        title: "Invalid percentage",
-        description: "Enter a value between 1 and 100",
-        variant: "destructive"
-      });
+    const deal = deals.find(d => d.id === dealId);
+    if (!deal) {
+      toast({ title: "Error", description: "Deal not found.", variant: "destructive" });
       return;
+    }
+
+    let pct: number | null = null;
+
+    if (releaseByAmount) {
+      const amt = parseFloat(releaseAmount);
+      const released = deal.totalAmount * (deal.releasedPercent / 100);
+      const remaining = deal.totalAmount - released;
+      if (isNaN(amt) || amt <= 0 || amt > remaining) {
+        toast({ title: "Invalid amount", description: `Enter amount between 1 and ${formatCurrency(remaining)}`, variant: "destructive" });
+        return;
+      }
+      pct = (amt / deal.totalAmount) * 100;
+    } else {
+      pct = parseFloat(releasePercent);
+      if (!pct || pct < 1 || pct > 100) {
+        toast({
+          title: "Invalid percentage",
+          description: "Enter a value between 1 and 100",
+          variant: "destructive"
+        });
+        return;
+      }
     }
 
     setIsReleasing(true);
     try {
       await releaseEscrowPayment(dealId, {
-        percent: pct,
+        percent: Number(pct.toFixed(6)),
         note: releaseNote || undefined
       });
 
@@ -277,6 +307,8 @@ const EscrowPage = () => {
       });
 
       setReleasePercent("");
+      setReleaseAmount("");
+      setReleaseByAmount(false);
       setReleaseNote("");
       setSelectedDeal(null);
       loadDeals();
@@ -291,34 +323,59 @@ const EscrowPage = () => {
     }
   };
 
+  const openCancelDialog = (dealId: number) => {
+    setCancelingDealId(dealId);
+    setCancelReason("");
+    setIsCancelDialogOpen(true);
+  };
+
   const handleDeleteDeal = async (dealId: number, isPaid: boolean) => {
     const action = isPaid ? "Cancel & Refund" : "Delete";
 
-    let reason = "";
     if (isPaid) {
-      const input = prompt("Please specify the reason for cancellation & refund (optional):");
-      if (input === null) return; // User cancelled prompt
-      reason = input;
-    } else {
-      if (!confirm("Are you sure you want to delete this deal?")) {
-        return;
-      }
+      // Open UI dialog to collect mandatory reason
+      openCancelDialog(dealId);
+      return;
+    }
+
+    if (!confirm("Are you sure you want to delete this deal?")) {
+      return;
     }
 
     setIsCreating(true);
     try {
-      const result = await deleteEscrowDeal(dealId, reason);
-      toast({
-        title: "Success",
-        description: result.message
-      });
+      const result = await deleteEscrowDeal(dealId);
+      toast({ title: "Success", description: result.message });
       loadDeals();
     } catch (err) {
       toast({
         title: "Error",
         description: err instanceof Error ? err.message : `Failed to ${action.toLowerCase()} deal`,
-        variant: "destructive"
+        variant: "destructive",
       });
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const submitCancelRefund = async () => {
+    if (!cancelingDealId) return;
+    const reason = cancelReason.trim();
+    if (!reason) {
+      toast({ title: "Reason required", description: "Please enter a reason for the refund.", variant: "destructive" });
+      return;
+    }
+
+    setIsCreating(true);
+    try {
+      const result = await deleteEscrowDeal(cancelingDealId, reason);
+      toast({ title: "Success", description: result.message });
+      setIsCancelDialogOpen(false);
+      setCancelReason("");
+      setCancelingDealId(null);
+      loadDeals();
+    } catch (err) {
+      toast({ title: "Error", description: err instanceof Error ? err.message : "Failed to cancel deal", variant: "destructive" });
     } finally {
       setIsCreating(false);
     }
@@ -426,7 +483,7 @@ const EscrowPage = () => {
 
                   {parseFloat(newDeal.totalAmount) > 0 && (
                     <div className="bg-secondary/50 rounded-lg p-4 space-y-3 border border-border/50">
-                      <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Escrow Summary</h4>
+                      <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Payment Summary</h4>
                       <div className="space-y-2">
                         <div className="flex justify-between text-sm">
                           <span className="text-muted-foreground">Amount to be Deducted</span>
@@ -455,6 +512,43 @@ const EscrowPage = () => {
             </Dialog>
           </div>
         </div>
+        {/* Cancel / Refund Dialog */}
+        <Dialog open={isCancelDialogOpen} onOpenChange={setIsCancelDialogOpen}>
+          <DialogContent className="bg-card border-border sm:max-w-[520px] w-[95vw]">
+            <DialogHeader>
+              <DialogTitle className="text-card-foreground">Cancel Deal & Request Refund</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <p className="text-sm text-muted-foreground">Please tell us why you're cancelling this deal. This reason is required and will be included in the refund record.</p>
+
+              <div className="grid grid-cols-2 gap-2">
+                {presetCancelReasons.map((r) => (
+                  <button
+                    key={r}
+                    onClick={() => setCancelReason(r)}
+                    className={`px-3 py-2 text-sm rounded-md border ${cancelReason === r ? 'border-primary bg-primary/10' : 'border-border hover:bg-white/3'}`}
+                  >
+                    {r}
+                  </button>
+                ))}
+              </div>
+
+              <div>
+                <Label className="text-card-foreground">Reason (required)</Label>
+                <Textarea value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} className="mt-1 bg-secondary border-border" placeholder="Describe why you want a refund..." rows={4} />
+                <div className="flex items-center justify-between mt-1 text-xs text-muted-foreground">
+                  <span>{cancelReason.length} characters</span>
+                  <span>Minimum required: 5</span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 justify-end">
+                <Button variant="secondary" onClick={() => { setIsCancelDialogOpen(false); setCancelReason(""); setCancelingDealId(null); }}>Cancel</Button>
+                <Button onClick={submitCancelRefund} disabled={isCreating || cancelReason.trim().length < 5}>{isCreating ? 'Processing...' : 'Confirm Cancel & Refund'}</Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         <div className="flex gap-1 p-1 bg-secondary/50 rounded-lg mb-6">
           <button
@@ -532,11 +626,13 @@ const EscrowPage = () => {
                           </Badge>
                         </div>
                       </CardHeader>
+
                       <CardContent>
                         {/* Amounts */}
+
                         <div className="grid grid-cols-3 gap-4 mb-4 text-center">
                           <div>
-                            <p className="text-xs text-muted-foreground">Total</p>
+                            <p className="text-xs text-muted-foreground">Total Deal Amount</p>
                             <p className="text-lg font-bold text-foreground">{formatCurrency(deal.totalAmount)}</p>
                           </div>
                           <div>
@@ -595,16 +691,52 @@ const EscrowPage = () => {
                               </DialogHeader>
                               <div className="space-y-4">
                                 <div>
-                                  <Label className="text-card-foreground">Percentage to Release</Label>
-                                  <Input
-                                    className="mt-1.5 bg-secondary border-border"
-                                    type="number"
-                                    min="1"
-                                    max={100 - deal.releasedPercent}
-                                    placeholder={`Max ${(100 - deal.releasedPercent).toFixed(1)}%`}
-                                    value={releasePercent}
-                                    onChange={(e) => setReleasePercent(e.target.value)}
-                                  />
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <Label className="text-card-foreground">Release Method</Label>
+                                    <div className="ml-auto flex items-center gap-2">
+                                      <button
+                                        className={`px-3 py-1 rounded-md border ${!releaseByAmount ? 'border-primary bg-primary/10' : 'border-border'}`}
+                                        onClick={() => { setReleaseByAmount(false); setReleaseAmount(""); }}
+                                      >
+                                        By %
+                                      </button>
+                                      <button
+                                        className={`px-3 py-1 rounded-md border ${releaseByAmount ? 'border-primary bg-primary/10' : 'border-border'}`}
+                                        onClick={() => { setReleaseByAmount(true); setReleasePercent(""); }}
+                                      >
+                                        By Amount
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  {!releaseByAmount ? (
+                                    <div>
+                                      <Label className="text-card-foreground">Percentage to Release</Label>
+                                      <Input
+                                        className="mt-1.5 bg-secondary border-border"
+                                        type="number"
+                                        min="1"
+                                        max={100 - deal.releasedPercent}
+                                        placeholder={`Max ${(100 - deal.releasedPercent).toFixed(1)}%`}
+                                        value={releasePercent}
+                                        onChange={(e) => setReleasePercent(e.target.value)}
+                                      />
+                                    </div>
+                                  ) : (
+                                    <div>
+                                      <Label className="text-card-foreground">Amount to Release (₹)</Label>
+                                      <Input
+                                        className="mt-1.5 bg-secondary border-border"
+                                        type="number"
+                                        min="1"
+                                        step="0.01"
+                                        max={deal.totalAmount * (1 - deal.releasedPercent / 100)}
+                                        placeholder={`Max ${formatCurrency(deal.totalAmount * (1 - deal.releasedPercent / 100))}`}
+                                        value={releaseAmount}
+                                        onChange={(e) => setReleaseAmount(e.target.value)}
+                                      />
+                                    </div>
+                                  )}
                                 </div>
                                 <div>
                                   <Label className="text-card-foreground">Note</Label>

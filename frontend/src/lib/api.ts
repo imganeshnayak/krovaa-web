@@ -59,6 +59,7 @@ export interface AuthUser {
   city?: string;
   pincode?: string;
   telegramId?: string;
+  phoneNumber?: string;
 }
 
 export interface AuthResponse {
@@ -607,7 +608,6 @@ export interface WalletTransaction {
 export interface FullUserDetails extends AuthUser {
   walletBalance: number;
   razorpayContactId?: string;
-  phoneNumber?: string;
   activities: ActivityLog[];
   walletTransactions: WalletTransaction[];
   clientDeals: (EscrowDeal & { vendor: { id: number; displayName: string; username: string } })[];

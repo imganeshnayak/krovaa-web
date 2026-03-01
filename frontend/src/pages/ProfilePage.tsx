@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import {
   ArrowLeft, Share2, MessageSquare, Twitter, Instagram, Linkedin,
   Github, Globe, Plus, Trash2, Star, LogOut, Facebook, Youtube,
-  Camera, Save, X, Edit2, Eye, MapPin, CheckCircle2, RotateCcw, Trash
+  Camera, Save, X, Edit2, Eye, MapPin, CheckCircle2, RotateCcw, Trash, Phone, Lock
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -107,7 +107,7 @@ const ProfilePage = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [editForm, setEditForm] = useState({
-    displayName: "", bio: "", email: "", city: "", pincode: "",
+    displayName: "", bio: "", email: "", city: "", pincode: "", phoneNumber: "",
     socialLinks: [] as { platform: string; url: string }[]
   });
   const [isRatingDialogOpen, setIsRatingDialogOpen] = useState(false);
@@ -133,7 +133,7 @@ const ProfilePage = () => {
             setRatingEligibilityReason(eligibility.reason || "");
           } catch { setCanRateUser(false); }
         }
-      } else {
+      } else if (currentUser?.id) {
         const userData = await getUser(currentUser.id);
         setUser(userData);
         setEditForm({
@@ -142,8 +142,12 @@ const ProfilePage = () => {
           email: userData.email || "",
           city: userData.city || "",
           pincode: userData.pincode || "",
+          phoneNumber: (userData as any).phoneNumber || "",
           socialLinks: userData.socialLinks || []
         });
+      } else {
+        // Not logged in and no username in URL — shouldn't happen but handle gracefully
+        setError("Please log in to view your profile.");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load user");
@@ -159,9 +163,13 @@ const ProfilePage = () => {
   };
 
   useEffect(() => {
-    if (!authLoading) {
+    // For public profiles (username param set), load immediately without waiting for auth
+    // For own profile view (/profile), wait for auth to know who is logged in
+    if (username) {
       loadUser();
-      if (!username) loadVerificationData();
+    } else if (!authLoading) {
+      loadUser();
+      if (currentUser) loadVerificationData();
     }
   }, [username, currentUser, authLoading]);
 
@@ -171,7 +179,9 @@ const ProfilePage = () => {
     }
   }, [user]);
 
-  if (authLoading || (isLoading && !user)) return <LoadingScreen />;
+  // Don't wait for authLoading if we have a username (public profile — auth is optional)
+  if (authLoading && !username) return <LoadingScreen />;
+  if (isLoading && !user) return <LoadingScreen />;
   if (!user || error) {
     return (
       <div className="min-h-screen bg-[#050810] flex items-center justify-center">
@@ -180,8 +190,8 @@ const ProfilePage = () => {
     );
   }
 
-  const isOwnProfile = user.id === currentUser?.id;
-  const profileLink = `${window.location.origin}/profile/${user.username}`;
+  const isOwnProfile = !!currentUser && user.id === currentUser.id;
+  const profileLink = `${window.location.origin}/${user.username}`;
 
   const copyLink = () => {
     navigator.clipboard.writeText(profileLink);
@@ -199,6 +209,7 @@ const ProfilePage = () => {
         email: editForm.email.trim().toLowerCase(),
         city: editForm.city.trim(),
         pincode: editForm.pincode.trim(),
+        phoneNumber: (editForm as any).phoneNumber ? (editForm as any).phoneNumber.trim() : undefined,
       });
       setUser(updated);
       setIsEditing(false);
@@ -308,7 +319,7 @@ const ProfilePage = () => {
       <div className="sticky top-0 z-50 border-b border-white/5 backdrop-blur-xl bg-[#050810]/80">
         <div className="max-w-2xl mx-auto px-4 py-3.5 flex items-center justify-between">
           <Link
-            to="/chat"
+            to={currentUser ? "/chat" : "/"}
             className="flex items-center gap-2 text-white/30 hover:text-white transition-colors text-sm"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -411,10 +422,10 @@ const ProfilePage = () => {
                   {user.status === "active" ? "Available" : "Unavailable"}
                 </span>
               </div>
-              {(user.city || user.pincode) && (
+              {(user.city || (isOwnProfile && user.pincode)) && (
                 <div className="flex items-center gap-1 text-[11px] text-white/30">
                   <MapPin className="h-3 w-3" />
-                  {user.city}{user.city && user.pincode ? ", " : ""}{user.pincode}
+                  {user.city}{isOwnProfile && user.city && user.pincode ? ", " : ""}{isOwnProfile ? user.pincode : ""}
                 </div>
               )}
             </div>
@@ -442,6 +453,17 @@ const ProfilePage = () => {
           <p className="text-sm text-white/40 leading-relaxed mb-5 whitespace-pre-wrap font-light">
             {user.bio}
           </p>
+        )}
+
+        {/* Phone (private) shown only to owner */}
+        {!isEditing && isOwnProfile && user.phoneNumber && (
+          <div className="mb-4">
+            <label className="block text-[9px] font-bold tracking-[0.25em] uppercase text-white/25 mb-2 ml-0.5">Phone (private)</label>
+            <div className="flex items-center gap-2 text-sm text-white/60">
+              <Lock className="h-4 w-4 text-white/30" />
+              <span>{user.phoneNumber}</span>
+            </div>
+          </div>
         )}
 
         {/* ── Social links ── */}
@@ -483,6 +505,11 @@ const ProfilePage = () => {
               placeholder="400001"
               value={editForm.pincode}
               onChange={(e: any) => setEditForm({ ...editForm, pincode: e.target.value })}
+            />
+            <Field label="Phone (private)" icon={Phone}
+              placeholder="+91 98765 43210"
+              value={(editForm as any).phoneNumber}
+              onChange={(e: any) => setEditForm({ ...editForm, phoneNumber: e.target.value })}
             />
             <Field label="Bio" icon={null} textarea
               placeholder="Tell the world what you do..."
@@ -564,7 +591,7 @@ const ProfilePage = () => {
                   <LogOut className="h-4 w-4" /> Sign out
                 </button>
               </>
-            ) : (
+            ) : currentUser ? (
               <>
                 <Link to={`/chat?userId=${user.id}`}>
                   <button className="w-full h-11 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-semibold transition-all hover:scale-[1.01] shadow-xl shadow-blue-900/30 flex items-center justify-center gap-2">
@@ -582,6 +609,13 @@ const ProfilePage = () => {
                   <p className="text-center text-[11px] text-white/20 px-4">{ratingEligibilityReason}</p>
                 )}
               </>
+            ) : (
+              /* Unauthenticated visitor — show login CTA */
+              <Link to={`/login`}>
+                <button className="w-full h-11 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-semibold transition-all hover:scale-[1.01] shadow-xl shadow-blue-900/30 flex items-center justify-center gap-2">
+                  <MessageSquare className="h-4 w-4" /> Login to message
+                </button>
+              </Link>
             )}
 
             <button

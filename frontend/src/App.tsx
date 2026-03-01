@@ -5,7 +5,7 @@ import BottomNavbar from "./components/BottomNavbar";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
@@ -50,9 +50,18 @@ const PublicRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+// Redirect component: /profile/:username -> /:username
+const ProfileRedirect = () => {
+  const { username } = useParams<{ username: string }>();
+  return <Navigate to={`/${username}`} replace />;
+};
+
 const MainContent = () => {
   const location = useLocation();
-  const showNavbar = !["/login", "/register", "/", "/forgot-password"].includes(location.pathname);
+  const { user } = useAuth();
+  // Hide navbar on auth pages and on public profile pages when not logged in
+  const isAuthPage = ["/login", "/register", "/", "/forgot-password"].includes(location.pathname);
+  const showNavbar = !isAuthPage && !!user;
 
   return (
     <div className={`${showNavbar ? "pb-16" : ""} main-wrapper`}>
@@ -62,14 +71,18 @@ const MainContent = () => {
         <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
         <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
         <Route path="/chat" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
+        {/* Own profile - requires login */}
         <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
-        <Route path="/profile/:username" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+        {/* Legacy /profile/:username -> redirect to /:username */}
+        <Route path="/profile/:username" element={<ProfileRedirect />} />
         <Route path="/escrow" element={<ProtectedRoute><EscrowPage /></ProtectedRoute>} />
         <Route path="/wallet" element={<ProtectedRoute><WalletPage /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
         <Route path="/blocked-users" element={<ProtectedRoute><BlockedUsersPage /></ProtectedRoute>} />
         <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
         <Route path="/admin/chats/:chatId" element={<AdminRoute><AdminChatView /></AdminRoute>} />
+        {/* Public profile pages at /:username - works without login */}
+        <Route path="/:username" element={<ProfilePage />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
       {showNavbar && <BottomNavbar />}

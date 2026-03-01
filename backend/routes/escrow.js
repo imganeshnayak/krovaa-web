@@ -175,6 +175,8 @@ router.post('/', auth, async (req, res) => {
         const feeAmount = grossAmount * platformFeePercent;
         const netAmount = grossAmount - feeAmount;
 
+        // Charge the client the gross amount. The deal.totalAmount will store the gross amount
+        // and the platform fee will be recorded separately so it doesn't double-affect the deal value.
         const amountToDeduct = grossAmount;
         if (user.walletBalance < amountToDeduct) {
             return res.status(400).json({ error: `Insufficient wallet balance. You need ₹${amountToDeduct.toLocaleString('en-IN')} but only have ₹${user.walletBalance.toLocaleString('en-IN')}. Please add money to your wallet.` });
@@ -206,7 +208,7 @@ router.post('/', auth, async (req, res) => {
                 }
             });
 
-            // 3. Create active escrow deal
+            // 3. Create active escrow deal (store gross amount as totalAmount)
             const newDeal = await tx.escrowDeal.create({
                 data: {
                     chatId,
@@ -215,7 +217,7 @@ router.post('/', auth, async (req, res) => {
                     title,
                     description: description || '',
                     terms: terms || '',
-                    totalAmount: netAmount, // Store Net amount available for release
+                    totalAmount: grossAmount, // Store gross amount for clarity
                     status: 'active',
                     paymentStatus: 'paid',
                     paidAmount: grossAmount // Store Gross amount paid by client
@@ -231,6 +233,18 @@ router.post('/', auth, async (req, res) => {
                 }
             });
 
+            // 3a. Record platform fee as an escrow transaction so it's tracked separately
+            if (feeAmount > 0) {
+                await tx.escrowTransaction.create({
+                    data: {
+                        dealId: newDeal.id,
+                        percent: 0,
+                        amount: feeAmount,
+                        note: 'platform_fee'
+                    }
+                });
+            }
+
             // 4. Activity Log
             await tx.activityLog.create({
                 data: {
@@ -240,13 +254,13 @@ router.post('/', auth, async (req, res) => {
                 }
             });
 
-            // 5. System Message
+            // 5. System Message (inform about gross and net amounts)
             const systemMsg = await tx.message.create({
                 data: {
                     senderId: currentUserId,
                     receiverId: requestedVendorId,
                     chatId,
-                    content: `📋 New Escrow Deal: "${title}" for ₹${grossAmount.toLocaleString('en-IN')}. Funds deducted from client wallet and held in escrow. (Net available for release: ₹${netAmount.toLocaleString('en-IN')} after platform fee)`,
+                    content: `📋 New Payment Deal: "${title}" for ₹${grossAmount.toLocaleString('en-IN')}. Funds deducted from client wallet and held in escrow. (Net available for release: ₹${netAmount.toLocaleString('en-IN')} after platform fee)`,
                     messageType: 'escrow_created'
                 },
                 include: {
@@ -349,12 +363,18 @@ router.post('/:id/release', auth, async (req, res) => {
                     throw new Error('Release failed. Either deal is inactive or amount exceeds 100%.');
                 }
 
-                // Calculate amounts using totalAmount (which is Net)
                 // Re-fetch deal inside transaction to ensure we have latest data for calculations
                 const currentDeal = await tx.escrowDeal.findUnique({ where: { id: dealId } });
 
-                vendorNet = (currentDeal.totalAmount * userPercent) / 100;
-                const feeAmount = 0; // Already deducted at creation
+                // Find any recorded platform fee for this deal (we stored it as an escrow transaction with note 'platform_fee')
+                const feeAgg = await tx.escrowTransaction.aggregate({
+                    where: { dealId, note: 'platform_fee' },
+                    _sum: { amount: true }
+                });
+                const recordedFee = (feeAgg && feeAgg._sum && feeAgg._sum.amount) ? feeAgg._sum.amount : 0;
+
+                // Calculate vendor net based on gross total minus platform fee
+                vendorNet = ((currentDeal.totalAmount - recordedFee) * userPercent) / 100;
 
                 // 3. Create escrow transaction record
                 await tx.escrowTransaction.create({
@@ -545,6 +565,11 @@ router.delete('/:id', auth, async (req, res) => {
         const dealId = parseInt(req.params.id);
         const { reason } = req.body;
 
+        // Require a reason for refunds/cancellations
+        if (!reason || String(reason).trim().length === 0) {
+            return res.status(400).json({ error: 'A reason is required to request a refund.' });
+        }
+
         const deal = await prisma.escrowDeal.findUnique({
             where: { id: dealId }
         });
@@ -571,7 +596,17 @@ router.delete('/:id', auth, async (req, res) => {
             return res.status(400).json({ error: 'Cannot cancel a completed or already cancelled deal.' });
         }
 
-        const refundableAmount = deal.totalAmount * (1 - (deal.releasedPercent / 100));
+        // Determine recorded platform fee for this deal (sum of escrow transactions with note 'platform_fee')
+        const feeAgg = await prisma.escrowTransaction.aggregate({
+            where: { dealId, note: 'platform_fee' },
+            _sum: { amount: true }
+        });
+        const recordedFee = (feeAgg && feeAgg._sum && feeAgg._sum.amount) ? feeAgg._sum.amount : 0;
+
+        // Refundable amount should exclude the platform fee portion proportional to the remaining funds.
+        // remainingGross = gross * (1 - releasedPercent)
+        // refundable = (gross - recordedFee) * (1 - releasedPercent)
+        const refundableAmount = ((deal.totalAmount - recordedFee) * (1 - (deal.releasedPercent / 100)));
         const io = req.app.get('io');
 
         await prisma.$transaction(async (tx) => {
@@ -589,7 +624,7 @@ router.delete('/:id', auth, async (req, res) => {
                     amount: refundableAmount,
                     balance: updatedClient.walletBalance,
                     reference: `refund_deal_${dealId}`,
-                    description: `Refund for cancelled escrow deal: ${deal.title}${reason ? ` (Reason: ${reason})` : ''}`
+                    description: `Refund for cancelled deal: ${deal.title} (Reason: ${String(reason).trim()})`
                 }
             });
 
@@ -601,11 +636,11 @@ router.delete('/:id', auth, async (req, res) => {
 
             // 4. Log activity
             await tx.activityLog.create({
-                data: {
-                    userId: req.user.id,
-                    action: 'Cancelled escrow deal & requested refund',
-                    details: `${deal.title} - Refunded ₹${refundableAmount.toLocaleString('en-IN')}${reason ? ` | Reason: ${reason}` : ''}`
-                }
+                    data: {
+                        userId: req.user.id,
+                        action: 'Cancelled deal & refunded',
+                        details: `${deal.title} - Refunded ₹${refundableAmount.toLocaleString('en-IN')} | Reason: ${String(reason).trim()}`
+                    }
             });
 
             // 5. Create a system message in the chat
@@ -614,7 +649,7 @@ router.delete('/:id', auth, async (req, res) => {
                     senderId: req.user.id,
                     receiverId: deal.vendorId,
                     chatId: deal.chatId,
-                    content: `❌ Escrow Cancelled & Refunded: The deal "${deal.title}" was cancelled by the client. ₹${refundableAmount.toLocaleString('en-IN')} has been returned to the client's wallet.${reason ? `\n\nReason: ${reason}` : ''}`,
+                    content: `❌ Deal Cancelled & Refunded: The deal "${deal.title}" was cancelled by the client. ₹${refundableAmount.toLocaleString('en-IN')} has been returned to the client's wallet.\n\nReason: ${String(reason).trim()}`,
                     messageType: 'escrow_cancelled'
                 },
                 include: {

@@ -65,6 +65,8 @@ import { notifyScreenshotAttempt } from "@/lib/api";
 import FilePreviewDialog from "@/components/chat/FilePreviewDialog";
 import NotificationBell from "@/components/NotificationBell";
 
+type LocalMessage = MessageType & { message_type?: string; isUploading?: boolean; sender?: { role?: string; avatarUrl?: string; displayName?: string } };
+
 function formatTime(ts: string) {
   if (!ts) return "";
   try {
@@ -592,7 +594,7 @@ const ChatView = ({
             </div>
             {!(selectedChat.isOfficial && user?.role !== 'admin') && (
               <div className="flex gap-1">
-                <Button variant="ghost" size="icon" onClick={() => navigate(`/profile/${selectedChat.username}`)}>
+                <Button variant="ghost" size="icon" onClick={() => navigate(`/${selectedChat.username}`)}>
                   <UserIcon className="h-5 w-5" />
                 </Button>
                 <Button
@@ -631,10 +633,11 @@ const ChatView = ({
             {messages.length === 0 ? (
               <div className="text-center text-muted-foreground py-8">Start a conversation</div>
             ) : (
-              messages.map((msg, index) => {
+              messages.map((rawMsg, index) => {
+                const msg = rawMsg as LocalMessage;
                 const isMine = msg.senderId === user?.id;
                 const isAdminMsg = selectedChat?.isOfficial && (!isMine || user?.role === 'admin');
-                const isEscrowOrNotify = msg.messageType?.startsWith?.('escrow_') || (msg as any).message_type?.startsWith?.('escrow_') || msg.messageType === 'notification' || (msg as any).message_type === 'notification' || isAdminMsg;
+                const isEscrowOrNotify = msg.messageType?.startsWith?.('escrow_') || msg.message_type?.startsWith?.('escrow_') || msg.messageType === 'notification' || msg.message_type === 'notification' || isAdminMsg;
 
                 // Date separator logic
                 const currentDate = new Date(msg.createdAt).toDateString();
@@ -723,9 +726,9 @@ const ChatView = ({
                           ? (isEscrowOrNotify ? "" : "bg-primary text-primary-foreground rounded-br-md")
                           : (isEscrowOrNotify ? "" : "bg-secondary text-secondary-foreground rounded-bl-md")
                           } ${msg.isDeleted ? "opacity-60 italic" : ""} ${isEscrowOrNotify ? (
-                            (msg.messageType === 'escrow_released' || (msg as any).message_type === 'escrow_released')
+                            (msg.messageType === 'escrow_released' || msg.message_type === 'escrow_released')
                               ? "bg-gradient-to-br from-emerald-600 to-teal-700 text-white shadow-lg border border-white/20 rounded-2xl"
-                              : (msg.messageType === 'notification' || (msg as any).message_type === 'notification' || isAdminMsg)
+                              : (msg.messageType === 'notification' || msg.message_type === 'notification' || isAdminMsg)
                                 ? (isAdminMsg ? (msg.color ? "" : "bg-[#0d1117] text-white shadow-xl border border-white/10 rounded-2xl") : "bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-lg border border-white/20 rounded-2xl")
                                 : "bg-gradient-to-br from-indigo-600 to-purple-700 text-white shadow-lg border border-white/20 rounded-2xl"
                           ) : ""}`}
@@ -768,14 +771,14 @@ const ChatView = ({
                             {/* Header row */}
                             <div className="flex items-center gap-2.5">
                               <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${isAdminMsg
-                                  ? 'bg-blue-500/15 border border-blue-500/20'
-                                  : (msg.messageType === 'escrow_released' || (msg as any).message_type === 'escrow_released')
-                                    ? 'bg-emerald-500/20 border border-emerald-500/20'
-                                    : 'bg-white/10 border border-white/10'
+                                ? 'bg-blue-500/15 border border-blue-500/20'
+                                : (msg.messageType === 'escrow_released' || msg.message_type === 'escrow_released')
+                                  ? 'bg-emerald-500/20 border border-emerald-500/20'
+                                  : 'bg-white/10 border border-white/10'
                                 }`}>
-                                {msg.messageType === 'escrow_created' || (msg as any).message_type === 'escrow_created'
+                                {msg.messageType === 'escrow_created' || msg.message_type === 'escrow_created'
                                   ? <Plus className="h-4 w-4 text-indigo-300" />
-                                  : (msg.messageType === 'escrow_released' || (msg as any).message_type === 'escrow_released')
+                                  : (msg.messageType === 'escrow_released' || msg.message_type === 'escrow_released')
                                     ? <IndianRupee className="h-4 w-4 text-emerald-300" />
                                     : <ShieldCheck className="h-4 w-4 text-blue-400" />
                                 }
@@ -784,17 +787,17 @@ const ChatView = ({
                                 <p className="font-semibold text-[13px] text-white leading-none tracking-tight">
                                   {isAdminMsg
                                     ? "Support"
-                                    : msg.messageType === 'escrow_created' || (msg as any).message_type === 'escrow_created'
-                                      ? "Escrow Created"
-                                      : (msg.messageType === 'escrow_released' || (msg as any).message_type === 'escrow_released')
+                                    : msg.messageType === 'escrow_created' || msg.message_type === 'escrow_created'
+                                      ? "Deal Created"
+                                      : (msg.messageType === 'escrow_released' || msg.message_type === 'escrow_released')
                                         ? "Payment Released"
-                                        : (msg.messageType === 'notification' || (msg as any).message_type === 'notification')
+                                        : (msg.messageType === 'notification' || msg.message_type === 'notification')
                                           ? (msg.content.match(/\*\*(.*?)\*\*/) ? msg.content.match(/\*\*(.*?)\*\*/)?.[1] : "System Update")
                                           : "Payment Confirmed"
                                   }
                                 </p>
                                 <p className="text-[10px] text-white/40 mt-0.5 uppercase tracking-widest font-medium">
-                                  {isAdminMsg ? "Krovaa · Official" : (msg.messageType === 'notification' || (msg as any).message_type === 'notification') ? "Krovaa · Notification" : "Krovaa · Escrow"}
+                                  {isAdminMsg ? "Krovaa · Official" : (msg.messageType === 'notification' || msg.message_type === 'notification') ? "Krovaa · Notification" : "Krovaa"}
                                 </p>
                               </div>
                               {isAdminMsg && (
@@ -822,22 +825,22 @@ const ChatView = ({
                                     {i < msg.content.split('\n').length - 1 && <br />}
                                   </React.Fragment>
                                 ))
-                              ) : (msg.messageType === 'notification' || (msg as any).message_type === 'notification')
+                              ) : (msg.messageType === 'notification' || msg.message_type === 'notification')
                                 ? msg.content.split('\n\n')[1] || msg.content.replace(/🔔 \*\*(.*?)\*\*\n\n/, '')
                                 : msg.content
                               }
                             </div>
 
                             {/* Escrow CTA */}
-                            {(msg.messageType?.startsWith?.('escrow_') || (msg as any).message_type?.startsWith?.('escrow_')) && (
+                            {(msg.messageType?.startsWith?.('escrow_') || msg.message_type?.startsWith?.('escrow_')) && (
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   navigate(`/escrow?chatId=${selectedChat.chat_id}`);
                                 }}
-                                className={`w-full py-2 rounded-lg text-[12px] font-semibold tracking-wide border transition-all flex items-center justify-center gap-1.5 active:scale-[0.98] ${(msg.messageType === 'escrow_released' || (msg as any).message_type === 'escrow_released')
-                                    ? "border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10"
-                                    : "border-white/10 text-white/70 hover:bg-white/5"
+                                className={`w-full py-2 rounded-lg text-[12px] font-semibold tracking-wide border transition-all flex items-center justify-center gap-1.5 active:scale-[0.98] ${(msg.messageType === 'escrow_released' || msg.message_type === 'escrow_released')
+                                  ? "border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10"
+                                  : "border-white/10 text-white/70 hover:bg-white/5"
                                   }`}
                               >
                                 View Details <ArrowLeft className="h-3.5 w-3.5 rotate-180" />
@@ -859,7 +862,7 @@ const ChatView = ({
                                 }}
                               >
                                 <img src={msg.attachmentUrl} alt="attachment" className="max-w-full rounded h-48 object-cover shadow-sm border border-white/10 select-none pointer-events-none" />
-                                {(msg as any).isUploading && (
+                                {msg.isUploading && (
                                   <div className="absolute inset-0 bg-black/40 rounded flex items-center justify-center backdrop-blur-sm">
                                     <Loader2 className="h-8 w-8 text-white animate-spin" />
                                   </div>
