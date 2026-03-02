@@ -108,6 +108,7 @@ const ProfilePage = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [editForm, setEditForm] = useState({
     displayName: "", bio: "", email: "", city: "", pincode: "", phoneNumber: "",
+    profession: "",
     socialLinks: [] as { platform: string; url: string }[]
   });
   const [isRatingDialogOpen, setIsRatingDialogOpen] = useState(false);
@@ -143,6 +144,7 @@ const ProfilePage = () => {
           city: userData.city || "",
           pincode: userData.pincode || "",
           phoneNumber: (userData as any).phoneNumber || "",
+          profession: (userData as any).profession || "",
           socialLinks: userData.socialLinks || []
         });
       } else {
@@ -209,6 +211,7 @@ const ProfilePage = () => {
         email: editForm.email.trim().toLowerCase(),
         city: editForm.city.trim(),
         pincode: editForm.pincode.trim(),
+        profession: editForm.profession.trim() || null,
         phoneNumber: (editForm as any).phoneNumber ? (editForm as any).phoneNumber.trim() : undefined,
       });
       setUser(updated);
@@ -517,6 +520,29 @@ const ProfilePage = () => {
               onChange={(e: any) => setEditForm({ ...editForm, bio: e.target.value })}
             />
 
+            {/* Profession / Skill */}
+            <div className="group">
+              <label className="block text-[9px] font-bold tracking-[0.25em] uppercase text-white/25 mb-2 ml-0.5">Profession / Skill</label>
+              <select
+                className="w-full bg-transparent border-b border-white/10 focus:border-blue-500/60 outline-none pb-2.5 pt-1 text-sm text-white appearance-none cursor-pointer"
+                value={editForm.profession}
+                onChange={(e) => setEditForm({ ...editForm, profession: e.target.value })}
+              >
+                <option value="" className="bg-[#0a0f1e] text-white/40">Select your profession...</option>
+                {[
+                  "Software Developer", "UI/UX Designer", "Graphic Designer", "Web Developer",
+                  "Data Scientist", "AI / ML Engineer", "Cybersecurity Analyst", "DevOps Engineer",
+                  "Product Manager", "Digital Marketer", "Content Creator", "Video Editor",
+                  "Photographer", "Videographer", "Artist / Illustrator", "Musician",
+                  "Civil Engineer", "Mechanical Engineer", "Electrical Engineer", "Architect",
+                  "Doctor", "Nurse", "Pharmacist", "Lawyer", "Chartered Accountant",
+                  "Teacher / Educator", "Writer / Author", "Entrepreneur", "Consultant", "Other"
+                ].map(p => (
+                  <option key={p} value={p} className="bg-[#0a0f1e] text-white">{p}</option>
+                ))}
+              </select>
+            </div>
+
             {/* Social links */}
             <div>
               <div className="flex items-center justify-between mb-3">
@@ -626,6 +652,13 @@ const ProfilePage = () => {
             </button>
           </div>
         )}
+
+        {/* ── Page Footer ── */}
+        <div className="mt-16 pt-8 border-t border-white/5 text-center">
+          <Link to="/" className="text-[10px] text-white/10 hover:text-blue-400 tracking-[0.2em] uppercase font-bold transition-colors">
+            krovaa.com
+          </Link>
+        </div>
       </div>
 
       {/* ── Rating Dialog ── */}

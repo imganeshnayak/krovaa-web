@@ -45,6 +45,7 @@ router.get('/search', auth, async (req, res) => {
                 AND: [
                     { id: { not: req.user.id } },
                     { status: 'active' },
+                    { role: { notIn: ['staff', 'admin'] } },
                     {
                         OR: [
                             { username: { contains: q, mode: 'insensitive' } },
@@ -99,6 +100,14 @@ router.get('/username/:username', async (req, res) => {
         });
 
         if (!user) {
+            return res.status(404).json({ error: 'User not found.' });
+        }
+
+        // Hide staff and admin profiles from public/regular users
+        // Use req?.user to check if authorized, but this endpoint is public (no auth middleware)
+        // If we want to allow admins to see it, we'd need to check auth.
+        // For now, let's keep it simple: if it's staff/admin, it's hidden from this public route.
+        if (user.role === 'staff' || user.role === 'admin') {
             return res.status(404).json({ error: 'User not found.' });
         }
 
@@ -214,6 +223,7 @@ router.get('/best-profiles', auth, async (req, res) => {
             where: {
                 verified: true,
                 status: 'active',
+                role: { notIn: ['staff', 'admin'] },
                 AND: [
                     city ? { city: { contains: city, mode: 'insensitive' } } : {},
                     pincode ? { pincode: pincode } : {}
@@ -269,6 +279,11 @@ router.get('/:id', auth, async (req, res) => {
         });
 
         if (!user) {
+            return res.status(404).json({ error: 'User not found.' });
+        }
+
+        // Hide staff and admin from regular users
+        if ((user.role === 'staff' || user.role === 'admin') && req.user.role === 'client') {
             return res.status(404).json({ error: 'User not found.' });
         }
 
@@ -345,7 +360,7 @@ router.put('/profile/:id', auth, async (req, res) => {
             return res.status(403).json({ error: 'Not authorized.' });
         }
 
-        const { displayName, bio, email, avatarUrl, role, socialLinks, phoneNumber, city, pincode } = req.body;
+        const { displayName, bio, email, avatarUrl, role, socialLinks, phoneNumber, city, pincode, profession } = req.body;
 
         const updateData = {};
         if (displayName !== undefined) updateData.displayName = displayName?.trim();
@@ -353,6 +368,7 @@ router.put('/profile/:id', auth, async (req, res) => {
         if (email !== undefined) updateData.email = email?.trim()?.toLowerCase();
         if (avatarUrl !== undefined) updateData.avatarUrl = avatarUrl;
         if (socialLinks !== undefined) updateData.socialLinks = socialLinks;
+        if (profession !== undefined) updateData.profession = profession?.trim() || null;
         if (phoneNumber !== undefined) updateData.phoneNumber = phoneNumber?.trim();
         if (city !== undefined) updateData.city = city?.trim();
         if (pincode !== undefined) updateData.pincode = pincode?.trim();

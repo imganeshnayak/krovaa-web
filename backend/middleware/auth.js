@@ -27,10 +27,10 @@ const auth = async (req, res, next) => {
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-        // CHECK USER STATUS IN DATABASE
+        // CHECK USER STATUS AND PERMISSIONS IN DATABASE
         const user = await prisma.user.findUnique({
             where: { id: decoded.id },
-            select: { status: true }
+            select: { status: true, role: true, permissions: true }
         });
 
         if (!user) {
@@ -44,14 +44,27 @@ const auth = async (req, res, next) => {
             });
         }
 
-        req.user = decoded;
+        // Attach DB info to req.user
+        req.user = {
+            ...decoded,
+            role: user.role,
+            permissions: user.permissions || []
+        };
         next();
     } catch (err) {
         console.error('JWT Verification Error:', err.message);
         // Fallback for dev if token is invalid
         if (process.env.NODE_ENV !== 'production') {
-            console.log('Invalid token, falling back to dev bypass (User ID: 1)');
-            req.user = { id: 1, username: 'admin', role: 'admin' };
+            const devUser = await prisma.user.findFirst({
+                where: { role: 'admin' }
+            });
+            console.log(`Invalid token, falling back to dev bypass (User ID: ${devUser?.id || 1})`);
+            req.user = {
+                id: devUser?.id || 1,
+                username: devUser?.username || 'admin',
+                role: 'admin',
+                permissions: devUser?.permissions || []
+            };
             return next();
         }
         res.status(401).json({ error: 'Invalid token.' });
@@ -60,10 +73,27 @@ const auth = async (req, res, next) => {
 
 // Admin-only middleware
 const adminOnly = (req, res, next) => {
-    if (req.user.role !== 'admin') {
-        return res.status(403).json({ error: 'Admin access required.' });
+    if (req.user.role !== 'admin' && req.user.role !== 'staff') {
+        return res.status(403).json({ error: 'Admin or Staff access required.' });
     }
     next();
 };
 
-export { auth, adminOnly };
+// Permission check middleware
+const checkPermission = (permission) => {
+    return (req, res, next) => {
+        // Super admin has all permissions
+        if (req.user.role === 'admin') {
+            return next();
+        }
+
+        // Staff must have the specific permission in their list
+        if (req.user.role === 'staff' && req.user.permissions.includes(permission)) {
+            return next();
+        }
+
+        return res.status(403).json({ error: `Permission denied: ${permission} access required.` });
+    };
+};
+
+export { auth, adminOnly, checkPermission };

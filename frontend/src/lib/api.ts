@@ -60,6 +60,8 @@ export interface AuthUser {
   pincode?: string;
   telegramId?: string;
   phoneNumber?: string;
+  permissions?: string[];
+  profession?: string;
 }
 
 export interface AuthResponse {
@@ -153,6 +155,7 @@ export function updateUserProfile(
     city?: string;
     pincode?: string;
     phoneNumber?: string;
+    profession?: string | null;
   }
 ): Promise<AuthUser> {
   return apiFetch<AuthUser>(`/api/users/profile/${userId}`, {
@@ -561,6 +564,39 @@ export function deleteUser(userId: number): Promise<{ success: boolean }> {
   });
 }
 
+export function getAdminStaff(): Promise<AuthUser[]> {
+  return apiFetch<AuthUser[]>("/api/admin/staff");
+}
+
+export function createAdminStaff(data: {
+  email: string;
+  username: string;
+  password: string;
+  displayName?: string;
+  permissions: string[];
+}): Promise<AuthUser> {
+  return apiFetch<AuthUser>("/api/admin/staff", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export function updateAdminStaffPermissions(
+  staffId: number,
+  permissions: string[]
+): Promise<AuthUser> {
+  return apiFetch<AuthUser>(`/api/admin/staff/${staffId}/permissions`, {
+    method: "PUT",
+    body: JSON.stringify({ permissions }),
+  });
+}
+
+export function deleteAdminStaff(staffId: number): Promise<{ success: boolean }> {
+  return apiFetch<{ success: boolean }>(`/api/admin/staff/${staffId}`, {
+    method: "DELETE",
+  });
+}
+
 export function getUserTransactions(userId: number): Promise<{
   escrowDeals: EscrowDeal[];
   payoutRequests: PayoutRequest[];
@@ -945,4 +981,78 @@ export function broadcastNotification(data: {
     method: "POST",
     body: JSON.stringify(data),
   });
+}
+
+// ============ Ads API ============
+
+export interface Ad {
+  id: number;
+  title: string;
+  description?: string;
+  imageUrl?: string;
+  videoUrl?: string;
+  externalUrl?: string;
+  ctaText?: string;
+  type: "text" | "image" | "video";
+  targetProfessions: string[];
+  status: "active" | "paused";
+  impressions: number;
+  clickCount?: number;
+  ctr?: string;
+  createdAt: string;
+  admin?: { displayName: string; username: string };
+}
+
+export function getActiveAd(): Promise<Ad | null> {
+  return apiFetch<Ad | null>("/api/ads/active");
+}
+
+export function recordAdClick(adId: number): Promise<{ success: boolean }> {
+  return apiFetch<{ success: boolean }>(`/api/ads/${adId}/click`, { method: "POST" });
+}
+
+export function getAdminAds(): Promise<Ad[]> {
+  return apiFetch<Ad[]>("/api/ads");
+}
+
+export function deleteAd(id: number): Promise<{ success: boolean }> {
+  return apiFetch<{ success: boolean }>(`/api/ads/${id}`, { method: "DELETE" });
+}
+
+export function createAd(formData: FormData): Promise<Ad> {
+  const token = localStorage.getItem("authToken");
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+  return fetch(`${API_URL}/api/ads`, {
+    method: "POST",
+    headers: { ...(token && { Authorization: `Bearer ${token}` }) },
+    body: formData,
+    credentials: "include",
+  }).then(async (res) => {
+    if (!res.ok) {
+      const e = await res.json().catch(() => ({ error: "Failed" }));
+      throw new Error(e.error || "Failed to create ad");
+    }
+    return res.json();
+  });
+}
+
+export function updateAd(id: number, formData: FormData): Promise<Ad> {
+  const token = localStorage.getItem("authToken");
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+  return fetch(`${API_URL}/api/ads/${id}`, {
+    method: "PUT",
+    headers: { ...(token && { Authorization: `Bearer ${token}` }) },
+    body: formData,
+    credentials: "include",
+  }).then(async (res) => {
+    if (!res.ok) {
+      const e = await res.json().catch(() => ({ error: "Failed" }));
+      throw new Error(e.error || "Failed to update ad");
+    }
+    return res.json();
+  });
+}
+
+export function pushAdNotification(id: number): Promise<{ success: boolean; notifiedCount: number }> {
+  return apiFetch<{ success: boolean; notifiedCount: number }>(`/api/ads/${id}/push`, { method: "POST" });
 }

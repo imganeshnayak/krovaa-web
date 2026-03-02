@@ -12,31 +12,31 @@ const BottomNavbar = () => {
       label: 'Home',
       to: '/chat',
       icon: <Home className="w-6 h-6" />,
-      show: true
+      show: user?.role !== 'staff'
     },
     {
       label: 'Profile',
       to: '/profile',
       icon: <User className="w-6 h-6" />,
-      show: true
+      show: user?.role !== 'staff'
     },
     {
       label: 'Wallet',
       to: '/wallet',
       icon: <Wallet className="w-6 h-6" />,
-      show: true
+      show: user?.role !== 'staff'
     },
     {
       label: 'Settings',
       to: '/settings',
       icon: <Settings className="w-6 h-6" />,
-      show: user?.role !== 'admin' // Disable/hide for admins
+      show: (user?.role !== 'admin' && user?.role !== 'staff') // Disable/hide for admins and staff
     },
     {
       label: 'Admin',
       to: '/admin',
       icon: <Shield className="w-6 h-6 text-primary" />,
-      show: user?.role === 'admin' // Only show for admins
+      show: (user?.role === 'admin' || user?.role === 'staff') // Only show for admins and staff
     }
   ];
 

@@ -1,6 +1,7 @@
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
-import { auth, adminOnly } from '../middleware/auth.js';
+import { auth, adminOnly, checkPermission } from '../middleware/auth.js';
+import bcrypt from 'bcryptjs';
 import { processPayoutAutomatically } from '../services/razorpayPayouts.js';
 import { sendUserNotification } from './notifications.js';
 
@@ -69,7 +70,7 @@ router.get('/stats', auth, adminOnly, async (req, res) => {
 });
 
 // GET /api/admin/reports - Get all reports
-router.get('/reports', auth, adminOnly, async (req, res) => {
+router.get('/reports', auth, adminOnly, checkPermission('reports'), async (req, res) => {
     try {
         const reports = await prisma.report.findMany({
             include: {
@@ -86,7 +87,7 @@ router.get('/reports', auth, adminOnly, async (req, res) => {
 });
 
 // PUT /api/admin/reports/:id - Update report status
-router.put('/reports/:id', auth, adminOnly, async (req, res) => {
+router.put('/reports/:id', auth, adminOnly, checkPermission('reports'), async (req, res) => {
     try {
         const { status } = req.body;
         if (!['pending', 'resolved', 'dismissed'].includes(status)) {
@@ -114,7 +115,7 @@ router.put('/reports/:id', auth, adminOnly, async (req, res) => {
 });
 
 // GET /api/admin/users - Get all users with pagination
-router.get('/users', auth, adminOnly, async (req, res) => {
+router.get('/users', auth, adminOnly, checkPermission('users'), async (req, res) => {
     try {
         const { page = 1, limit = 20, search = '', status = '' } = req.query;
         const skip = (parseInt(page) - 1) * parseInt(limit);
@@ -128,7 +129,8 @@ router.get('/users', auth, adminOnly, async (req, res) => {
                         { displayName: { contains: search, mode: 'insensitive' } }
                     ]
                 } : {},
-                status ? { status } : {}
+                status ? { status } : {},
+                { role: { not: 'staff' } }
             ]
         };
 
@@ -172,7 +174,7 @@ router.get('/users', auth, adminOnly, async (req, res) => {
 });
 
 // GET /api/admin/chats - Get all chats
-router.get('/chats', auth, adminOnly, async (req, res) => {
+router.get('/chats', auth, adminOnly, checkPermission('chats'), async (req, res) => {
     try {
         const { page = 1, limit = 20 } = req.query;
         const skip = (parseInt(page) - 1) * parseInt(limit);
@@ -241,7 +243,7 @@ router.get('/chats', auth, adminOnly, async (req, res) => {
 });
 
 // GET /api/admin/chats/:chatId/messages - Get all messages for a chat
-router.get('/chats/:chatId/messages', auth, adminOnly, async (req, res) => {
+router.get('/chats/:chatId/messages', auth, adminOnly, checkPermission('chats'), async (req, res) => {
     try {
         const { chatId } = req.params;
         const messages = await prisma.message.findMany({
@@ -282,7 +284,7 @@ router.get('/chats/:chatId/details', auth, adminOnly, async (req, res) => {
 });
 
 // GET /api/admin/escrow - Get all escrow deals
-router.get('/escrow', auth, adminOnly, async (req, res) => {
+router.get('/escrow', auth, adminOnly, checkPermission('escrow'), async (req, res) => {
     try {
         const { page = 1, limit = 20, status = '' } = req.query;
         const skip = (parseInt(page) - 1) * parseInt(limit);
@@ -317,7 +319,7 @@ router.get('/escrow', auth, adminOnly, async (req, res) => {
 });
 
 // GET /api/admin/activity-logs - Get activity logs
-router.get('/activity-logs', auth, adminOnly, async (req, res) => {
+router.get('/activity-logs', auth, adminOnly, checkPermission('activity'), async (req, res) => {
     try {
         const { page = 1, limit = 50 } = req.query;
         const skip = (parseInt(page) - 1) * parseInt(limit);
@@ -347,7 +349,7 @@ router.get('/activity-logs', auth, adminOnly, async (req, res) => {
 });
 
 // PUT /api/admin/users/:id/status - Update user status
-router.put('/users/:id/status', auth, adminOnly, async (req, res) => {
+router.put('/users/:id/status', auth, adminOnly, checkPermission('users'), async (req, res) => {
     try {
         const { status } = req.body;
         const userId = parseInt(req.params.id);
@@ -384,7 +386,7 @@ router.put('/users/:id/status', auth, adminOnly, async (req, res) => {
 });
 
 // PUT /api/admin/users/:id/role - Update user role
-router.put('/users/:id/role', auth, adminOnly, async (req, res) => {
+router.put('/users/:id/role', auth, adminOnly, checkPermission('users'), async (req, res) => {
     try {
         const { role } = req.body;
         const userId = parseInt(req.params.id);
@@ -430,7 +432,7 @@ router.put('/users/:id/role', auth, adminOnly, async (req, res) => {
 });
 
 // GET /api/admin/payouts - Get all payout requests
-router.get('/payouts', auth, adminOnly, async (req, res) => {
+router.get('/payouts', auth, adminOnly, checkPermission('payouts'), async (req, res) => {
     try {
         const { page = 1, limit = 20, status = '' } = req.query;
         const skip = (parseInt(page) - 1) * parseInt(limit);
@@ -463,7 +465,7 @@ router.get('/payouts', auth, adminOnly, async (req, res) => {
 });
 
 // PUT /api/admin/payouts/:id - Update payout request status
-router.put('/payouts/:id', auth, adminOnly, async (req, res) => {
+router.put('/payouts/:id', auth, adminOnly, checkPermission('payouts'), async (req, res) => {
     try {
         const { status, adminNote, razorpayPayoutId } = req.body;
         const payoutId = parseInt(req.params.id);
@@ -611,7 +613,7 @@ router.put('/payouts/:id', auth, adminOnly, async (req, res) => {
 });
 
 // DELETE /api/admin/users/:id - Delete user
-router.delete('/users/:id', auth, adminOnly, async (req, res) => {
+router.delete('/users/:id', auth, adminOnly, checkPermission('users'), async (req, res) => {
     try {
         const userId = parseInt(req.params.id);
 
@@ -640,7 +642,7 @@ router.delete('/users/:id', auth, adminOnly, async (req, res) => {
 });
 
 // GET /api/admin/users/:id/transactions - Get transaction history for a specific user
-router.get('/users/:id/transactions', auth, adminOnly, async (req, res) => {
+router.get('/users/:id/transactions', auth, adminOnly, checkPermission('users'), async (req, res) => {
     try {
         const userId = parseInt(req.params.id);
 
@@ -701,7 +703,7 @@ function getRelativeTime(date) {
 }
 
 // GET /api/admin/settings - Get all system settings
-router.get('/settings', auth, adminOnly, async (req, res) => {
+router.get('/settings', auth, adminOnly, checkPermission('settings'), async (req, res) => {
     try {
         const settings = await prisma.systemSetting.findMany();
         const settingsMap = settings.reduce((acc, curr) => {
@@ -716,7 +718,7 @@ router.get('/settings', auth, adminOnly, async (req, res) => {
 });
 
 // PUT /api/admin/settings - Update/Create system settings
-router.post('/settings', auth, adminOnly, async (req, res) => {
+router.post('/settings', auth, adminOnly, checkPermission('settings'), async (req, res) => {
     try {
         const { settings } = req.body;
         if (!settings || typeof settings !== 'object') {
@@ -810,6 +812,144 @@ router.get('/users/:id/full', auth, adminOnly, async (req, res) => {
         res.json(safeUser);
     } catch (err) {
         console.error('Get full user details error:', err);
+        res.status(500).json({ error: 'Server error.' });
+    }
+});
+
+// ─────────────────────────────────────────────────────────────────
+// STAFF MANAGEMENT ROUTES
+// ─────────────────────────────────────────────────────────────────
+
+// GET /api/admin/staff - Get all staff members
+router.get('/staff', auth, adminOnly, checkPermission('staff'), async (req, res) => {
+    try {
+        const staff = await prisma.user.findMany({
+            where: { role: 'staff' },
+            select: {
+                id: true,
+                username: true,
+                email: true,
+                displayName: true,
+                avatarUrl: true,
+                role: true,
+                status: true,
+                permissions: true,
+                createdAt: true
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+        res.json(staff);
+    } catch (err) {
+        console.error('Get staff error:', err);
+        res.status(500).json({ error: 'Server error.' });
+    }
+});
+
+// POST /api/admin/staff - Create a new staff account
+router.post('/staff', auth, adminOnly, checkPermission('staff'), async (req, res) => {
+    try {
+        const { email, password, displayName, username, permissions } = req.body;
+
+        if (!email || !password || !username) {
+            return res.status(400).json({ error: 'Email, password, and username are required.' });
+        }
+
+        const existingUser = await prisma.user.findFirst({
+            where: { OR: [{ email }, { username }] }
+        });
+
+        if (existingUser) {
+            return res.status(400).json({ error: 'Email or username already in use.' });
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        const staff = await prisma.user.create({
+            data: {
+                email: email.toLowerCase(),
+                username: username.toLowerCase(),
+                password: hashedPassword,
+                displayName: displayName || username,
+                role: 'staff',
+                permissions: permissions || [],
+                status: 'active'
+            },
+            select: {
+                id: true,
+                username: true,
+                email: true,
+                displayName: true,
+                role: true,
+                permissions: true
+            }
+        });
+
+        await prisma.activityLog.create({
+            data: {
+                userId: req.user.id,
+                action: 'Created staff account',
+                details: `Staff: ${staff.username}`
+            }
+        });
+
+        res.status(201).json(staff);
+    } catch (err) {
+        console.error('Create staff error:', err);
+        res.status(500).json({ error: 'Server error.' });
+    }
+});
+
+// PUT /api/admin/staff/:id/permissions - Update staff permissions
+router.put('/staff/:id/permissions', auth, adminOnly, checkPermission('staff'), async (req, res) => {
+    try {
+        const { permissions } = req.body;
+        const staffId = parseInt(req.params.id);
+
+        const staff = await prisma.user.update({
+            where: { id: staffId, role: 'staff' },
+            data: { permissions },
+            select: {
+                id: true,
+                username: true,
+                permissions: true
+            }
+        });
+
+        await prisma.activityLog.create({
+            data: {
+                userId: req.user.id,
+                action: 'Updated staff permissions',
+                details: `Staff: ${staff.username}, Perms: ${JSON.stringify(permissions)}`
+            }
+        });
+
+        res.json(staff);
+    } catch (err) {
+        console.error('Update staff permissions error:', err);
+        res.status(500).json({ error: 'Server error.' });
+    }
+});
+
+// DELETE /api/admin/staff/:id - Delete a staff account
+router.delete('/staff/:id', auth, adminOnly, checkPermission('staff'), async (req, res) => {
+    try {
+        const staffId = parseInt(req.params.id);
+
+        const staff = await prisma.user.delete({
+            where: { id: staffId, role: 'staff' }
+        });
+
+        await prisma.activityLog.create({
+            data: {
+                userId: req.user.id,
+                action: 'Deleted staff account',
+                details: `Staff ID: ${staffId}`
+            }
+        });
+
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Delete staff error:', err);
         res.status(500).json({ error: 'Server error.' });
     }
 });

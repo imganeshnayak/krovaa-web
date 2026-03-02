@@ -1,7 +1,9 @@
 import nodemailer from 'nodemailer';
 
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: process.env.EMAIL_HOST,
+  port: parseInt(process.env.EMAIL_PORT) || 587,
+  secure: process.env.EMAIL_PORT === '465', // Use true if port is 465
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
@@ -73,7 +75,7 @@ const emailShell = (accentColor, headerLabel, bodyHtml) => `
                 <tr>
                   <td style="padding:20px 40px;border-top:1px solid rgba(255,255,255,0.05);" align="center">
                     <p style="color:rgba(255,255,255,0.12);font-size:11px;margin:0;letter-spacing:0.06em;">
-                      &copy; 2026 Krovaa, Inc. &nbsp;&middot;&nbsp;
+                      &copy; 2026 Krovaa &nbsp;&middot;&nbsp; support@krovaa.com
                     </p>
                   </td>
                 </tr>

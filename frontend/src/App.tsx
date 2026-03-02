@@ -36,7 +36,16 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, isLoading } = useAuth();
   if (isLoading) return <LoadingScreen />;
-  if (!user || user.role !== 'admin') return <Navigate to="/chat" replace />;
+  if (!user || (user.role !== 'admin' && user.role !== 'staff')) return <Navigate to="/chat" replace />;
+  return <>{children}</>;
+};
+
+// Client Only Route (Regular users + Admins, but NOT staff)
+const ClientRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, isLoading } = useAuth();
+  if (isLoading) return <LoadingScreen />;
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role === 'staff') return <Navigate to="/admin" replace />;
   return <>{children}</>;
 };
 
@@ -45,7 +54,7 @@ const PublicRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, isLoading } = useAuth();
   if (isLoading) return <LoadingScreen />;
   if (user) {
-    return <Navigate to={user.role === 'admin' ? "/admin" : "/chat"} replace />;
+    return <Navigate to={(user.role === 'admin' || user.role === 'staff') ? "/admin" : "/chat"} replace />;
   }
   return <>{children}</>;
 };
@@ -70,15 +79,15 @@ const MainContent = () => {
         <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
         <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
         <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
-        <Route path="/chat" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
+        <Route path="/chat" element={<ClientRoute><ChatPage /></ClientRoute>} />
         {/* Own profile - requires login */}
-        <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+        <Route path="/profile" element={<ClientRoute><ProfilePage /></ClientRoute>} />
         {/* Legacy /profile/:username -> redirect to /:username */}
         <Route path="/profile/:username" element={<ProfileRedirect />} />
-        <Route path="/escrow" element={<ProtectedRoute><EscrowPage /></ProtectedRoute>} />
-        <Route path="/wallet" element={<ProtectedRoute><WalletPage /></ProtectedRoute>} />
-        <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
-        <Route path="/blocked-users" element={<ProtectedRoute><BlockedUsersPage /></ProtectedRoute>} />
+        <Route path="/escrow" element={<ClientRoute><EscrowPage /></ClientRoute>} />
+        <Route path="/wallet" element={<ClientRoute><WalletPage /></ClientRoute>} />
+        <Route path="/settings" element={<ClientRoute><SettingsPage /></ClientRoute>} />
+        <Route path="/blocked-users" element={<ClientRoute><BlockedUsersPage /></ClientRoute>} />
         <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
         <Route path="/admin/chats/:chatId" element={<AdminRoute><AdminChatView /></AdminRoute>} />
         {/* Public profile pages at /:username - works without login */}

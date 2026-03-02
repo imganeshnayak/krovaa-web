@@ -157,17 +157,23 @@ router.get('/:chatId', auth, async (req, res) => {
             },
             orderBy: { createdAt: 'asc' },
             include: {
-                sender: { select: { displayName: true, avatarUrl: true, username: true } },
+                sender: { select: { displayName: true, avatarUrl: true, username: true, role: true } },
             },
         });
 
-        const result = messages.map(m => ({
-            ...m,
-            sender_name: m.sender.displayName,
-            sender_avatar: m.sender.avatarUrl,
-            sender_username: m.sender.username,
-            sender: undefined,
-        }));
+        const isSupportChat = chatId.startsWith('support_');
+        const regularUserViewingSupport = isSupportChat && req.user.role !== 'admin' && req.user.role !== 'staff';
+
+        const result = messages.map(m => {
+            const isFromAdminStaff = m.sender.role === 'admin' || m.sender.role === 'staff';
+            return {
+                ...m,
+                sender_name: (regularUserViewingSupport && isFromAdminStaff) ? "Admin" : m.sender.displayName,
+                sender_avatar: (regularUserViewingSupport && isFromAdminStaff) ? null : m.sender.avatarUrl,
+                sender_username: (regularUserViewingSupport && isFromAdminStaff) ? "admin" : m.sender.username,
+                sender: undefined,
+            };
+        });
 
         res.json(result);
     } catch (err) {
@@ -204,7 +210,7 @@ router.post('/', auth, async (req, res) => {
                 messageType: message_type || 'text',
                 isViewOnce: req.body.is_view_once === true || req.body.is_view_once === 'true'
             },
-            include: { sender: { select: { displayName: true, avatarUrl: true, username: true } } },
+            include: { sender: { select: { displayName: true, avatarUrl: true, username: true, role: true } } },
         });
 
         await prisma.activityLog.create({ data: { userId: req.user.id, action: 'Sent message' } });
@@ -216,13 +222,21 @@ router.post('/', auth, async (req, res) => {
             sender_username: message.sender.username,
         };
 
+        const isSupport = chat_id.startsWith('support_');
+        const maskedResult = (isSupport && (message.sender.role === 'admin' || message.sender.role === 'staff')) ? {
+            ...result,
+            sender_name: "Admin",
+            sender_avatar: null,
+            sender_username: "admin"
+        } : result;
+
         const io = req.app.get('io');
         if (io) {
-            io.to(chat_id).emit('newMessage', result);
+            io.to(chat_id).emit('newMessage', maskedResult);
             // Also notify receiver's personal room to refresh their chat list
-            io.to(`user_${receiver_id}`).emit('newMessage', result);
+            io.to(`user_${receiver_id}`).emit('newMessage', maskedResult);
 
-            // If it's a support chat, broadcast to ALL admins
+            // If it's a support chat, broadcast to ALL admins (they see unmasked result)
             if (chat_id.startsWith('support_')) {
                 io.to('admin_broadcast').emit('newMessage', result);
             }
@@ -280,7 +294,7 @@ router.post('/upload', auth, upload.single('file'), async (req, res) => {
                 attachmentName: req.file.originalname,
                 isViewOnce: req.body.is_view_once === true || req.body.is_view_once === 'true'
             },
-            include: { sender: { select: { displayName: true, avatarUrl: true, username: true } } },
+            include: { sender: { select: { displayName: true, avatarUrl: true, username: true, role: true } } },
         });
 
         const result = {
@@ -290,11 +304,23 @@ router.post('/upload', auth, upload.single('file'), async (req, res) => {
             sender_username: message.sender.username,
         };
 
+        const isSupport = chat_id.startsWith('support_');
+        const maskedResult = (isSupport && (message.sender.role === 'admin' || message.sender.role === 'staff')) ? {
+            ...result,
+            sender_name: "Admin",
+            sender_avatar: null,
+            sender_username: "admin"
+        } : result;
+
         const io = req.app.get('io');
         if (io) {
-            io.to(chat_id).emit('newMessage', result);
+            io.to(chat_id).emit('newMessage', maskedResult);
             // Also notify receiver's personal room for chat list updates
-            io.to(`user_${receiver_id}`).emit('newMessage', result);
+            io.to(`user_${receiver_id}`).emit('newMessage', maskedResult);
+
+            if (chat_id.startsWith('support_')) {
+                io.to('admin_broadcast').emit('newMessage', result);
+            }
         }
 
         await prisma.activityLog.create({ data: { userId: req.user.id, action: 'File uploaded' } });

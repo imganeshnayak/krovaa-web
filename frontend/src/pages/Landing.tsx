@@ -492,7 +492,7 @@ const Landing = () => {
           </div>
 
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 pt-8 border-t border-white/5">
-            <p className="text-xs text-white/20">© 2026 Krovaa, Inc.</p>
+            <p className="text-xs text-white/20">© 2026 Krovaa &nbsp;·&nbsp; support@krovaa.com</p>
             <div className="flex gap-6 text-xs text-white/20">
               <Link to="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
               <Link to="/terms" className="hover:text-white transition-colors">Terms of Service</Link>

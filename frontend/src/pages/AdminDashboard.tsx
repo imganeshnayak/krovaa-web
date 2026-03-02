@@ -15,10 +15,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
   MessageSquare, Users, DollarSign, Shield, Search,
   Eye, Ban, AlertTriangle, ChevronRight, TrendingUp,
   Activity, UserCheck, Trash2, CheckCircle2, LogOut, Wallet, Bell, Send,
-  IndianRupee, Settings, Loader2, Info, Percent
+  IndianRupee, Settings, Loader2, Info, Percent, ExternalLink, ImageIcon, Film, X, Plus, RadioTower
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
@@ -45,15 +54,26 @@ import {
   getSystemSettings,
   updateSystemSettings,
   getUserTransactions,
+  getAdminStaff,
+  createAdminStaff,
+  updateAdminStaffPermissions,
+  deleteAdminStaff,
   Notification,
   VerificationRequest,
   AdminStats,
   AdminUser,
   AdminReport,
-  PayoutRequest
+  PayoutRequest,
+  AuthUser,
+  Ad,
+  getAdminAds,
+  createAd,
+  updateAd,
+  deleteAd,
+  pushAdNotification
 } from "@/lib/api";
 
-type AdminTab = "overview" | "users" | "chats" | "escrow" | "activity" | "reports" | "verifications" | "payouts" | "broadcast" | "settings";
+type AdminTab = "overview" | "users" | "chats" | "escrow" | "activity" | "reports" | "verifications" | "payouts" | "broadcast" | "settings" | "staff";
 
 const AdminDashboard = () => {
   const { toast } = useToast();
@@ -88,13 +108,45 @@ const AdminDashboard = () => {
   const [isLoadingTransactions, setIsLoadingTransactions] = useState<Record<number, boolean>>({});
   const [detailUserId, setDetailUserId] = useState<number | null>(null);
   const [expandedEscrowDeals, setExpandedEscrowDeals] = useState<Record<number, boolean>>({});
+  const [staffList, setStaffList] = useState<AuthUser[]>([]);
+  const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
+  const [newStaffEmail, setNewStaffEmail] = useState("");
+  const [newStaffPassword, setNewStaffPassword] = useState("");
+  const [newStaffUsername, setNewStaffUsername] = useState("");
+  const [newStaffDisplayName, setNewStaffDisplayName] = useState("");
+  const [selectedStaffPermissions, setSelectedStaffPermissions] = useState<string[]>([]);
+  const [editingStaffId, setEditingStaffId] = useState<number | null>(null);
+
+  // --- Ads State ---
+  const [broadcastSubTab, setBroadcastSubTab] = useState<"notifications" | "ads">("notifications");
+  const [ads, setAds] = useState<Ad[]>([]);
+  const [isLoadingAds, setIsLoadingAds] = useState(false);
+  const [isAdModalOpen, setIsAdModalOpen] = useState(false);
+  const [editingAd, setEditingAd] = useState<Ad | null>(null);
+  const [adForm, setAdForm] = useState({ title: "", description: "", ctaText: "More Details", externalUrl: "", type: "text" as "text" | "image" | "video", targetProfessions: [] as string[] });
+  const [adFile, setAdFile] = useState<File | null>(null);
+  const [adFilePreview, setAdFilePreview] = useState<string | null>(null);
+  const [isSavingAd, setIsSavingAd] = useState(false);
+
+  const adminPermissions = [
+    { id: "users", label: "Users Management" },
+    { id: "chats", label: "Chat Monitoring" },
+    { id: "escrow", label: "Escrow Oversight" },
+    { id: "verifications", label: "Verification Approval" },
+    { id: "payouts", label: "Payout Processing" },
+    { id: "reports", label: "Reports & Moderation" },
+    { id: "activity", label: "Activity Logs" },
+    { id: "broadcast", label: "Broadcast Notifications" },
+    { id: "settings", label: "System Settings" },
+    { id: "staff", label: "Staff Management" }
+  ];
 
   useEffect(() => {
     if (!user && !authLoading) {
       navigate("/login");
       return;
     }
-    if (user && user.role !== "admin") {
+    if (user && user.role !== "admin" && user.role !== "staff") {
       toast({
         title: "Access Denied",
         description: "You don't have permission to access the admin panel",
@@ -104,6 +156,9 @@ const AdminDashboard = () => {
       return;
     }
     if (user) {
+      if (user.role === 'staff' && activeTab === 'overview') {
+        setActiveTab('staff');
+      }
       loadData();
     }
   }, [user, authLoading, navigate]);
@@ -123,7 +178,8 @@ const AdminDashboard = () => {
 
       if (activeTab === "users") {
         const usersData = await getAdminUsers({ search: searchQuery, status: statusFilter === "all" ? "" : statusFilter });
-        setUsers(usersData.users);
+        // Filter out staff accounts as they are shown in the staff tab
+        setUsers(usersData.users.filter((u: AdminUser) => u.role !== 'staff'));
       } else if (activeTab === "chats") {
         const chatsData = await getAdminChats();
         setChats(chatsData.chats);
@@ -145,6 +201,9 @@ const AdminDashboard = () => {
       } else if (activeTab === "settings") {
         const settingsData = await getSystemSettings();
         setSystemSettings(prev => ({ ...prev, ...settingsData }));
+      } else if (activeTab === "staff") {
+        const staffData = await getAdminStaff();
+        setStaffList(staffData);
       }
     } catch (err) {
       toast({
@@ -311,6 +370,54 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleCreateStaff = async () => {
+    if (!newStaffEmail || !newStaffPassword || !newStaffUsername) {
+      toast({ title: "Missing Fields", description: "Email, password, and username are required.", variant: "destructive" });
+      return;
+    }
+
+    try {
+      await createAdminStaff({
+        email: newStaffEmail,
+        password: newStaffPassword,
+        username: newStaffUsername,
+        displayName: newStaffDisplayName,
+        permissions: selectedStaffPermissions
+      });
+      toast({ title: "Success", description: "Staff account created successfully." });
+      setIsStaffModalOpen(false);
+      setNewStaffEmail("");
+      setNewStaffPassword("");
+      setNewStaffUsername("");
+      setNewStaffDisplayName("");
+      setSelectedStaffPermissions([]);
+      loadData();
+    } catch (err) {
+      toast({ title: "Error", description: err instanceof Error ? err.message : "Failed to create staff", variant: "destructive" });
+    }
+  };
+
+  const handleUpdateStaffPermissions = async (staffId: number, permissions: string[]) => {
+    try {
+      await updateAdminStaffPermissions(staffId, permissions);
+      toast({ title: "Updated", description: "Staff permissions successfully updated." });
+      loadData();
+    } catch (err) {
+      toast({ title: "Error", description: err instanceof Error ? err.message : "Failed to update permissions", variant: "destructive" });
+    }
+  };
+
+  const handleDeleteStaff = async (staffId: number) => {
+    if (!confirm("Are you sure you want to delete this staff account?")) return;
+    try {
+      await deleteAdminStaff(staffId);
+      toast({ title: "Deleted", description: "Staff account removed." });
+      loadData();
+    } catch (err) {
+      toast({ title: "Error", description: err instanceof Error ? err.message : "Failed to delete staff", variant: "destructive" });
+    }
+  };
+
   const handleLogout = () => {
     logout();
     navigate("/login");
@@ -318,16 +425,34 @@ const AdminDashboard = () => {
 
   const tabs = [
     { id: "overview" as const, label: "Overview", icon: TrendingUp },
-    { id: "users" as const, label: "Users", icon: Users, count: stats?.totalUsers },
-    { id: "chats" as const, label: "Chats", icon: MessageSquare, count: stats?.totalChats },
-    { id: "escrow" as const, label: "Escrow", icon: IndianRupee, count: stats?.totalEscrowDeals },
-    { id: "verifications" as const, label: "Verifications", icon: CheckCircle2, count: stats?.pendingVerifications },
-    { id: "payouts" as const, label: "Payouts", icon: Wallet, count: stats?.pendingPayouts },
-    { id: "reports" as const, label: "Reports", icon: AlertTriangle, count: stats?.pendingReports },
-    { id: "activity" as const, label: "Activity", icon: Activity },
-    { id: "broadcast" as const, label: "Broadcast", icon: Bell },
-    { id: "settings" as const, label: "Settings", icon: Settings },
-  ];
+    { id: "users" as const, label: "Users", icon: Users, count: stats?.totalUsers, permission: "users" },
+    { id: "chats" as const, label: "Chats", icon: MessageSquare, count: stats?.totalChats, permission: "chats" },
+    { id: "escrow" as const, label: "Escrow", icon: IndianRupee, count: stats?.totalEscrowDeals, permission: "escrow" },
+    { id: "verifications" as const, label: "Verifications", icon: CheckCircle2, count: stats?.pendingVerifications, permission: "verifications" },
+    { id: "payouts" as const, label: "Payouts", icon: Wallet, count: stats?.pendingPayouts, permission: "payouts" },
+    { id: "reports" as const, label: "Reports", icon: AlertTriangle, count: stats?.pendingReports, permission: "reports" },
+    { id: "activity" as const, label: "Activity", icon: Activity, permission: "activity" },
+    { id: "broadcast" as const, label: "Broadcast", icon: Bell, permission: "broadcast" },
+    { id: "settings" as const, label: "Settings", icon: Settings, permission: "settings" },
+    { id: "staff" as const, label: "Staff", icon: UserCheck, permission: "staff" },
+  ].filter(tab => {
+    if (!user) return false;
+    if (user.role === "admin") return true;
+    if (user.role === "staff") return true; // Show all but restrict clicking
+    return false;
+  });
+
+  const handleTabClick = (tabId: AdminTab, permission?: string) => {
+    if (user?.role === "staff" && tabId !== "overview" && permission && !user.permissions?.includes(permission)) {
+      toast({
+        title: "Permission Denied",
+        description: "Please contact administrator to access this feature.",
+        variant: "destructive"
+      });
+      return;
+    }
+    setActiveTab(tabId);
+  };
 
   if (isLoading && !stats) {
     return (
@@ -349,10 +474,12 @@ const AdminDashboard = () => {
           {tabs.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => handleTabClick(tab.id, tab.permission)}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${activeTab === tab.id
                 ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-secondary"
+                : (user?.role === 'staff' && tab.permission && !user.permissions?.includes(tab.permission))
+                  ? "text-muted-foreground/40 cursor-not-allowed"
+                  : "text-muted-foreground hover:bg-secondary"
                 }`}
             >
               <tab.icon className="h-4 w-4" />
@@ -369,9 +496,11 @@ const AdminDashboard = () => {
           ))}
         </nav>
         <div className="mt-auto space-y-2">
-          <Link to="/chat">
-            <Button variant="outline" size="sm" className="w-full">Back to App</Button>
-          </Link>
+          {user?.role !== 'staff' && (
+            <Link to="/chat">
+              <Button variant="outline" size="sm" className="w-full">Back to App</Button>
+            </Link>
+          )}
           <Button
             variant="ghost"
             size="sm"
@@ -389,8 +518,8 @@ const AdminDashboard = () => {
         {tabs.map((tab) => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`flex-1 flex flex-col items-center py-3 text-[10px] relative ${activeTab === tab.id ? "text-primary" : "text-muted-foreground"
+            onClick={() => handleTabClick(tab.id, tab.permission)}
+            className={`flex-1 flex flex-col items-center py-3 text-[10px] relative ${activeTab === tab.id ? "text-primary" : (user?.role === 'staff' && tab.permission && !user.permissions?.includes(tab.permission)) ? "opacity-40" : "text-muted-foreground"
               }`}
           >
             <div className="relative">
@@ -1253,172 +1382,327 @@ const AdminDashboard = () => {
             )}
             {activeTab === "broadcast" && (
               <div className="space-y-6">
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center justify-between mb-2">
                   <div>
                     <h2 className="text-xl font-semibold flex items-center gap-2">
                       <Bell className="h-5 w-5 text-primary" />
-                      Broadcast to All Users
+                      Broadcast &amp; Ads
                     </h2>
-                    <p className="text-sm text-muted-foreground mt-1">Send a notification to every user instantly</p>
+                    <p className="text-sm text-muted-foreground mt-1">Send notifications or manage targeted chat ads</p>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  {/* Send Form */}
-                  <Card className="lg:col-span-1 h-fit">
-                    <CardHeader>
-                      <CardTitle className="text-base flex items-center gap-2"><Send className="h-4 w-4" /> New Broadcast</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div>
-                        <label className="text-sm font-medium mb-1 block">Type</label>
-                        <div className="flex gap-2 flex-wrap">
-                          {(["info", "warning", "success", "alert"] as const).map(t => (
-                            <button
-                              key={t}
-                              onClick={() => setBroadcastType(t)}
-                              className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${broadcastType === t
-                                ? t === "info" ? "bg-blue-500/20 border-blue-500 text-blue-400"
-                                  : t === "warning" ? "bg-yellow-500/20 border-yellow-500 text-yellow-400"
-                                    : t === "success" ? "bg-green-500/20 border-green-500 text-green-400"
-                                      : "bg-red-500/20 border-red-500 text-red-400"
-                                : "border-border text-muted-foreground hover:border-primary/50"
-                                }`}
-                            >
-                              {t === "info" ? "🔵" : t === "warning" ? "🟡" : t === "success" ? "🟢" : "🔴"}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium mb-2 block">Theme Color</label>
-                        <div className="flex gap-2 flex-wrap">
-                          {[
-                            { name: "Indigo", hex: "#4f46e5" },
-                            { name: "Emerald", hex: "#10b981" },
-                            { name: "Amber", hex: "#f59e0b" },
-                            { name: "Rose", hex: "#f43f5e" },
-                            { name: "Violet", hex: "#8b5cf6" },
-                            { name: "Cyan", hex: "#06b6d4" },
-                            { name: "Slate", hex: "#475569" },
-                          ].map(c => (
-                            <button
-                              key={c.hex}
-                              type="button"
-                              onClick={() => setBroadcastColor(c.hex)}
-                              className={`h-8 w-8 rounded-full border-2 transition-all hover:scale-110 ${broadcastColor === c.hex ? "border-white ring-2 ring-primary ring-offset-2 ring-offset-background" : "border-transparent"}`}
-                              style={{ backgroundColor: c.hex }}
-                              title={c.name}
-                            />
-                          ))}
-                          <div className="relative flex items-center gap-2 ml-2">
-                            <Input
-                              type="color"
-                              value={broadcastColor}
-                              onChange={(e) => setBroadcastColor(e.target.value)}
-                              className="h-8 w-8 p-0 border-none bg-transparent cursor-pointer overflow-hidden rounded-full shadow-sm"
-                            />
-                            <span className="text-[10px] font-mono text-muted-foreground uppercase">{broadcastColor}</span>
+                {/* Sub-tabs */}
+                <div className="flex gap-1 p-1 bg-muted rounded-lg w-fit">
+                  <button
+                    onClick={() => setBroadcastSubTab("notifications")}
+                    className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${broadcastSubTab === "notifications" ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                  >
+                    Notifications
+                  </button>
+                  <button
+                    onClick={() => {
+                      setBroadcastSubTab("ads");
+                      if (ads.length === 0) {
+                        setIsLoadingAds(true);
+                        getAdminAds().then(setAds).finally(() => setIsLoadingAds(false));
+                      }
+                    }}
+                    className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${broadcastSubTab === "ads" ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                  >
+                    Chat Ads
+                  </button>
+                </div>
+
+                {/* ── Notifications sub-tab ── */}
+                {broadcastSubTab === "notifications" && (
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Send Form */}
+                    <Card className="lg:col-span-1 h-fit">
+                      <CardHeader>
+                        <CardTitle className="text-base flex items-center gap-2"><Send className="h-4 w-4" /> New Broadcast</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div>
+                          <label className="text-sm font-medium mb-1 block">Type</label>
+                          <div className="flex gap-2 flex-wrap">
+                            {(["info", "warning", "success", "alert"] as const).map(t => (
+                              <button
+                                key={t}
+                                onClick={() => setBroadcastType(t)}
+                                className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${broadcastType === t
+                                  ? t === "info" ? "bg-blue-500/20 border-blue-500 text-blue-400"
+                                    : t === "warning" ? "bg-yellow-500/20 border-yellow-500 text-yellow-400"
+                                      : t === "success" ? "bg-green-500/20 border-green-500 text-green-400"
+                                        : "bg-red-500/20 border-red-500 text-red-400"
+                                  : "border-border text-muted-foreground hover:border-primary/50"
+                                  }`}
+                              >
+                                {t === "info" ? "🔵" : t === "warning" ? "🟡" : t === "success" ? "🟢" : "🔴"}
+                              </button>
+                            ))}
                           </div>
                         </div>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium mb-1 block">Title</label>
-                        <Input
-                          placeholder="e.g. System Maintenance"
-                          value={broadcastTitle}
-                          onChange={e => setBroadcastTitle(e.target.value)}
-                          maxLength={100}
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium mb-1 block">Message</label>
-                        <Textarea
-                          placeholder="Write your message..."
-                          value={broadcastMessage}
-                          onChange={e => setBroadcastMessage(e.target.value)}
-                          rows={4}
-                          maxLength={500}
-                        />
-                        <p className="text-xs text-muted-foreground mt-1 text-right">{broadcastMessage.length}/500</p>
-                      </div>
-                      <Button
-                        className="w-full"
-                        disabled={!broadcastTitle.trim() || !broadcastMessage.trim() || isBroadcasting}
-                        onClick={async () => {
-                          setIsBroadcasting(true);
-                          try {
-                            await broadcastNotification({
-                              title: broadcastTitle.trim(),
-                              message: broadcastMessage.trim(),
-                              type: broadcastType,
-                              color: broadcastColor
-                            });
-                            toast({ title: "📢 Broadcast Sent!", description: `All users have been notified.` });
-                            setBroadcastTitle("");
-                            setBroadcastMessage("");
-                            // Refresh history
-                            const notifs = await getNotifications();
-                            setSentNotifications(notifs);
-                          } catch (err) {
-                            toast({ title: "Error", description: err instanceof Error ? err.message : "Failed to send", variant: "destructive" });
-                          } finally {
-                            setIsBroadcasting(false);
-                          }
-                        }}
-                      >
-                        {isBroadcasting ? "Sending..." : "📢 Send Broadcast"}
-                      </Button>
-                    </CardContent>
-                  </Card>
+                        <div>
+                          <label className="text-sm font-medium mb-2 block">Theme Color</label>
+                          <div className="flex gap-2 flex-wrap">
+                            {[
+                              { name: "Indigo", hex: "#4f46e5" },
+                              { name: "Emerald", hex: "#10b981" },
+                              { name: "Amber", hex: "#f59e0b" },
+                              { name: "Rose", hex: "#f43f5e" },
+                              { name: "Violet", hex: "#8b5cf6" },
+                              { name: "Cyan", hex: "#06b6d4" },
+                              { name: "Slate", hex: "#475569" },
+                            ].map(c => (
+                              <button
+                                key={c.hex}
+                                type="button"
+                                onClick={() => setBroadcastColor(c.hex)}
+                                className={`h-8 w-8 rounded-full border-2 transition-all hover:scale-110 ${broadcastColor === c.hex ? "border-white ring-2 ring-primary ring-offset-2 ring-offset-background" : "border-transparent"}`}
+                                style={{ backgroundColor: c.hex }}
+                                title={c.name}
+                              />
+                            ))}
+                            <div className="relative flex items-center gap-2 ml-2">
+                              <Input
+                                type="color"
+                                value={broadcastColor}
+                                onChange={(e) => setBroadcastColor(e.target.value)}
+                                className="h-8 w-8 p-0 border-none bg-transparent cursor-pointer overflow-hidden rounded-full shadow-sm"
+                              />
+                              <span className="text-[10px] font-mono text-muted-foreground uppercase">{broadcastColor}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium mb-1 block">Title</label>
+                          <Input
+                            placeholder="e.g. System Maintenance"
+                            value={broadcastTitle}
+                            onChange={e => setBroadcastTitle(e.target.value)}
+                            maxLength={100}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium mb-1 block">Message</label>
+                          <Textarea
+                            placeholder="Write your message..."
+                            value={broadcastMessage}
+                            onChange={e => setBroadcastMessage(e.target.value)}
+                            rows={4}
+                            maxLength={500}
+                          />
+                          <p className="text-xs text-muted-foreground mt-1 text-right">{broadcastMessage.length}/500</p>
+                        </div>
+                        <Button
+                          className="w-full"
+                          disabled={!broadcastTitle.trim() || !broadcastMessage.trim() || isBroadcasting}
+                          onClick={async () => {
+                            setIsBroadcasting(true);
+                            try {
+                              await broadcastNotification({
+                                title: broadcastTitle.trim(),
+                                message: broadcastMessage.trim(),
+                                type: broadcastType,
+                                color: broadcastColor
+                              });
+                              toast({ title: "📢 Broadcast Sent!", description: `All users have been notified.` });
+                              setBroadcastTitle("");
+                              setBroadcastMessage("");
+                              // Refresh history
+                              const notifs = await getNotifications();
+                              setSentNotifications(notifs);
+                            } catch (err) {
+                              toast({ title: "Error", description: err instanceof Error ? err.message : "Failed to send", variant: "destructive" });
+                            } finally {
+                              setIsBroadcasting(false);
+                            }
+                          }}
+                        >
+                          {isBroadcasting ? "Sending..." : "📢 Send Broadcast"}
+                        </Button>
+                      </CardContent>
+                    </Card>
 
-                  {/* History */}
-                  <div className="lg:col-span-2">
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
-                        <Activity className="h-4 w-4" /> Broadcast History
-                      </h3>
-                      <button
-                        className="text-xs text-primary hover:underline"
-                        onClick={async () => { const n = await getNotifications(); setSentNotifications(n); }}
-                      >Refresh</button>
+                    {/* History */}
+                    <div className="lg:col-span-2">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
+                          <Activity className="h-4 w-4" /> Broadcast History
+                        </h3>
+                        <button
+                          className="text-xs text-primary hover:underline"
+                          onClick={async () => { const n = await getNotifications(); setSentNotifications(n); }}
+                        >Refresh</button>
+                      </div>
+                      {sentNotifications.length === 0 ? (
+                        <div className="text-center py-12 bg-card rounded-lg border border-border">
+                          <Bell className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                          No broadcasts sent yet
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {sentNotifications.map(n => (
+                            <Card key={n.id} className="p-4 bg-card border-border">
+                              <div className="flex items-start gap-3">
+                                <span
+                                  className="h-6 w-6 rounded-full shrink-0 mt-0.5 border border-white/20 shadow-sm"
+                                  style={{ backgroundColor: n.color || (n.type === 'info' ? '#3b82f6' : n.type === 'warning' ? '#f59e0b' : n.type === 'success' ? '#10b981' : '#ef4444') }}
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex justify-between items-start">
+                                    <p className="font-semibold text-card-foreground">{n.title}</p>
+                                    <span className="text-[10px] text-muted-foreground">
+                                      {new Date(n.createdAt).toLocaleString()}
+                                    </span>
+                                  </div>
+                                  <p className="text-sm text-muted-foreground mt-1">{n.message}</p>
+                                  <p className="text-[10px] text-muted-foreground mt-2 border-t border-border pt-2">
+                                    Sent by Admin ID: {n.sentBy}
+                                  </p>
+                                </div>
+                              </div>
+                            </Card>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    {sentNotifications.length === 0 ? (
-                      <div className="text-center py-12 bg-card rounded-lg border border-border">
-                        <Bell className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                        No broadcasts sent yet
+                  </div>
+                )} {/* end notifications sub-tab */}
+
+                {/* ── Chat Ads sub-tab ── */}
+                {broadcastSubTab === "ads" && (
+                  <div className="space-y-5">
+                    {/* Stats Row */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {[
+                        { label: "Total Ads", value: ads.length },
+                        { label: "Active", value: ads.filter(a => a.status === "active").length },
+                        { label: "Total Impressions", value: ads.reduce((s, a) => s + (a.impressions || 0), 0) },
+                        { label: "Total Clicks", value: ads.reduce((s, a) => s + (a.clickCount || 0), 0) },
+                      ].map(s => (
+                        <Card key={s.label} className="bg-card/50 border-border/50">
+                          <CardContent className="p-4">
+                            <p className="text-xs text-muted-foreground">{s.label}</p>
+                            <p className="text-2xl font-bold">{s.value}</p>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+
+                    {/* Header with Create button */}
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-semibold text-sm text-muted-foreground">All Ads ({ads.length})</h3>
+                      <Button size="sm" onClick={() => {
+                        setEditingAd(null);
+                        setAdForm({ title: "", description: "", ctaText: "More Details", externalUrl: "", type: "text", targetProfessions: [] });
+                        setAdFile(null); setAdFilePreview(null);
+                        setIsAdModalOpen(true);
+                      }}>
+                        <Plus className="h-4 w-4 mr-1.5" /> Create Ad
+                      </Button>
+                    </div>
+
+                    {/* Ads Table */}
+                    {isLoadingAds ? (
+                      <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+                    ) : ads.length === 0 ? (
+                      <div className="text-center py-12 border border-border rounded-lg bg-card/30">
+                        <ImageIcon className="h-10 w-10 mx-auto mb-3 opacity-20" />
+                        <p className="text-muted-foreground text-sm">No ads yet. Create your first ad to get started.</p>
                       </div>
                     ) : (
                       <div className="space-y-3">
-                        {sentNotifications.map(n => (
-                          <Card key={n.id} className="p-4 bg-card border-border">
-                            <div className="flex items-start gap-3">
-                              <span
-                                className="h-6 w-6 rounded-full shrink-0 mt-0.5 border border-white/20 shadow-sm"
-                                style={{ backgroundColor: n.color || (n.type === 'info' ? '#3b82f6' : n.type === 'warning' ? '#f59e0b' : n.type === 'success' ? '#10b981' : '#ef4444') }}
-                              />
-                              <div className="flex-1 min-w-0">
-                                <div className="flex justify-between items-start">
-                                  <p className="font-semibold text-card-foreground">{n.title}</p>
-                                  <span className="text-[10px] text-muted-foreground">
-                                    {new Date(n.createdAt).toLocaleString()}
-                                  </span>
+                        {ads.map(ad => (
+                          <Card key={ad.id} className="bg-card/50 border-border/50">
+                            <CardContent className="p-4">
+                              <div className="flex items-start gap-4">
+                                {(ad.imageUrl || ad.videoUrl) && (
+                                  <div className="w-20 h-14 rounded-lg overflow-hidden bg-muted flex-shrink-0">
+                                    {ad.imageUrl ? (
+                                      <img src={ad.imageUrl} alt={ad.title} className="w-full h-full object-cover" />
+                                    ) : (
+                                      <div className="w-full h-full flex items-center justify-center"><Film className="h-6 w-6 text-muted-foreground" /></div>
+                                    )}
+                                  </div>
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div>
+                                      <p className="font-semibold text-sm">{ad.title}</p>
+                                      {ad.description && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{ad.description}</p>}
+                                      {ad.externalUrl && (
+                                        <a href={ad.externalUrl} target="_blank" rel="noopener noreferrer" className="text-[11px] text-primary flex items-center gap-1 mt-0.5 hover:underline">
+                                          <ExternalLink className="h-3 w-3" />{ad.externalUrl}
+                                        </a>
+                                      )}
+                                    </div>
+                                    <div className="flex gap-1.5 flex-shrink-0">
+                                      <Badge variant={ad.status === "active" ? "default" : "secondary"} className="text-[10px]">{ad.status}</Badge>
+                                      <Badge variant="outline" className="text-[10px] capitalize">{ad.type}</Badge>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-4 mt-2">
+                                    <span className="text-[11px] text-muted-foreground">👁 {ad.impressions} impressions</span>
+                                    <span className="text-[11px] text-muted-foreground">🖱 {ad.clickCount || 0} clicks</span>
+                                    <span className="text-[11px] text-muted-foreground">CTR: {ad.ctr || "0.0"}%</span>
+                                    {(ad.targetProfessions?.length > 0) && (
+                                      <span className="text-[11px] text-muted-foreground">🎯 {ad.targetProfessions.join(", ")}</span>
+                                    )}
+                                  </div>
                                 </div>
-                                <p className="text-sm text-muted-foreground mt-1">{n.message}</p>
-                                <p className="text-[10px] text-muted-foreground mt-2 border-t border-border pt-2">
-                                  Sent by Admin ID: {n.sentBy}
-                                </p>
+                                <div className="flex gap-1 flex-shrink-0">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-8 px-2 text-xs text-primary hover:text-primary hover:bg-primary/10"
+                                    onClick={async () => {
+                                      try {
+                                        const res = await pushAdNotification(ad.id);
+                                        toast({
+                                          title: "🚀 Ad Pushed!",
+                                          description: `Notified ${res.notifiedCount} users targeted as ${ad.targetProfessions.length > 0 ? ad.targetProfessions.join(", ") : "All Users"}.`
+                                        });
+                                      } catch (err) {
+                                        toast({ title: "Push Failed", description: err instanceof Error ? err.message : "Error", variant: "destructive" });
+                                      }
+                                    }}
+                                  >
+                                    <RadioTower className="h-3.5 w-3.5 mr-1" />
+                                    Push
+                                  </Button>
+                                  <Button size="sm" variant="ghost" className="h-8 px-2 text-xs" onClick={() => {
+                                    setEditingAd(ad);
+                                    setAdForm({
+                                      title: ad.title,
+                                      description: ad.description || "",
+                                      ctaText: ad.ctaText || "More Details",
+                                      externalUrl: ad.externalUrl || "",
+                                      type: ad.type,
+                                      targetProfessions: ad.targetProfessions || []
+                                    });
+                                    setAdFile(null);
+                                    setAdFilePreview(ad.imageUrl || ad.videoUrl || null);
+                                    setIsAdModalOpen(true);
+                                  }}>Edit</Button>
+                                  <Button size="sm" variant="ghost" className="h-8 px-2 text-xs text-destructive hover:text-destructive" onClick={async () => {
+                                    if (!confirm("Delete this ad?")) return;
+                                    await deleteAd(ad.id);
+                                    setAds(prev => prev.filter(a => a.id !== ad.id));
+                                    toast({ title: "Ad deleted" });
+                                  }}>Delete</Button>
+                                </div>
                               </div>
-                            </div>
+                            </CardContent>
                           </Card>
                         ))}
                       </div>
                     )}
                   </div>
-                </div>
+                )}
               </div>
             )}
-
             {activeTab === "settings" && (
               <div className="space-y-6">
                 <div className="flex flex-col gap-1">
@@ -1518,6 +1802,90 @@ const AdminDashboard = () => {
                 </div>
               </div>
             )}
+
+            {activeTab === "staff" && (
+              <div className="space-y-6">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="flex flex-col gap-1">
+                    <h2 className="text-2xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">Staff Management</h2>
+                    <p className="text-muted-foreground text-sm flex items-center gap-2">
+                      <UserCheck className="h-3 w-3" /> Create and manage staff accounts with granular permissions
+                    </p>
+                  </div>
+                  <Button onClick={() => { setIsStaffModalOpen(true); setEditingStaffId(null); }} className="shadow-lg shadow-primary/20">
+                    <UserCheck className="mr-2 h-4 w-4" /> Create Staff Account
+                  </Button>
+                </div>
+
+                <div className="grid gap-4">
+                  {staffList.length === 0 ? (
+                    <Card className="bg-card/50 border-border/50 p-12 text-center">
+                      <Users className="h-12 w-12 mx-auto mb-4 opacity-20" />
+                      <h3 className="text-lg font-medium">No staff accounts found</h3>
+                      <p className="text-muted-foreground">Start by creating your first staff member.</p>
+                    </Card>
+                  ) : (
+                    staffList.map((staff) => (
+                      <Card key={staff.id} className="bg-card/50 border-border/50 hover:border-primary/30 transition-all overflow-hidden">
+                        <div className="flex flex-col md:flex-row items-center p-4 gap-4">
+                          <Avatar className="h-12 w-12 border-2 border-primary/20">
+                            <AvatarImage src={staff.avatarUrl} />
+                            <AvatarFallback className="bg-primary/10 text-primary font-bold">
+                              {staff.username ? staff.username.substring(0, 2).toUpperCase() : "??"}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 text-center md:text-left min-w-0">
+                            <div className="flex flex-wrap items-center gap-2 justify-center md:justify-start">
+                              <h3 className="font-bold text-lg leading-none">{staff.displayName || staff.username}</h3>
+                              <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 font-mono text-[10px] uppercase">
+                                @{staff.username}
+                              </Badge>
+                              {staff.status !== 'active' && (
+                                <Badge variant="destructive" className="text-[10px] h-5">{staff.status}</Badge>
+                              )}
+                            </div>
+                            <p className="text-sm text-muted-foreground mt-1 truncate">{staff.email}</p>
+                            <div className="flex flex-wrap gap-1 mt-2 justify-center md:justify-start">
+                              {staff.permissions && staff.permissions.length > 0 ? (
+                                staff.permissions.map(p => (
+                                  <Badge key={p} variant="secondary" className="text-[9px] px-1.5 py-0 bg-secondary/30 text-secondary-foreground border-none">
+                                    {adminPermissions.find(ap => ap.id === p)?.label || p}
+                                  </Badge>
+                                ))
+                              ) : (
+                                <span className="text-[10px] text-muted-foreground italic">No permissions assigned</span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setEditingStaffId(staff.id);
+                                setSelectedStaffPermissions(staff.permissions || []);
+                                setIsStaffModalOpen(true);
+                              }}
+                              className="h-8 text-xs"
+                            >
+                              Manage Permissions
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="icon"
+                              onClick={() => handleDeleteStaff(staff.id)}
+                              className="h-8 w-8"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </Card>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
           </ScrollArea>
         </div>
       </div >
@@ -1527,6 +1895,320 @@ const AdminDashboard = () => {
         isOpen={!!detailUserId}
         onClose={() => setDetailUserId(null)}
       />
+
+      {/* ── Create / Edit Ad Dialog ── */}
+      <Dialog open={isAdModalOpen} onOpenChange={setIsAdModalOpen}>
+        <DialogContent className="sm:max-w-[560px] bg-card/95 backdrop-blur-xl border-border/50 shadow-2xl rounded-2xl p-0 overflow-hidden max-h-[90vh] overflow-y-auto">
+          <div className="p-6 space-y-5">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold flex items-center gap-2">
+                <ImageIcon className="h-5 w-5 text-primary" />
+                {editingAd ? "Edit Ad" : "Create New Ad"}
+              </DialogTitle>
+              <DialogDescription className="text-muted-foreground text-sm">
+                Create a targeted ad that appears in user chats.
+              </DialogDescription>
+            </DialogHeader>
+
+            {/* Professional Templates */}
+            {!editingAd && (
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Quick Templates</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { label: "🚀 New Product Launch", title: "Exciting New Product!", description: "We've launched something amazing. Be the first to check it out!", cta: "Discover Now" },
+                    { label: "🎯 Services Promo", title: "Professional Services", description: "Expert services tailored to your needs. Quality guaranteed.", cta: "Get Started" },
+                    { label: "💼 We're Hiring", title: "Join Our Team!", description: "We're looking for talented professionals. Apply today.", cta: "View Openings" },
+                    { label: "🎉 Special Event", title: "Don't Miss Out!", description: "An exclusive event you won't want to miss. Reserve your spot now.", cta: "Learn More" },
+                  ].map(t => (
+                    <button
+                      key={t.label}
+                      type="button"
+                      onClick={() => setAdForm(prev => ({ ...prev, title: t.title, description: t.description, ctaText: t.cta }))}
+                      className="text-left p-2.5 rounded-lg border border-border/60 bg-muted/30 hover:bg-muted/60 hover:border-primary/30 transition-all text-xs text-muted-foreground"
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Ad Type */}
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Ad Type</p>
+              <div className="flex gap-2">
+                {(["text", "image", "video"] as const).map(t => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setAdForm(prev => ({ ...prev, type: t }))}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${adForm.type === t ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:border-primary/40"}`}
+                  >
+                    {t === "text" && <Bell className="h-3 w-3" />}
+                    {t === "image" && <ImageIcon className="h-3 w-3" />}
+                    {t === "video" && <Film className="h-3 w-3" />}
+                    {t.charAt(0).toUpperCase() + t.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Title */}
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block mb-1">Title *</label>
+              <Input placeholder="Ad headline" value={adForm.title} onChange={e => setAdForm(p => ({ ...p, title: e.target.value }))} />
+            </div>
+
+            {/* Description */}
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block mb-1">Description</label>
+              <Textarea placeholder="Short ad description..." rows={2} value={adForm.description} onChange={e => setAdForm(p => ({ ...p, description: e.target.value }))} />
+            </div>
+
+            {/* External Link */}
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block mb-1">External Link (URL)</label>
+              <div className="relative">
+                <ExternalLink className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input className="pl-9" placeholder="https://yourwebsite.com/landing-page" value={adForm.externalUrl} onChange={e => setAdForm(p => ({ ...p, externalUrl: e.target.value }))} />
+              </div>
+            </div>
+
+            {/* CTA Text */}
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block mb-1">Button Text</label>
+              <Input placeholder="More Details" value={adForm.ctaText} onChange={e => setAdForm(p => ({ ...p, ctaText: e.target.value }))} />
+            </div>
+
+            {/* Media Upload */}
+            {(adForm.type === "image" || adForm.type === "video") && (
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block mb-1">
+                  {adForm.type === "image" ? "Image / Poster" : "Video"}
+                </label>
+                <div
+                  className="border-2 border-dashed border-border rounded-xl p-4 text-center cursor-pointer hover:border-primary/40 transition-colors relative"
+                  onClick={() => document.getElementById("ad-file-input")?.click()}
+                >
+                  {adFilePreview ? (
+                    <div className="relative">
+                      {adForm.type === "image" || (adFilePreview && !adFilePreview.includes(".mp4") && !adFilePreview.includes(".webm")) ? (
+                        <img src={adFilePreview} alt="preview" className="max-h-36 mx-auto rounded-lg object-cover" />
+                      ) : (
+                        <video src={adFilePreview} className="max-h-36 mx-auto rounded-lg" muted />
+                      )}
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setAdFile(null); setAdFilePreview(null); }}
+                        className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-0.5"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="py-4">
+                      {adForm.type === "image" ? <ImageIcon className="h-8 w-8 mx-auto text-muted-foreground mb-2" /> : <Film className="h-8 w-8 mx-auto text-muted-foreground mb-2" />}
+                      <p className="text-sm text-muted-foreground">Click to upload {adForm.type === "image" ? "an image" : "a video"}</p>
+                      <p className="text-xs text-muted-foreground/60 mt-1">Max 50MB</p>
+                    </div>
+                  )}
+                  <input
+                    id="ad-file-input"
+                    type="file"
+                    accept={adForm.type === "image" ? "image/*" : "video/*"}
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      setAdFile(file);
+                      setAdFilePreview(URL.createObjectURL(file));
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Target Audience */}
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block mb-2">Target Audience</label>
+              <p className="text-[11px] text-muted-foreground mb-2">Select professions to target (leave empty to show to everyone)</p>
+              <div className="grid grid-cols-2 gap-1.5 max-h-44 overflow-y-auto pr-1">
+                {[
+                  "Software Developer", "UI/UX Designer", "Graphic Designer", "Web Developer",
+                  "Data Scientist", "AI / ML Engineer", "Cybersecurity Analyst", "DevOps Engineer",
+                  "Product Manager", "Digital Marketer", "Content Creator", "Video Editor",
+                  "Photographer", "Videographer", "Artist / Illustrator", "Musician",
+                  "Civil Engineer", "Mechanical Engineer", "Electrical Engineer", "Architect",
+                  "Doctor", "Nurse", "Pharmacist", "Lawyer", "Chartered Accountant",
+                  "Teacher / Educator", "Writer / Author", "Entrepreneur", "Consultant", "Other"
+                ].map(prof => (
+                  <label key={prof} className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground cursor-pointer py-1 px-2 rounded hover:bg-muted/50 transition-colors">
+                    <Checkbox
+                      checked={adForm.targetProfessions.includes(prof)}
+                      onCheckedChange={(checked) => {
+                        setAdForm(p => ({
+                          ...p,
+                          targetProfessions: checked
+                            ? [...p.targetProfessions, prof]
+                            : p.targetProfessions.filter(x => x !== prof)
+                        }));
+                      }}
+                    />
+                    {prof}
+                  </label>
+                ))}
+              </div>
+              {adForm.targetProfessions.length > 0 && (
+                <p className="text-[11px] text-primary mt-1">🎯 Targeting: {adForm.targetProfessions.join(", ")}</p>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter className="bg-secondary/20 p-4 border-t border-border/50 flex sm:justify-end gap-3">
+            <Button variant="ghost" onClick={() => setIsAdModalOpen(false)}>Cancel</Button>
+            <Button
+              disabled={!adForm.title.trim() || isSavingAd}
+              onClick={async () => {
+                setIsSavingAd(true);
+                try {
+                  const fd = new FormData();
+                  fd.append("title", adForm.title.trim());
+                  if (adForm.description) fd.append("description", adForm.description.trim());
+                  if (adForm.ctaText) fd.append("ctaText", adForm.ctaText.trim());
+                  if (adForm.externalUrl) fd.append("externalUrl", adForm.externalUrl.trim());
+                  fd.append("type", adForm.type);
+                  fd.append("targetProfessions", JSON.stringify(adForm.targetProfessions));
+                  if (adFile) fd.append("file", adFile);
+
+                  if (editingAd) {
+                    const updated = await updateAd(editingAd.id, fd);
+                    setAds(prev => prev.map(a => a.id === editingAd.id ? { ...updated, clickCount: a.clickCount, ctr: a.ctr } : a));
+                    toast({ title: "Ad updated!" });
+                  } else {
+                    const newAd = await createAd(fd);
+                    setAds(prev => [{ ...newAd, clickCount: 0, ctr: "0.0" }, ...prev]);
+                    toast({ title: "Ad created!" });
+                  }
+                  setIsAdModalOpen(false);
+                } catch (err) {
+                  toast({ title: "Error", description: err instanceof Error ? err.message : "Failed", variant: "destructive" });
+                } finally {
+                  setIsSavingAd(false);
+                }
+              }}
+            >
+              {isSavingAd ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</> : editingAd ? "Save Changes" : "Create Ad"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isStaffModalOpen} onOpenChange={setIsStaffModalOpen}>
+        <DialogContent className="sm:max-w-[500px] bg-card/95 backdrop-blur-xl border-border/50 shadow-2xl rounded-3xl p-0 overflow-hidden">
+          <div className="p-6">
+            <DialogHeader className="mb-6">
+              <DialogTitle className="text-2xl font-bold flex items-center gap-2">
+                <UserCheck className="h-6 w-6 text-primary" />
+                {editingStaffId ? "Manage Permissions" : "Create Staff Account"}
+              </DialogTitle>
+              <DialogDescription className="text-muted-foreground">
+                {editingStaffId
+                  ? "Update administrative access for this staff member."
+                  : "Set up a new administrative account for your team."}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-6">
+              {!editingStaffId && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">Username</label>
+                    <Input
+                      placeholder="john_staff"
+                      value={newStaffUsername}
+                      onChange={e => setNewStaffUsername(e.target.value)}
+                      className="bg-background/50 border-border/50 focus:border-primary/50"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">Display Name</label>
+                    <Input
+                      placeholder="John Doe"
+                      value={newStaffDisplayName}
+                      onChange={e => setNewStaffDisplayName(e.target.value)}
+                      className="bg-background/50 border-border/50 focus:border-primary/50"
+                    />
+                  </div>
+                  <div className="space-y-2 col-span-2">
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">Email Address</label>
+                    <Input
+                      placeholder="staff@krovaa.com"
+                      value={newStaffEmail}
+                      onChange={e => setNewStaffEmail(e.target.value)}
+                      className="bg-background/50 border-border/50 focus:border-primary/50"
+                    />
+                  </div>
+                  <div className="space-y-2 col-span-2">
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">Password</label>
+                    <Input
+                      type="password"
+                      placeholder="••••••••"
+                      value={newStaffPassword}
+                      onChange={e => setNewStaffPassword(e.target.value)}
+                      className="bg-background/50 border-border/50 focus:border-primary/50"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-3">
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">Assign Permissions</label>
+                <div className="grid grid-cols-2 gap-3 bg-secondary/10 p-4 rounded-2xl border border-border/40">
+                  {adminPermissions.map((permission) => (
+                    <div key={permission.id} className="flex items-center space-x-2 group">
+                      <Checkbox
+                        id={`perm-${permission.id}`}
+                        checked={selectedStaffPermissions.includes(permission.id)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSelectedStaffPermissions([...selectedStaffPermissions, permission.id]);
+                          } else {
+                            setSelectedStaffPermissions(selectedStaffPermissions.filter(p => p !== permission.id));
+                          }
+                        }}
+                        className="border-border/60 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                      />
+                      <label
+                        htmlFor={`perm-${permission.id}`}
+                        className="text-sm font-medium leading-none cursor-pointer group-hover:text-primary transition-colors"
+                      >
+                        {permission.label}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="bg-secondary/20 p-4 border-t border-border/50 flex sm:justify-end gap-3">
+            <Button variant="ghost" onClick={() => setIsStaffModalOpen(false)}>Cancel</Button>
+            {editingStaffId ? (
+              <Button onClick={() => {
+                handleUpdateStaffPermissions(editingStaffId, selectedStaffPermissions);
+                setIsStaffModalOpen(false);
+              }}>
+                Save Changes
+              </Button>
+            ) : (
+              <Button onClick={handleCreateStaff}>
+                Create Account
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div >
   );
 };

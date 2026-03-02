@@ -22,6 +22,8 @@ model User {
   createdAt            DateTime              @default(now()) @map("created_at")
   updatedAt            DateTime              @updatedAt @map("updated_at")
   socialLinks          Json?                 @default("[]") @map("social_links")
+  permissions          Json?                 @default("[]")
+  profession           String?
   verified             Boolean               @default(false)
   walletBalance        Float                 @default(0) @map("wallet_balance")
   razorpayContactId    String?               @map("razorpay_contact_id")
@@ -45,6 +47,8 @@ model User {
   reportsCreated       Report[]              @relation("ReportsCreated")
   verificationRequests VerificationRequest[]
   walletTransactions   WalletTransaction[]
+  adClicks             AdClick[]
+  adsCreated           Ad[]
 
   @@map("users")
 }
@@ -277,4 +281,36 @@ model SystemSetting {
   value String
 
   @@map("system_settings")
+}
+
+model Ad {
+  id                 Int       @id @default(autoincrement())
+  title              String
+  description        String?
+  imageUrl           String?   @map("image_url")
+  videoUrl           String?   @map("video_url")
+  externalUrl        String?   @map("external_url")
+  ctaText            String?   @map("cta_text")
+  type               String    @default("text") // text | image | video
+  targetProfessions  Json?     @default("[]") @map("target_professions")
+  status             String    @default("active") // active | paused
+  impressions        Int       @default(0)
+  sentBy             Int?      @map("sent_by")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+  admin              User?     @relation(fields: [sentBy], references: [id])
+  clicks             AdClick[]
+
+  @@map("ads")
+}
+
+model AdClick {
+  id        Int      @id @default(autoincrement())
+  adId      Int      @map("ad_id")
+  userId    Int?     @map("user_id")
+  clickedAt DateTime @default(now()) @map("clicked_at")
+  ad        Ad       @relation(fields: [adId], references: [id], onDelete: Cascade)
+  user      User?    @relation(fields: [userId], references: [id])
+
+  @@map("ad_clicks")
 }

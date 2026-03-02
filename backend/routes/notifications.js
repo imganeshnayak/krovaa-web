@@ -1,7 +1,7 @@
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
 import jwt from 'jsonwebtoken';
-import { auth, adminOnly } from '../middleware/auth.js';
+import { auth, adminOnly, checkPermission } from '../middleware/auth.js';
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -46,7 +46,7 @@ router.get('/', auth, async (req, res) => {
             message: n.message,
             type: n.type,
             createdAt: n.createdAt,
-            sentBy: n.admin?.displayName || n.admin?.username || 'System',
+            sentBy: (n.admin?.role === 'admin' || n.admin?.role === 'staff') ? 'Admin' : (n.admin?.displayName || n.admin?.username || 'System'),
             isRead: n.reads.length > 0 && !n.reads[0].isDeleted,
             metadata: n.metadata
         }));
@@ -186,7 +186,7 @@ router.delete('/:id', auth, async (req, res) => {
 
 
 // POST /api/notifications/broadcast — Admin only: send to all users
-router.post('/broadcast', auth, adminOnly, async (req, res) => {
+router.post('/broadcast', auth, adminOnly, checkPermission('broadcast'), async (req, res) => {
     try {
         const { title, message, type = 'info', color } = req.body;
 
@@ -212,7 +212,7 @@ router.post('/broadcast', auth, adminOnly, async (req, res) => {
                 metadata: req.body.metadata // Capture metadata from body
             },
             include: {
-                admin: { select: { displayName: true, username: true } }
+                admin: { select: { displayName: true, username: true, role: true } }
             }
         });
 
@@ -226,7 +226,7 @@ router.post('/broadcast', auth, adminOnly, async (req, res) => {
                 type: notification.type,
                 color: notification.color,
                 createdAt: notification.createdAt,
-                sentBy: notification.admin?.displayName || notification.admin?.username || 'Admin',
+                sentBy: (notification.admin?.role === 'admin' || notification.admin?.role === 'staff') ? 'Admin' : (notification.admin?.displayName || notification.admin?.username || 'Admin'),
                 sentById: req.user.id, // Include sender ID for filtering
                 isRead: false,
                 metadata: notification.metadata

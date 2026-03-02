@@ -12,7 +12,7 @@ const TelegramLogin = () => {
         (window as any).onTelegramAuth = async (user: any) => {
             try {
                 const loggedInUser = await loginWithTelegram(user);
-                if (loggedInUser.role === 'admin') {
+                if (loggedInUser.role === 'admin' || loggedInUser.role === 'staff') {
                     navigate('/admin', { replace: true });
                 } else {
                     navigate('/chat', { replace: true });

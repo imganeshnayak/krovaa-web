@@ -64,6 +64,8 @@ import { createScreenshotNotification } from "@/lib/screenshotNotification";
 import { notifyScreenshotAttempt } from "@/lib/api";
 import FilePreviewDialog from "@/components/chat/FilePreviewDialog";
 import NotificationBell from "@/components/NotificationBell";
+import AdBanner from "@/components/chat/AdBanner";
+import { getActiveAd, Ad } from "@/lib/api";
 
 type LocalMessage = MessageType & { message_type?: string; isUploading?: boolean; sender?: { role?: string; avatarUrl?: string; displayName?: string } };
 
@@ -404,6 +406,8 @@ const ChatView = ({
   const inputBarRef = useRef<HTMLDivElement | null>(null);
   const [inputBarHeight, setInputBarHeight] = useState(0);
   const [activeMessageMenu, setActiveMessageMenu] = useState<MessageType | null>(null);
+  const [chatAd, setChatAd] = useState<Ad | null>(null);
+  const [adDismissed, setAdDismissed] = useState(false);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -458,6 +462,16 @@ const ChatView = ({
       scrollingRef.current = false;
     }
   }, [messages.length, selectedChat?.chat_id]);
+
+  // Load targeted ad when chat opens (once per chat session)
+  useEffect(() => {
+    if (!selectedChat || selectedChat.isOfficial) return; // Don't show ads in support chat
+    const sessionKey = `ad_dismissed_${selectedChat.chat_id}`;
+    if (sessionStorage.getItem(sessionKey)) { setAdDismissed(true); return; }
+    setAdDismissed(false);
+    setChatAd(null);
+    getActiveAd().then(ad => { if (ad) setChatAd(ad); }).catch(() => { });
+  }, [selectedChat?.chat_id]);
 
   // Measure input bar height on mount/resize to avoid overlap / large gaps on mobile
   useEffect(() => {
@@ -551,7 +565,7 @@ const ChatView = ({
                     <EyeOff className="h-4 w-4" />
                     <span>Delete for Me</span>
                   </DropdownMenuItem>
-                  {(user?.role === 'admin' || selectedMessages.every(id => messages.find(m => m.id === id)?.senderId === user?.id)) && (
+                  {(user?.role === 'admin' || user?.role === 'staff' || selectedMessages.every(id => messages.find(m => m.id === id)?.senderId === user?.id)) && (
                     <DropdownMenuItem
                       onClick={() => onDeleteMessagesBatch(selectedMessages, 'everyone')}
                       className="text-destructive focus:text-destructive cursor-pointer gap-2"
@@ -592,7 +606,7 @@ const ChatView = ({
                 {selectedChat.isOfficial ? "Official Support Channel" : `@${selectedChat.username}`}
               </p>
             </div>
-            {!(selectedChat.isOfficial && user?.role !== 'admin') && (
+            {!(selectedChat.isOfficial && (user?.role !== 'admin' && user?.role !== 'staff')) && (
               <div className="flex gap-1">
                 <Button variant="ghost" size="icon" onClick={() => navigate(`/${selectedChat.username}`)}>
                   <UserIcon className="h-5 w-5" />
@@ -616,6 +630,19 @@ const ChatView = ({
         )}
       </div>
 
+      {/* Persistent Ad Banner below header */}
+      {!adDismissed && chatAd && selectedChat && !selectedChat.isOfficial && (
+        <div className="z-10 shadow-lg border-b border-white/5 bg-background/60 backdrop-blur-md">
+          <AdBanner
+            ad={chatAd}
+            onDismiss={() => {
+              setAdDismissed(true);
+              sessionStorage.setItem(`ad_dismissed_${selectedChat!.chat_id}`, '1');
+            }}
+          />
+        </div>
+      )}
+
       {/* Messages */}
       <div className="flex-1 relative overflow-hidden min-h-0 bg-[#050810]/30" data-nocontext>
 
@@ -636,7 +663,7 @@ const ChatView = ({
               messages.map((rawMsg, index) => {
                 const msg = rawMsg as LocalMessage;
                 const isMine = msg.senderId === user?.id;
-                const isAdminMsg = selectedChat?.isOfficial && (!isMine || user?.role === 'admin');
+                const isAdminMsg = selectedChat?.isOfficial && (!isMine || (user?.role === 'admin' || user?.role === 'staff'));
                 const isEscrowOrNotify = msg.messageType?.startsWith?.('escrow_') || msg.message_type?.startsWith?.('escrow_') || msg.messageType === 'notification' || msg.message_type === 'notification' || isAdminMsg;
 
                 // Date separator logic
@@ -1170,7 +1197,7 @@ const ChatView = ({
           </div>
         </DrawerContent>
       </Drawer>
-    </div>
+    </div >
   );
 };
 

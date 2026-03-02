@@ -423,7 +423,7 @@ const Register = () => {
 
         {/* Footer */}
         <div className="text-center pb-8 text-[10px] text-white/10 tracking-widest uppercase">
-          © 2026 Krovaa, Inc.
+          © 2026 Krovaa &nbsp;·&nbsp; support@krovaa.com
         </div>
       </div>
 

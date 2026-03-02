@@ -60,7 +60,7 @@ const AdminChatView = () => {
             navigate("/login");
             return;
         }
-        if (user && user.role !== "admin") {
+        if (user && user.role !== "admin" && user.role !== "staff") {
             toast({
                 title: "Access Denied",
                 description: "You don't have permission to access the admin panel",
@@ -200,9 +200,9 @@ const AdminChatView = () => {
                                                 <div className={`flex items-center gap-2 mb-2 ${isSender ? 'flex-row-reverse' : ''}`}>
                                                     <Avatar className="h-9 w-9 border-2 border-background shadow-md">
                                                         <AvatarImage src={msg.sender?.avatarUrl} />
-                                                            <AvatarFallback className="bg-gradient-to-br from-primary/20 to-secondary text-primary text-xs font-bold">
-                                                                {msg.sender?.displayName?.[0] || '?'}
-                                                            </AvatarFallback>
+                                                        <AvatarFallback className="bg-gradient-to-br from-primary/20 to-secondary text-primary text-xs font-bold">
+                                                            {msg.sender?.displayName?.[0] || '?'}
+                                                        </AvatarFallback>
                                                     </Avatar>
                                                     <div className={`flex flex-col ${isSender ? 'items-end' : 'items-start'}`}>
                                                         <div className="flex items-center gap-1.5">
