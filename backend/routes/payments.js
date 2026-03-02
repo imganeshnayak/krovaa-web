@@ -286,6 +286,23 @@ router.post('/verify', auth, async (req, res) => {
                         }
                     });
 
+                    // Record platform fee transaction for accounting
+                    let platformFeePercent = 0.10; // Default
+                    const feeSetting = await tx.systemSetting.findUnique({ where: { key: 'platform_fee_percent' } });
+                    if (feeSetting) platformFeePercent = parseFloat(feeSetting.value);
+                    const feeAmount = deal.totalAmount * platformFeePercent;
+
+                    if (feeAmount > 0) {
+                        await tx.escrowTransaction.create({
+                            data: {
+                                dealId: numericEntityId,
+                                percent: 0,
+                                amount: feeAmount,
+                                note: 'platform_fee'
+                            }
+                        });
+                    }
+
                     await tx.activityLog.create({
                         data: {
                             userId: req.user.id,
@@ -464,6 +481,23 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
                             where: { id: deal.id },
                             data: { razorpayPaymentId: paymentId, paymentStatus: 'paid', paidAmount: deal.totalAmount, status: 'active' }
                         });
+                        // Record platform fee transaction for accounting
+                        let platformFeePercent = 0.10; // Default
+                        const feeSetting = await tx.systemSetting.findUnique({ where: { key: 'platform_fee_percent' } });
+                        if (feeSetting) platformFeePercent = parseFloat(feeSetting.value);
+                        const feeAmount = deal.totalAmount * platformFeePercent;
+
+                        if (feeAmount > 0) {
+                            await tx.escrowTransaction.create({
+                                data: {
+                                    dealId: deal.id,
+                                    percent: 0,
+                                    amount: feeAmount,
+                                    note: 'platform_fee'
+                                }
+                            });
+                        }
+
                         return { type: 'escrow', deal };
                     } else if (verificationRequest) {
                         await tx.verificationRequest.update({

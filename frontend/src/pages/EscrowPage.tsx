@@ -275,13 +275,17 @@ const EscrowPage = () => {
 
     if (releaseByAmount) {
       const amt = parseFloat(releaseAmount);
-      const released = deal.totalAmount * (deal.releasedPercent / 100);
-      const remaining = deal.totalAmount - released;
+      const platformFeeTx = deal.transactions.find(tx => tx.note === 'platform_fee');
+      const feeAmount = platformFeeTx ? platformFeeTx.amount : 0;
+      const netTotal = deal.totalAmount - feeAmount;
+
+      const released = netTotal * (deal.releasedPercent / 100);
+      const remaining = netTotal - released;
       if (isNaN(amt) || amt <= 0 || amt > remaining) {
         toast({ title: "Invalid amount", description: `Enter amount between 1 and ${formatCurrency(remaining)}`, variant: "destructive" });
         return;
       }
-      pct = (amt / deal.totalAmount) * 100;
+      pct = (amt / netTotal) * 100;
     } else {
       pct = parseFloat(releasePercent);
       if (!pct || pct < 1 || pct > 100) {
@@ -593,8 +597,13 @@ const EscrowPage = () => {
                 .map((deal) => {
                   const isClient = deal.clientId === user?.id;
                   const otherParty = isClient ? deal.vendor : deal.client;
-                  const released = deal.totalAmount * (deal.releasedPercent / 100);
-                  const remaining = deal.totalAmount - released;
+                  const platformFeeTx = deal.transactions.find(tx => tx.note === 'platform_fee');
+                  const feeAmount = platformFeeTx ? platformFeeTx.amount : (deal.paymentStatus === 'paid' ? deal.totalAmount * platformFeePercent : 0);
+                  const netTotal = deal.totalAmount - feeAmount;
+
+                  const paymentTransactions = deal.transactions.filter(tx => tx.note !== 'platform_fee');
+                  const releasedNet = paymentTransactions.reduce((sum, tx) => sum + tx.amount, 0);
+                  const remainingNet = Math.max(0, netTotal - releasedNet);
 
                   return (
                     <Card key={deal.id} className="bg-card border-border">
@@ -632,16 +641,17 @@ const EscrowPage = () => {
 
                         <div className="grid grid-cols-3 gap-4 mb-4 text-center">
                           <div>
-                            <p className="text-xs text-muted-foreground">Total Deal Amount</p>
-                            <p className="text-lg font-bold text-foreground">{formatCurrency(deal.totalAmount)}</p>
+                            <p className="text-[10px] text-muted-foreground">Net Deal Amount</p>
+                            <p className="text-lg font-bold text-foreground">{formatCurrency(netTotal)}</p>
+                            {feeAmount > 0 && <p className="text-[9px] text-muted-foreground/60">(₹{deal.totalAmount} gross)</p>}
                           </div>
                           <div>
-                            <p className="text-xs text-muted-foreground">Released</p>
-                            <p className="text-lg font-bold text-primary">{formatCurrency(released)}</p>
+                            <p className="text-[10px] text-muted-foreground">Net Released</p>
+                            <p className="text-lg font-bold text-primary">{formatCurrency(releasedNet)}</p>
                           </div>
                           <div>
-                            <p className="text-xs text-muted-foreground">Remaining</p>
-                            <p className="text-lg font-bold text-coral">{formatCurrency(remaining)}</p>
+                            <p className="text-[10px] text-muted-foreground">Net Remaining</p>
+                            <p className="text-lg font-bold text-coral">{formatCurrency(remainingNet)}</p>
                           </div>
                         </div>
 
@@ -730,8 +740,8 @@ const EscrowPage = () => {
                                         type="number"
                                         min="1"
                                         step="0.01"
-                                        max={deal.totalAmount * (1 - deal.releasedPercent / 100)}
-                                        placeholder={`Max ${formatCurrency(deal.totalAmount * (1 - deal.releasedPercent / 100))}`}
+                                        max={netTotal * (1 - deal.releasedPercent / 100)}
+                                        placeholder={`Max ${formatCurrency(netTotal * (1 - deal.releasedPercent / 100))}`}
                                         value={releaseAmount}
                                         onChange={(e) => setReleaseAmount(e.target.value)}
                                       />

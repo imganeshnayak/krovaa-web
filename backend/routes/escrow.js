@@ -371,7 +371,15 @@ router.post('/:id/release', auth, async (req, res) => {
                     where: { dealId, note: 'platform_fee' },
                     _sum: { amount: true }
                 });
-                const recordedFee = (feeAgg && feeAgg._sum && feeAgg._sum.amount) ? feeAgg._sum.amount : 0;
+                let recordedFee = (feeAgg && feeAgg._sum && feeAgg._sum.amount) ? feeAgg._sum.amount : 0;
+
+                // Fallback: If no platform fee transaction recorded (e.g. for legacy deals), calculate it dynamically
+                if (recordedFee <= 0 && currentDeal.paymentStatus === 'paid') {
+                    let platformFeePercent = 0.10; // Default
+                    const setting = await tx.systemSetting.findUnique({ where: { key: 'platform_fee_percent' } });
+                    if (setting) platformFeePercent = parseFloat(setting.value);
+                    recordedFee = currentDeal.totalAmount * platformFeePercent;
+                }
 
                 // Calculate vendor net based on gross total minus platform fee
                 vendorNet = ((currentDeal.totalAmount - recordedFee) * userPercent) / 100;
@@ -636,11 +644,11 @@ router.delete('/:id', auth, async (req, res) => {
 
             // 4. Log activity
             await tx.activityLog.create({
-                    data: {
-                        userId: req.user.id,
-                        action: 'Cancelled deal & refunded',
-                        details: `${deal.title} - Refunded ₹${refundableAmount.toLocaleString('en-IN')} | Reason: ${String(reason).trim()}`
-                    }
+                data: {
+                    userId: req.user.id,
+                    action: 'Cancelled deal & refunded',
+                    details: `${deal.title} - Refunded ₹${refundableAmount.toLocaleString('en-IN')} | Reason: ${String(reason).trim()}`
+                }
             });
 
             // 5. Create a system message in the chat
