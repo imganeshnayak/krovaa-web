@@ -1,4 +1,5 @@
 const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
 module.exports = {
     apps: [
@@ -12,6 +13,10 @@ module.exports = {
             max_memory_restart: '500M',
             env: {
                 NODE_ENV: 'production',
+                EMAIL_HOST: process.env.EMAIL_HOST || 'smtp.zoho.in',
+                EMAIL_PORT: process.env.EMAIL_PORT || '465',
+                EMAIL_USER: process.env.EMAIL_USER,
+                EMAIL_PASS: process.env.EMAIL_PASS,
             },
             // Auto-restart on crash, with exponential backoff
             restart_delay: 1000,
