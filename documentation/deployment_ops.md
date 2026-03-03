@@ -69,3 +69,48 @@ pm2 start /root/chat-new/backend/ecosystem.config.cjs
 docker-compose up -d --build frontend
 ```
 This forces everything to the latest clean state from GitHub.
+
+---
+
+## Hostinger VPS Maintenance
+
+For your specific deployment on Hostinger, follow these routines to keep the system healthy.
+
+### 1. System Health Checks
+Monitor the server load and disk space to prevent unexpected crashes:
+```bash
+# Check disk usage (if / is 90%+, clear logs)
+df -h
+
+# Check RAM usage
+free -h
+
+# Monitor CPU and processes
+top
+```
+
+### 2. Log Management
+Logs can grow very large and fill up your disk.
+- **PM2 Logs**: `pm2 flush` (clears all current logs)
+- **Docker Logs**: `docker-compose logs --tail=100` (to view just the recent ones)
+- **Nginx Logs**: Found in `/var/log/nginx/access.log` and `error.log`.
+
+### 3. Database Backups
+Before making major changes, manually backup your Postgres volume:
+```bash
+docker exec krovaa-postgres pg_dumpall -U postgres > /root/backups/db_backup_$(date +%F).sql
+```
+
+### 4. SSL Management
+If you are using Hostinger's standard Nginx setup with Certbot:
+```bash
+# Check SSL certificate status
+certbot certificates
+
+# Force a renewal test
+certbot renew --dry-run
+```
+
+---
+
+&copy; 2026 Krovaa Project
