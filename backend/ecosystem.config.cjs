@@ -13,6 +13,9 @@ module.exports = {
             max_memory_restart: '500M',
             env: {
                 NODE_ENV: 'production',
+                // Database — PM2 runs outside Docker so must use the host-mapped port
+                DATABASE_URL: 'postgresql://postgres:admin123@localhost:5433/krovaa_chat?schema=public',
+                // Email
                 EMAIL_HOST: process.env.EMAIL_HOST || 'smtp.zoho.in',
                 EMAIL_PORT: process.env.EMAIL_PORT || '465',
                 EMAIL_USER: process.env.EMAIL_USER,
