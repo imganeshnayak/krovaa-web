@@ -622,9 +622,25 @@ router.delete('/users/:id', auth, adminOnly, checkPermission('users'), async (re
             return res.status(400).json({ error: 'Cannot delete your own account' });
         }
 
-        await prisma.user.delete({
-            where: { id: userId }
-        });
+        // Delete all related records in a transaction to avoid foreign key constraints
+        // Order matters for some databases, but Prisma handles the dependency graph within a transaction well.
+        // We delete children and relations first.
+        await prisma.$transaction([
+            prisma.activityLog.deleteMany({ where: { userId } }),
+            prisma.message.deleteMany({ where: { OR: [{ senderId: userId }, { receiverId: userId }] } }),
+            prisma.rating.deleteMany({ where: { OR: [{ reviewerId: userId }, { reviewedId: userId }] } }),
+            prisma.report.deleteMany({ where: { OR: [{ reporterId: userId }, { reportedId: userId }] } }),
+            prisma.blockedUser.deleteMany({ where: { OR: [{ blockerId: userId }, { blockedId: userId }] } }),
+            prisma.verificationRequest.deleteMany({ where: { userId } }),
+            prisma.walletTransaction.deleteMany({ where: { userId } }),
+            prisma.payoutRequest.deleteMany({ where: { userId } }),
+            prisma.notificationRead.deleteMany({ where: { userId } }),
+            prisma.notification.deleteMany({ where: { OR: [{ sentBy: userId }, { targetUserId: userId }] } }),
+            prisma.adClick.deleteMany({ where: { userId } }),
+            prisma.ad.deleteMany({ where: { sentBy: userId } }),
+            prisma.escrowDeal.deleteMany({ where: { OR: [{ clientId: userId }, { vendorId: userId }] } }),
+            prisma.user.delete({ where: { id: userId } })
+        ]);
 
         await prisma.activityLog.create({
             data: {
@@ -637,7 +653,7 @@ router.delete('/users/:id', auth, adminOnly, checkPermission('users'), async (re
         res.json({ success: true });
     } catch (err) {
         console.error('Delete user error:', err);
-        res.status(500).json({ error: 'Server error.' });
+        res.status(500).json({ error: 'Server error: ' + err.message });
     }
 });
 
@@ -935,22 +951,39 @@ router.delete('/staff/:id', auth, adminOnly, checkPermission('staff'), async (re
     try {
         const staffId = parseInt(req.params.id);
 
-        const staff = await prisma.user.delete({
+        if (staffId === req.user.id) {
+            return res.status(400).json({ error: 'Cannot delete your own account' });
+        }
+
+        // Search for the staff member first
+        const staffMember = await prisma.user.findUnique({
             where: { id: staffId, role: 'staff' }
         });
+
+        if (!staffMember) {
+            return res.status(404).json({ error: 'Staff member not found' });
+        }
+
+        // Delete dependencies first
+        await prisma.$transaction([
+            prisma.activityLog.deleteMany({ where: { userId: staffId } }),
+            prisma.notification.deleteMany({ where: { sentBy: staffId } }),
+            prisma.ad.deleteMany({ where: { sentBy: staffId } }),
+            prisma.user.delete({ where: { id: staffId } })
+        ]);
 
         await prisma.activityLog.create({
             data: {
                 userId: req.user.id,
                 action: 'Deleted staff account',
-                details: `Staff ID: ${staffId}`
+                details: `Staff: ${staffMember.username}`
             }
         });
 
         res.json({ success: true });
     } catch (err) {
         console.error('Delete staff error:', err);
-        res.status(500).json({ error: 'Server error.' });
+        res.status(500).json({ error: 'Server error: ' + err.message });
     }
 });
 

@@ -116,6 +116,9 @@ const AdminDashboard = () => {
   const [newStaffDisplayName, setNewStaffDisplayName] = useState("");
   const [selectedStaffPermissions, setSelectedStaffPermissions] = useState<string[]>([]);
   const [editingStaffId, setEditingStaffId] = useState<number | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<AdminUser | null>(null);
+  const [deleteConfirmationInput, setDeleteConfirmationInput] = useState("");
 
   // --- Ads State ---
   const [broadcastSubTab, setBroadcastSubTab] = useState<"notifications" | "ads">("notifications");
@@ -250,18 +253,53 @@ const AdminDashboard = () => {
     }
   };
 
-  const handleDeleteUser = async (userId: number) => {
-    if (!confirm("Are you sure you want to delete this user? This action cannot be undone.")) {
+  const handleDeleteUser = (u: AdminUser) => {
+    setUserToDelete(u);
+    setDeleteConfirmationInput("");
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleDeleteStaff = (s: AuthUser) => {
+    // Cast to AdminUser specifically for the deletion dialog
+    setUserToDelete({
+      id: s.id,
+      username: s.username,
+      email: s.email,
+      displayName: s.displayName,
+      role: 'staff',
+      status: s.status || 'active',
+      createdAt: '',
+      _count: { sentMessages: 0, clientDeals: 0, vendorDeals: 0 }
+    });
+    setDeleteConfirmationInput("");
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteUser = async () => {
+    if (!userToDelete) return;
+    if (deleteConfirmationInput.toUpperCase() !== "DELETE") {
+      toast({
+        title: "Error",
+        description: "Please type DELETE to confirm deletion",
+        variant: "destructive"
+      });
       return;
     }
+
     try {
-      await deleteUser(userId);
-      toast({ title: "Success", description: "User deleted successfully" });
+      if (userToDelete.role === 'staff') {
+        await deleteAdminStaff(userToDelete.id);
+      } else {
+        await deleteUser(userToDelete.id);
+      }
+      toast({ title: "Success", description: `${userToDelete.role === 'staff' ? 'Staff' : 'User'} deleted successfully` });
+      setIsDeleteDialogOpen(false);
+      setUserToDelete(null);
       loadData();
     } catch (err) {
       toast({
         title: "Error",
-        description: err instanceof Error ? err.message : "Failed to delete user",
+        description: err instanceof Error ? err.message : "Failed to delete account",
         variant: "destructive"
       });
     }
@@ -404,17 +442,6 @@ const AdminDashboard = () => {
       loadData();
     } catch (err) {
       toast({ title: "Error", description: err instanceof Error ? err.message : "Failed to update permissions", variant: "destructive" });
-    }
-  };
-
-  const handleDeleteStaff = async (staffId: number) => {
-    if (!confirm("Are you sure you want to delete this staff account?")) return;
-    try {
-      await deleteAdminStaff(staffId);
-      toast({ title: "Deleted", description: "Staff account removed." });
-      loadData();
-    } catch (err) {
-      toast({ title: "Error", description: err instanceof Error ? err.message : "Failed to delete staff", variant: "destructive" });
     }
   };
 
@@ -762,7 +789,7 @@ const AdminDashboard = () => {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleDeleteUser(user.id)}
+                          onClick={() => handleDeleteUser(user)}
                         >
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
@@ -1873,7 +1900,7 @@ const AdminDashboard = () => {
                             <Button
                               variant="destructive"
                               size="icon"
-                              onClick={() => handleDeleteStaff(staff.id)}
+                              onClick={() => handleDeleteStaff(staff)}
                               className="h-8 w-8"
                             >
                               <Trash2 className="h-4 w-4" />
@@ -2206,6 +2233,54 @@ const AdminDashboard = () => {
                 Create Account
               </Button>
             )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-[450px] bg-card/95 backdrop-blur-xl border-border/50 shadow-2xl rounded-3xl p-0 overflow-hidden">
+          <div className="p-6">
+            <DialogHeader className="mb-6">
+              <div className="h-12 w-12 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
+                <Trash2 className="h-6 w-6 text-destructive" />
+              </div>
+              <DialogTitle className="text-2xl font-bold">Delete User Account</DialogTitle>
+              <DialogDescription className="text-muted-foreground pt-2">
+                This action is <b>irreversible</b>. It will permanently delete the account for <span className="text-foreground font-bold">{userToDelete?.displayName}</span> (@{userToDelete?.username}) and all associated data including messages, escrow deals, and wallet history.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <div className="p-3 bg-destructive/5 border border-destructive/20 rounded-xl">
+                <p className="text-xs text-destructive font-medium flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4" />
+                  Warning: All financial history and active deals will be deleted.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">
+                  Type <span className="text-destructive">DELETE</span> to confirm
+                </label>
+                <Input
+                  placeholder="Type DELETE here..."
+                  value={deleteConfirmationInput}
+                  onChange={(e) => setDeleteConfirmationInput(e.target.value)}
+                  className="bg-background/50 border-border/50 focus:border-destructive/50 h-11"
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="bg-secondary/20 p-4 border-t border-border/50 flex sm:justify-end gap-3">
+            <Button variant="ghost" onClick={() => setIsDeleteDialogOpen(false)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              disabled={deleteConfirmationInput.toUpperCase() !== "DELETE"}
+              onClick={confirmDeleteUser}
+              className="px-6"
+            >
+              Permanently Delete
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

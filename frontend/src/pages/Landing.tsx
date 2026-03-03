@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import {
-  MessageSquare, Shield, Share2, DollarSign,
+  MessageSquare, Shield, Share2, IndianRupee,
   ArrowRight, Send, CheckCircle2, Zap,
   Star, Users, TrendingUp, ChevronLeft, ChevronRight
 } from "lucide-react";
@@ -31,7 +31,7 @@ const slides = [
     tag: "Payment Management",
     headline: "Get paid on\nyour terms.",
     body: "Milestone-based payment releases give both sides full control. Transparent records for every transaction.",
-    icon: DollarSign,
+    icon: IndianRupee,
     accent: "#1D4ED8",
   },
   {
@@ -48,37 +48,9 @@ const slides = [
     icon: Shield,
     accent: "#60A5FA",
   },
-  {
-    tag: "Sarah K. · Designer",
-    headline: "Krovaa changed\nhow I work entirely.",
-    body: "No more chasing clients for payments or losing track of project details across a dozen apps.",
-    icon: Star,
-    accent: "#2563EB",
-    isTestimonial: true,
-  },
-  {
-    tag: "Marcus T. · Developer",
-    headline: "Everything lives\nin one place.",
-    body: "Conversation, deliverables, contracts, payments — one link, one thread, one truth.",
-    icon: Star,
-    accent: "#1D4ED8",
-    isTestimonial: true,
-  },
-  {
-    tag: "Priya N. · Strategist",
-    headline: "Clients trust me\nmore because of it.",
-    body: "The transparency Krovaa offers has made closing deals faster and keeping clients longer.",
-    icon: Star,
-    accent: "#3B82F6",
-    isTestimonial: true,
-  },
 ];
 
-const stats = [
-  { value: "12K+", label: "Freelancers", icon: Users },
-  { value: "$4.2M", label: "Transacted", icon: TrendingUp },
-  { value: "4.9★", label: "Average Rating", icon: Star },
-];
+const stats = [];
 
 /* ─── Component ─── */
 const Landing = () => {
@@ -261,18 +233,7 @@ const Landing = () => {
       </div>
 
 
-      {/* ── STATS ── */}
-      <section className="px-6 pb-24">
-        <div className="max-w-3xl mx-auto grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-white/5 border border-white/5 rounded-2xl bg-white/[0.02] overflow-hidden">
-          {stats.map(({ value, label, icon: Icon }) => (
-            <div key={label} className="flex flex-col items-center py-8 px-6 gap-2 group hover:bg-blue-600/5 transition-colors">
-              <Icon className="h-5 w-5 text-white/20 mb-1 group-hover:text-blue-400 transition-colors" />
-              <span style={{ fontFamily: "'Rubik', sans-serif" }} className="text-3xl font-extrabold text-white">{value}</span>
-              <span className="text-sm text-white/30">{label}</span>
-            </div>
-          ))}
-        </div>
-      </section>
+      {/* ── STATS REMOVED ── */}
 
       {/* ── HOW IT WORKS ── */}
       <section id="how" className="py-24 px-6">

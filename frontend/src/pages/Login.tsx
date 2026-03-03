@@ -123,15 +123,7 @@ const Login = () => {
             </p>
           </div>
 
-          {/* Stats */}
-          <div className="flex gap-8">
-            {[["12K+", "Freelancers"], ["4.9★", "Rating"], ["$4.2M", "Transacted"]].map(([v, l]) => (
-              <div key={l}>
-                <p style={{ fontFamily: "'Rubik', sans-serif" }} className="text-xl font-extrabold text-white">{v}</p>
-                <p className="text-[10px] text-white/25 tracking-widest uppercase mt-0.5">{l}</p>
-              </div>
-            ))}
-          </div>
+
         </div>
       </div>
 
