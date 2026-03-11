@@ -93,7 +93,7 @@ router.get('/chats/list', auth, async (req, res) => {
                     last_message_time: new Date().toISOString(),
                     user_id: admin.id,
                     display_name: "Krovaa",
-                    avatar_url: null, // Use default system avatar, not specific admin's pic
+                    avatar_url: "/krovaa-logo.svg?v=3", // Use logo
                     username: "krovaa", // use actual admin username for profile links
                     unread_count: 0,
                     verified: true,
@@ -105,7 +105,7 @@ router.get('/chats/list', auth, async (req, res) => {
             const supportEntry = chatMap.get(supportChatId);
             if (supportEntry) {
                 supportEntry.display_name = "Krovaa";
-                supportEntry.avatar_url = null; // Ensure generic avatar
+                supportEntry.avatar_url = "/krovaa-logo.svg?v=3"; // Ensure generic avatar
                 // Keep the existing username (the chat participant) so profile links continue to work
                 supportEntry.isOfficial = true;
             }
@@ -226,7 +226,7 @@ router.post('/', auth, async (req, res) => {
         const maskedResult = (isSupport && (message.sender.role === 'admin' || message.sender.role === 'staff')) ? {
             ...result,
             sender_name: "Krovaa",
-            sender_avatar: null,
+            sender_avatar: "/krovaa-logo.svg?v=3",
             sender_username: "krovaa"
         } : result;
 
@@ -308,7 +308,7 @@ router.post('/upload', auth, upload.single('file'), async (req, res) => {
         const maskedResult = (isSupport && (message.sender.role === 'admin' || message.sender.role === 'staff')) ? {
             ...result,
             sender_name: "Krovaa",
-            sender_avatar: null,
+            sender_avatar: "/krovaa-logo.svg?v=3",
             sender_username: "krovaa"
         } : result;
 
