@@ -240,7 +240,10 @@ const ConversationList = ({
               {isSearching ? (
                 <div className="text-center text-muted-foreground py-4">Searching...</div>
               ) : searchResults.length === 0 ? (
-                <div className="text-sm text-muted-foreground py-4">No users found</div>
+                <div className="text-sm text-muted-foreground py-4 flex flex-col items-center gap-2">
+                  <span>No users found</span>
+                  <a href="mailto:support@krovaa.com" className="text-xs text-blue-500 hover:underline">Need help? Contact support@krovaa.com</a>
+                </div>
               ) : (
                 searchResults.map((foundUser) => (
                   <button

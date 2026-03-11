@@ -128,9 +128,7 @@ const Landing = () => {
       <nav className="sticky top-0 z-50 border-b border-white/5 backdrop-blur-2xl bg-[#050810]/80">
         <div className="flex items-center justify-between px-6 py-4 max-w-7xl mx-auto">
           <Link to="/" className="flex items-center group">
-            <span style={{ fontFamily: "'Rubik', sans-serif" }} className="text-2xl font-bold tracking-tight text-white group-hover:text-blue-500 transition-colors">
-              Krovaa
-            </span>
+            <img src="/1.svg" alt="Krovaa Logo" className="h-16 w-auto" />
           </Link>
 
 
@@ -422,7 +420,7 @@ const Landing = () => {
       <footer className="border-t border-white/5 px-6 pt-14 pb-8">
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-10 mb-12">
-            <Link to="/" className="col-span-1 md:col-span-2 flex flex-col gap-4 group">
+            <Link to="/" className="col-span-full flex flex-col items-center text-center gap-4 group">
               <div className="flex items-center">
                 <span style={{ fontFamily: "'Rubik', sans-serif" }} className="text-2xl font-bold text-white group-hover:text-blue-500 transition-colors">Krovaa</span>
               </div>
@@ -431,31 +429,10 @@ const Landing = () => {
                 Chat-first deal management for the modern gig economy.
               </p>
             </Link>
-
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-widest text-white/20 mb-4">Product</p>
-              <div className="flex flex-col gap-3 text-sm text-white/30">
-                <a href="#carousel" className="hover:text-white transition-colors w-fit">Features</a>
-                <a href="#" className="hover:text-white transition-colors w-fit">Changelog</a>
-                <a href="#" className="hover:text-white transition-colors w-fit">Security</a>
-              </div>
-            </div>
-
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-widest text-white/20 mb-4">Company</p>
-              <div className="flex flex-col gap-3 text-sm text-white/30">
-                <a href="#" className="hover:text-white transition-colors w-fit">About</a>
-                <a href="#" className="hover:text-white transition-colors w-fit">Blog</a>
-                <Link to="/privacy" className="hover:text-white transition-colors w-fit">Privacy</Link>
-                <Link to="/terms" className="hover:text-white transition-colors w-fit">Terms</Link>
-                <Link to="/refund" className="hover:text-white transition-colors w-fit">Refund</Link>
-                <Link to="/cookie-policy" className="hover:text-white transition-colors w-fit">Cookies</Link>
-              </div>
-            </div>
           </div>
 
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 pt-8 border-t border-white/5">
-            <p className="text-xs text-white/20">© 2026 Krovaa &nbsp;·&nbsp; support@krovaa.com</p>
+            <p className="text-xs text-white/20">© 2026 Krovaa &nbsp;·&nbsp; <a href="mailto:support@krovaa.com" className="hover:text-white transition-colors">support@krovaa.com</a></p>
             <div className="flex gap-6 text-xs text-white/20">
               <Link to="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
               <Link to="/terms" className="hover:text-white transition-colors">Terms of Service</Link>

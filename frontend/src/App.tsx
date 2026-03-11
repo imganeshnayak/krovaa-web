@@ -94,15 +94,15 @@ const MainContent = () => {
         <Route path="/blocked-users" element={<ClientRoute><BlockedUsersPage /></ClientRoute>} />
         <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
         <Route path="/admin/chats/:chatId" element={<AdminRoute><AdminChatView /></AdminRoute>} />
-        {/* Public profile pages at /:username - works without login */}
-        <Route path="/:username" element={<ProfilePage />} />
-        
         {/* Legal Pages */}
         <Route path="/terms" element={<Terms />} />
         <Route path="/privacy" element={<Privacy />} />
         <Route path="/refund" element={<Refund />} />
         <Route path="/cookie-policy" element={<CookiePolicy />} />
 
+        {/* Public profile pages at /:username - works without login */}
+        <Route path="/:username" element={<ProfilePage />} />
+        
         <Route path="*" element={<NotFound />} />
       </Routes>
       {showNavbar && <BottomNavbar />}

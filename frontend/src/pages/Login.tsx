@@ -100,11 +100,8 @@ const Login = () => {
         {/* Content */}
         <div className="relative z-10 flex flex-col h-full p-14">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2.5 group w-fit">
-            <div className="w-8 h-8 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-900/50 group-hover:bg-blue-500 transition-colors">
-              <svg viewBox="0 0 16 16" className="w-4 h-4 fill-white"><path d="M2 2h12a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H5l-4 3V3a1 1 0 0 1 1-1z" /></svg>
-            </div>
-            <span style={{ fontFamily: "'Rubik', sans-serif" }} className="text-lg font-bold tracking-tight">Krovaa</span>
+          <Link to="/" className="flex items-center group w-fit">
+            <img src="/1.svg" alt="Krovaa Logo" className="h-11 w-auto" />
           </Link>
 
           {/* Statement */}
@@ -137,7 +134,9 @@ const Login = () => {
 
         {/* Mobile logo */}
         <div className="lg:hidden flex items-center justify-between px-8 pt-8 pb-4">
-          <Link to="/" style={{ fontFamily: "'Rubik', sans-serif" }} className="text-xl font-bold">Krovaa</Link>
+          <Link to="/" className="flex items-center">
+            <img src="/1.svg" alt="Krovaa Logo" className="h-9 w-auto" />
+          </Link>
         </div>
 
         <div className="flex-1 flex items-center justify-center px-8 py-12 relative z-10">
