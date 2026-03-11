@@ -23,9 +23,11 @@ const LegalLayout = ({ children, title, lastUpdated }: LegalLayoutProps) => {
       </div>
 
       {/* Nav */}
-      <nav className="sticky top-0 z-50 border-b border-white/5 backdrop-blur-xl bg-[#050810]/60">
-        <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
-          <Link to="/" className="text-xl font-bold tracking-tight">Krovaa</Link>
+      <nav className="sticky top-0 z-50 border-b border-white/5 backdrop-blur-xl bg-[#050810]/60 h-20 flex items-center">
+        <div className="w-full px-4 md:px-8 flex items-center justify-between">
+          <Link to="/" className="flex items-center group shrink-0 -ml-2 sm:-ml-0">
+            <img src="/krovaa-logo.svg?v=3" alt="Krovaa Logo" className="h-16 w-auto scale-125 origin-left" />
+          </Link>
           <Link 
             to="/" 
             className="flex items-center gap-1.5 text-xs text-white/40 hover:text-white transition-colors uppercase tracking-widest font-semibold"

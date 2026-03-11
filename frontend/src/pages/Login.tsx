@@ -101,7 +101,7 @@ const Login = () => {
         <div className="relative z-10 flex flex-col h-full p-14">
           {/* Logo */}
           <Link to="/" className="flex items-center group w-fit">
-            <img src="/krovaa-logo.svg?v=3" alt="Krovaa Logo" className="h-11 w-auto" />
+            <img src="/krovaa-logo.svg?v=3" alt="Krovaa Logo" className="h-16 w-auto scale-125 origin-left" />
           </Link>
 
           {/* Statement */}

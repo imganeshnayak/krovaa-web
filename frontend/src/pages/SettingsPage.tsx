@@ -285,10 +285,11 @@ const SettingsPage = () => {
                                         <p className="text-sm text-muted-foreground">1.0.0</p>
                                     </div>
                                     <div className="flex flex-col gap-2.5">
-                                        <Link to="/terms" className="text-sm text-blue-500 hover:underline">Terms of Service</Link>
-                                        <Link to="/privacy" className="text-sm text-blue-500 hover:underline">Privacy Policy</Link>
-                                        <Link to="/refund" className="text-sm text-blue-500 hover:underline">Refund Policy</Link>
-                                        <Link to="/cookie-policy" className="text-sm text-blue-500 hover:underline">Cookie Policy</Link>
+                                        <Link to="/terms" target="_blank" rel="noopener noreferrer" className="text-sm text-blue-500 hover:underline relative z-10" onClick={(e) => e.stopPropagation()}>Terms of Service</Link>
+                                        <Link to="/privacy" target="_blank" rel="noopener noreferrer" className="text-sm text-blue-500 hover:underline relative z-10" onClick={(e) => e.stopPropagation()}>Privacy Policy</Link>
+                                        <Link to="/refund" target="_blank" rel="noopener noreferrer" className="text-sm text-blue-500 hover:underline relative z-10" onClick={(e) => e.stopPropagation()}>Refund Policy</Link>
+                                        <Link to="/cookie-policy" target="_blank" rel="noopener noreferrer" className="text-sm text-blue-500 hover:underline relative z-10" onClick={(e) => e.stopPropagation()}>Cookie Policy</Link>
+                                        <a href="mailto:support@krovaa.com" className="text-sm text-blue-500 hover:underline relative z-10" onClick={(e) => e.stopPropagation()}>Contact Us</a>
                                     </div>
                                 </AccordionContent>
                             </AccordionItem>
@@ -327,12 +328,14 @@ const SettingsPage = () => {
                                     onCheckedChange={(checked) => setAgreeToTerms(checked === true)}
                                 />
                                 <div className="grid gap-1.5 leading-none">
-                                    <Label
-                                        htmlFor="payment-terms"
-                                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                                    >
-                                        I agree to the <Link to="/terms" target="_blank" className="text-primary hover:underline">Terms & Conditions</Link>, <Link to="/privacy" target="_blank" className="text-primary hover:underline">Privacy Policy</Link> and <Link to="/refund" target="_blank" className="text-primary hover:underline">Refund Policy</Link>
-                                    </Label>
+                                    <div className="text-sm font-medium leading-none text-muted-foreground">
+                                        <Label htmlFor="payment-terms" className="cursor-pointer">I agree to the </Label>
+                                        <Link to="/terms" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline relative z-10" onClick={(e) => e.stopPropagation()}>Terms & Conditions</Link>
+                                        {", "}
+                                        <Link to="/privacy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline relative z-10" onClick={(e) => e.stopPropagation()}>Privacy Policy</Link>
+                                        {" and "}
+                                        <Link to="/refund" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline relative z-10" onClick={(e) => e.stopPropagation()}>Refund Policy</Link>
+                                    </div>
                                 </div>
                             </div>
 

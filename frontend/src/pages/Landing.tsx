@@ -125,10 +125,11 @@ const Landing = () => {
 
       {/* ── NAV ── */}
 
-      <nav className="sticky top-0 z-50 border-b border-white/5 backdrop-blur-2xl bg-[#050810]/80">
-        <div className="flex items-center justify-between px-6 py-4 max-w-7xl mx-auto">
-          <Link to="/" className="flex items-center group">
-            <img src="/krovaa-logo.svg?v=3" alt="Krovaa Logo" className="h-16 w-auto" />
+      <nav className="sticky top-0 z-50 border-b border-white/5 backdrop-blur-2xl bg-[#050810]/80 h-20 flex items-center">
+        <div className="w-full flex items-center justify-between px-4 md:px-8">
+          <Link to="/" className="flex items-center group shrink-0 -ml-2 sm:-ml-0">
+            {/* Using scale and origin-left to make the logo bigger without expanding the header height */}
+            <img src="/krovaa-logo.svg?v=3" alt="Krovaa Logo" className="h-16 w-auto scale-125 origin-left" />
           </Link>
 
 
@@ -416,24 +417,21 @@ const Landing = () => {
         </div>
       </section>
 
-      {/* ── FOOTER ── */}
-      <footer className="border-t border-white/5 px-6 pt-14 pb-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-10 mb-12">
-            <Link to="/" className="col-span-full flex flex-col items-center text-center gap-4 group">
-              <div className="flex items-center">
-                <span style={{ fontFamily: "'Rubik', sans-serif" }} className="text-2xl font-bold text-white group-hover:text-blue-500 transition-colors">Krovaa</span>
-              </div>
-
-              <p className="text-sm text-white/25 leading-relaxed max-w-xs font-light">
-                Chat-first deal management for the modern gig economy.
-              </p>
+      <footer className="border-t border-white/5 pt-14 pb-8">
+        <div className="w-full px-4 md:px-8">
+          <div className="flex flex-col gap-6 mb-12 items-center text-center">
+            <Link to="/" className="flex flex-col items-center group shrink-0">
+              <img src="/krovaa-logo.svg?v=3" alt="Krovaa Logo" className="h-16 w-auto scale-125 origin-center" />
             </Link>
+
+            <p className="text-sm text-white/25 leading-relaxed max-w-xs font-light">
+              Chat-first deal management for the modern gig economy.
+            </p>
           </div>
 
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4 pt-8 border-t border-white/5">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pt-8 border-t border-white/5">
             <p className="text-xs text-white/20">© 2026 Krovaa &nbsp;·&nbsp; <a href="mailto:support@krovaa.com" className="hover:text-white transition-colors">support@krovaa.com</a></p>
-            <div className="flex gap-6 text-xs text-white/20">
+            <div className="flex flex-wrap gap-6 text-xs text-white/20">
               <Link to="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
               <Link to="/terms" className="hover:text-white transition-colors">Terms of Service</Link>
               <Link to="/refund" className="hover:text-white transition-colors">Refund Policy</Link>
