@@ -89,12 +89,12 @@ router.get('/chats/list', auth, async (req, res) => {
             if (admin) {
                 chatMap.set(supportChatId, {
                     chat_id: supportChatId,
-                    last_message: "Official Support & Notifications",
+                    last_message: "Krovaa Official Notifications",
                     last_message_time: new Date().toISOString(),
                     user_id: admin.id,
-                    display_name: "Admin",
+                    display_name: "Krovaa",
                     avatar_url: null, // Use default system avatar, not specific admin's pic
-                    username: admin.username, // use actual admin username for profile links
+                    username: "krovaa", // use actual admin username for profile links
                     unread_count: 0,
                     verified: true,
                     isOfficial: true // Special flag for frontend
@@ -104,7 +104,7 @@ router.get('/chats/list', auth, async (req, res) => {
             // Update the admin's own support chat entry with branding if it exists
             const supportEntry = chatMap.get(supportChatId);
             if (supportEntry) {
-                supportEntry.display_name = "Admin";
+                supportEntry.display_name = "Krovaa";
                 supportEntry.avatar_url = null; // Ensure generic avatar
                 // Keep the existing username (the chat participant) so profile links continue to work
                 supportEntry.isOfficial = true;
@@ -134,7 +134,7 @@ router.get('/support', auth, async (req, res) => {
         const chatId = `support_${req.user.id}`;
 
         res.json({
-            admin: { ...admin, displayName: "Admin", avatarUrl: null, username: "admin" }, // Generic details
+            admin: { ...admin, displayName: "Krovaa", avatarUrl: null, username: "krovaa" }, // Generic details
             chatId
         });
     } catch (err) {
@@ -168,9 +168,9 @@ router.get('/:chatId', auth, async (req, res) => {
             const isFromAdminStaff = m.sender.role === 'admin' || m.sender.role === 'staff';
             return {
                 ...m,
-                sender_name: (regularUserViewingSupport && isFromAdminStaff) ? "Admin" : m.sender.displayName,
+                sender_name: (regularUserViewingSupport && isFromAdminStaff) ? "Krovaa" : m.sender.displayName,
                 sender_avatar: (regularUserViewingSupport && isFromAdminStaff) ? null : m.sender.avatarUrl,
-                sender_username: (regularUserViewingSupport && isFromAdminStaff) ? "admin" : m.sender.username,
+                sender_username: (regularUserViewingSupport && isFromAdminStaff) ? "krovaa" : m.sender.username,
                 sender: undefined,
             };
         });
@@ -225,9 +225,9 @@ router.post('/', auth, async (req, res) => {
         const isSupport = chat_id.startsWith('support_');
         const maskedResult = (isSupport && (message.sender.role === 'admin' || message.sender.role === 'staff')) ? {
             ...result,
-            sender_name: "Admin",
+            sender_name: "Krovaa",
             sender_avatar: null,
-            sender_username: "admin"
+            sender_username: "krovaa"
         } : result;
 
         const io = req.app.get('io');
@@ -307,9 +307,9 @@ router.post('/upload', auth, upload.single('file'), async (req, res) => {
         const isSupport = chat_id.startsWith('support_');
         const maskedResult = (isSupport && (message.sender.role === 'admin' || message.sender.role === 'staff')) ? {
             ...result,
-            sender_name: "Admin",
+            sender_name: "Krovaa",
             sender_avatar: null,
-            sender_username: "admin"
+            sender_username: "krovaa"
         } : result;
 
         const io = req.app.get('io');

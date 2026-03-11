@@ -19,6 +19,10 @@ import AdminChatView from "./pages/AdminChatView";
 import SettingsPage from "./pages/SettingsPage";
 import BlockedUsersPage from "./pages/BlockedUsersPage";
 import ForgotPassword from "./pages/ForgotPassword";
+import Terms from "./pages/legal/Terms";
+import Privacy from "./pages/legal/Privacy";
+import Refund from "./pages/legal/Refund";
+import CookiePolicy from "./pages/legal/CookiePolicy";
 import NotFound from "./pages/NotFound";
 import CookieConsent from "./components/CookieConsent";
 
@@ -92,6 +96,13 @@ const MainContent = () => {
         <Route path="/admin/chats/:chatId" element={<AdminRoute><AdminChatView /></AdminRoute>} />
         {/* Public profile pages at /:username - works without login */}
         <Route path="/:username" element={<ProfilePage />} />
+        
+        {/* Legal Pages */}
+        <Route path="/terms" element={<Terms />} />
+        <Route path="/privacy" element={<Privacy />} />
+        <Route path="/refund" element={<Refund />} />
+        <Route path="/cookie-policy" element={<CookiePolicy />} />
+
         <Route path="*" element={<NotFound />} />
       </Routes>
       {showNavbar && <BottomNavbar />}

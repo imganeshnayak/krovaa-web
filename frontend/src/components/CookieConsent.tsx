@@ -8,7 +8,7 @@ const CookieConsent = () => {
     const isMobile = useIsMobile();
 
     useEffect(() => {
-        const consent = localStorage.getItem("cookie_consent");
+        const consent = localStorage.getItem("cookie_consent") || sessionStorage.getItem("cookie_consent");
         if (!consent) {
             // Small delay for better UX entrance
             const timer = setTimeout(() => setIsVisible(true), 1500);
@@ -18,11 +18,13 @@ const CookieConsent = () => {
 
     const handleAcceptAll = () => {
         localStorage.setItem("cookie_consent", "accepted_all");
+        sessionStorage.setItem("cookie_consent", "accepted_all");
         setIsVisible(false);
     };
 
     const handleRejectNonEssential = () => {
         localStorage.setItem("cookie_consent", "rejected_non_essential");
+        sessionStorage.setItem("cookie_consent", "rejected_non_essential");
         setIsVisible(false);
     };
 

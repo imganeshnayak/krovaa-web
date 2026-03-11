@@ -51,8 +51,18 @@ const FilePreviewDialog = ({ file, isOpen, onClose, onSend, isUploading = false 
 
                 <div className="p-6 flex flex-col items-center justify-center min-h-[300px] bg-secondary/30">
                     {isImage && previewUrl ? (
-                        <div className="relative w-full aspect-square max-h-[350px] rounded-lg overflow-hidden shadow-lg border border-border">
+                        <div className="relative w-full aspect-square max-h-[350px] rounded-lg overflow-hidden shadow-lg border border-border group/preview">
                             <img src={previewUrl} alt="Preview" className="w-full h-full object-contain bg-black/5" />
+
+                            {/* Watermark overlay */}
+                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden origin-center">
+                                <div className="text-white/10 text-6xl font-black tracking-widest uppercase -rotate-45 whitespace-nowrap">
+                                    Krovaa
+                                </div>
+                            </div>
+                            <div className="absolute bottom-2 right-2 px-2 py-0.5 bg-black/40 backdrop-blur-md rounded text-[10px] text-white/40 font-bold tracking-widest uppercase pointer-events-none">
+                                Krovaa Protection
+                            </div>
                         </div>
                     ) : isVideo ? (
                         <div className="flex flex-col items-center gap-4 text-muted-foreground">

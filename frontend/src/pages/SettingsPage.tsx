@@ -18,6 +18,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const SettingsPage = () => {
     const { user, logout } = useAuth();
@@ -28,6 +29,7 @@ const SettingsPage = () => {
     const [verificationFee, setVerificationFee] = useState(0);
     const [isVerificationDialogOpen, setIsVerificationDialogOpen] = useState(false);
     const [isApplying, setIsApplying] = useState(false);
+    const [agreeToTerms, setAgreeToTerms] = useState(false);
 
     useEffect(() => {
         loadVerificationData();
@@ -282,10 +284,11 @@ const SettingsPage = () => {
                                         <Label className="text-sm font-medium">App Version</Label>
                                         <p className="text-sm text-muted-foreground">1.0.0</p>
                                     </div>
-                                    <div className="space-y-2">
-                                        <Button variant="link" className="h-auto p-0 text-sm">Terms of Service</Button>
-                                        <br />
-                                        <Button variant="link" className="h-auto p-0 text-sm">Privacy Policy</Button>
+                                    <div className="flex flex-col gap-2.5">
+                                        <Link to="/terms" className="text-sm text-blue-500 hover:underline">Terms of Service</Link>
+                                        <Link to="/privacy" className="text-sm text-blue-500 hover:underline">Privacy Policy</Link>
+                                        <Link to="/refund" className="text-sm text-blue-500 hover:underline">Refund Policy</Link>
+                                        <Link to="/cookie-policy" className="text-sm text-blue-500 hover:underline">Cookie Policy</Link>
                                     </div>
                                 </AccordionContent>
                             </AccordionItem>
@@ -316,10 +319,27 @@ const SettingsPage = () => {
                                 <p className="text-sm font-medium">One-time verification fee</p>
                                 <p className="text-2xl font-bold text-primary mt-1">₹{verificationFee}</p>
                             </div>
+
+                            <div className="flex items-start space-x-2 mt-4">
+                                <Checkbox 
+                                    id="payment-terms" 
+                                    checked={agreeToTerms} 
+                                    onCheckedChange={(checked) => setAgreeToTerms(checked === true)}
+                                />
+                                <div className="grid gap-1.5 leading-none">
+                                    <Label
+                                        htmlFor="payment-terms"
+                                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                    >
+                                        I agree to the <Link to="/terms" target="_blank" className="text-primary hover:underline">Terms & Conditions</Link>, <Link to="/privacy" target="_blank" className="text-primary hover:underline">Privacy Policy</Link> and <Link to="/refund" target="_blank" className="text-primary hover:underline">Refund Policy</Link>
+                                    </Label>
+                                </div>
+                            </div>
+
                             <div className="flex gap-2">
                                 <Button
                                     onClick={handleApplyForVerification}
-                                    disabled={isApplying}
+                                    disabled={isApplying || !agreeToTerms}
                                     className="flex-1"
                                 >
                                     {isApplying ? "Submitting..." : "Submit Application"}

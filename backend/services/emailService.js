@@ -133,12 +133,19 @@ export async function sendRegistrationOtp(email, otp) {
     </table>`;
 
   const html = emailShell(accent, 'Email Verification', body);
+  const text = `Verify your email address: Your Krovaa verification code is ${otp}. This code expires in 10 minutes. If you did not create an account, please ignore this email.`;
 
   await transporter.sendMail({
-    from: `"Krovaa" <${process.env.EMAIL_USER}>`,
+    from: `"Krovaa Security" <${process.env.EMAIL_USER}>`,
     to: email,
     subject: `${otp} — your Krovaa verification code`,
+    text,
     html,
+    headers: {
+      'X-Priority': '1 (Highest)',
+      'X-MSMail-Priority': 'High',
+      'Importance': 'high'
+    }
   });
 
   console.log(`Registration OTP sent to ${email}`);
@@ -169,12 +176,19 @@ export async function sendPasswordResetOtp(email, otp) {
     </table>`;
 
   const html = emailShell(accent, 'Password Reset', body);
+  const text = `Reset your password: Your Krovaa password reset code is ${otp}. This code expires in 10 minutes. If you did not request this, your account remains secure.`;
 
   await transporter.sendMail({
-    from: `"Krovaa" <${process.env.EMAIL_USER}>`,
+    from: `"Krovaa Security" <${process.env.EMAIL_USER}>`,
     to: email,
     subject: `${otp} — your Krovaa password reset code`,
+    text,
     html,
+    headers: {
+      'X-Priority': '1 (Highest)',
+      'X-MSMail-Priority': 'High',
+      'Importance': 'high'
+    }
   });
 
   console.log(`Password reset OTP sent to ${email}`);

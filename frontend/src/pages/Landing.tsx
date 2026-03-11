@@ -448,6 +448,8 @@ const Landing = () => {
                 <a href="#" className="hover:text-white transition-colors w-fit">Blog</a>
                 <Link to="/privacy" className="hover:text-white transition-colors w-fit">Privacy</Link>
                 <Link to="/terms" className="hover:text-white transition-colors w-fit">Terms</Link>
+                <Link to="/refund" className="hover:text-white transition-colors w-fit">Refund</Link>
+                <Link to="/cookie-policy" className="hover:text-white transition-colors w-fit">Cookies</Link>
               </div>
             </div>
           </div>
@@ -457,6 +459,8 @@ const Landing = () => {
             <div className="flex gap-6 text-xs text-white/20">
               <Link to="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
               <Link to="/terms" className="hover:text-white transition-colors">Terms of Service</Link>
+              <Link to="/refund" className="hover:text-white transition-colors">Refund Policy</Link>
+              <Link to="/cookie-policy" className="hover:text-white transition-colors">Cookie Policy</Link>
               <button
                 onClick={() => { localStorage.removeItem("cookie_consent"); window.location.reload(); }}
                 className="hover:text-white transition-colors"

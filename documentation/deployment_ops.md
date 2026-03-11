@@ -113,4 +113,69 @@ certbot renew --dry-run
 
 ---
 
+## Recovery & Backup Procedures
+
+Use these procedures to handle application crashes or to secure your data before performing updates.
+
+### 1. Disaster Recovery (Application Crash)
+If the website is down (502 Gateway, 503 Service Unavailable, or Connection Refused):
+
+1.  **Check Service Status**:
+    ```bash
+    # See if backend is running
+    pm2 status
+    # See if frontend and DB containers are running
+    docker ps
+    ```
+
+2.  **Restart Sequence (The "Soft" Reset)**:
+    ```bash
+    # Restart the API
+    pm2 restart all
+    # Restart Frontend and DB
+    docker-compose restart
+    ```
+
+3.  **The "Force" Reset (If ports are stuck)**:
+    ```bash
+    # Kill all PM2 processes
+    pm2 delete all
+    # Stop and remove all containers
+    docker-compose down
+    # Clear Docker system cache (caution: removes unused data)
+    docker system prune -f
+    # Start fresh
+    pm2 start /root/chat-new/backend/ecosystem.config.cjs
+    docker-compose up -d
+    ```
+
+### 2. Backing Up Data (Before Updates)
+**Always** back up your database before running `git reset --hard` or updating Prisma schema.
+
+#### A. Database Backup (PostgreSQL)
+Run this command on the VPS to create a timestamped SQL dump:
+```bash
+# Create a backup folder if it doesn't exist
+mkdir -p /root/backups
+
+# Export all data from the Postgres container
+docker exec krovaa-postgres pg_dumpall -U postgres > /root/backups/db_backup_$(date +%F_%H-%M).sql
+```
+
+#### B. Configuration Backup
+Your `.env` files are the most important configuration. Back them up manually:
+```bash
+cp /root/chat-new/.env /root/backups/.env.backup
+cp /root/chat-new/backend/.env /root/backups/backend.env.backup
+```
+
+### 3. Restoring Data
+If an update corrupts your data, restore from the latest backup:
+```bash
+# WARNING: This deletes current data and replaces it with the backup
+cat /root/backups/your_backup_file.sql | docker exec -i krovaa-postgres psql -U postgres
+```
+
+---
+
 &copy; 2026 Krovaa Project

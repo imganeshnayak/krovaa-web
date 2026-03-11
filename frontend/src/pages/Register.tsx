@@ -11,6 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { apiFetch } from "@/lib/api";
 import { validatePassword } from "@/lib/passwordValidation";
 import PasswordStrength from "@/components/auth/PasswordStrength";
+import { toast } from "sonner";
 
 /* ── Font injection ── */
 if (typeof document !== "undefined" && !document.getElementById("krovaa-reg-fonts")) {
@@ -89,6 +90,7 @@ const Register = () => {
     setError("");
     try {
       await register(username.trim(), email.trim().toLowerCase(), password, displayName.trim(), otp);
+      toast.success(`Welcome to Krovaa, ${displayName || username}!`);
       navigate("/chat", { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed");
@@ -290,15 +292,15 @@ const Register = () => {
                   <div className="space-y-3 pt-1">
                     <Check checked={agreeToTerms} onChange={() => setAgreeToTerms(s => !s)}>
                       I agree to the{" "}
-                      <a href="/terms" target="_blank" className="text-blue-400 hover:text-blue-300 transition-colors">
+                      <Link to="/terms" target="_blank" className="text-blue-400 hover:text-blue-300 transition-colors">
                         Terms of Service
-                      </a>
+                      </Link>
                     </Check>
                     <Check checked={agreeToPrivacy} onChange={() => setAgreeToPrivacy(s => !s)}>
                       I accept the{" "}
-                      <a href="/privacy" target="_blank" className="text-blue-400 hover:text-blue-300 transition-colors">
+                      <Link to="/privacy" target="_blank" className="text-blue-400 hover:text-blue-300 transition-colors">
                         Privacy Policy
-                      </a>
+                      </Link>
                     </Check>
                   </div>
 

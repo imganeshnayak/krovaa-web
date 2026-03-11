@@ -1,5 +1,6 @@
 
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { getWalletBalance, getWalletTransactions, getPayoutRequests, WalletTransaction, PayoutRequest } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -20,6 +21,7 @@ import { Info, Plus } from "lucide-react";
 import { initiateWalletTopup, verifyPayment } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 
 declare global {
@@ -198,17 +200,21 @@ const WalletPage = () => {
                             </div>
                         )}
 
-                        <div className="flex items-start gap-2 p-3 bg-secondary/20 rounded-lg">
-                            <input
-                                type="checkbox"
-                                id="walletTerms"
-                                checked={agreeToWalletTerms}
-                                onChange={(e) => setAgreeToWalletTerms(e.target.checked)}
-                                className="mt-1 cursor-pointer"
+                        <div className="flex items-start space-x-2 p-3 bg-secondary/20 rounded-lg">
+                            <Checkbox 
+                                id="walletTerms" 
+                                checked={agreeToWalletTerms} 
+                                onCheckedChange={(checked) => setAgreeToWalletTerms(checked === true)}
+                                className="mt-0.5"
                             />
-                            <label htmlFor="walletTerms" className="text-xs text-muted-foreground cursor-pointer">
-                                I accept the <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Terms and Conditions</a>
-                            </label>
+                            <div className="grid gap-1.5 leading-none">
+                                <Label
+                                    htmlFor="walletTerms"
+                                    className="text-xs text-muted-foreground cursor-pointer leading-normal"
+                                >
+                                    I agree to the <Link to="/terms" target="_blank" className="text-primary hover:underline">Terms & Conditions</Link>, <Link to="/privacy" target="_blank" className="text-primary hover:underline">Privacy Policy</Link> and <Link to="/refund" target="_blank" className="text-primary hover:underline">Refund Policy</Link>
+                                </Label>
+                            </div>
                         </div>
                     </div>
                     <div className="flex justify-end gap-3">

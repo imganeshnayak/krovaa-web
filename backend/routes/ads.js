@@ -281,7 +281,7 @@ router.post('/:id/push', auth, adminOnly, async (req, res) => {
                 message: notification.message,
                 type: notification.type,
                 createdAt: notification.createdAt,
-                sentBy: 'Admin',
+                sentBy: 'Krovaa',
                 metadata: notification.metadata
             };
 

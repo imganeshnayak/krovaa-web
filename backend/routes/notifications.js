@@ -46,7 +46,7 @@ router.get('/', auth, async (req, res) => {
             message: n.message,
             type: n.type,
             createdAt: n.createdAt,
-            sentBy: (n.admin?.role === 'admin' || n.admin?.role === 'staff') ? 'Admin' : (n.admin?.displayName || n.admin?.username || 'System'),
+            sentBy: (n.admin?.role === 'admin' || n.admin?.role === 'staff') ? 'Krovaa' : (n.admin?.displayName || n.admin?.username || 'System'),
             isRead: n.reads.length > 0 && !n.reads[0].isDeleted,
             metadata: n.metadata
         }));
@@ -226,7 +226,7 @@ router.post('/broadcast', auth, adminOnly, checkPermission('broadcast'), async (
                 type: notification.type,
                 color: notification.color,
                 createdAt: notification.createdAt,
-                sentBy: (notification.admin?.role === 'admin' || notification.admin?.role === 'staff') ? 'Admin' : (notification.admin?.displayName || notification.admin?.username || 'Admin'),
+                sentBy: (notification.admin?.role === 'admin' || notification.admin?.role === 'staff') ? 'Krovaa' : (notification.admin?.displayName || notification.admin?.username || 'Krovaa'),
                 sentById: req.user.id, // Include sender ID for filtering
                 isRead: false,
                 metadata: notification.metadata
@@ -260,7 +260,7 @@ router.post('/broadcast', auth, adminOnly, checkPermission('broadcast'), async (
                 if (io) {
                     const socketMsg = {
                         ...msg,
-                        sender_name: "Admin",
+                        sender_name: "Krovaa",
                         sender_avatar: null // Use default system avatar
                     };
 
@@ -345,7 +345,7 @@ export async function sendUserNotification(io, targetUserId, title, message, typ
                 if (io) {
                     io.to(chatId).emit('newMessage', {
                         ...msg,
-                        sender_name: "Admin",
+                        sender_name: "Krovaa",
                         sender_avatar: null // Use default system avatar
                     });
                 }

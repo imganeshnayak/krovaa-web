@@ -505,7 +505,7 @@ const ChatView = ({
           <div className="bg-blue-600/10 h-24 w-24 rounded-3xl flex items-center justify-center mx-auto mb-8 border border-blue-500/20 shadow-2xl shadow-blue-600/10 -rotate-6 animate-float">
             <Send className="h-10 w-10 text-blue-500 opacity-80" />
           </div>
-          <h2 style={{ fontFamily: "'Syne', sans-serif" }} className="text-3xl font-bold text-white mb-4 tracking-tight">Your Messages</h2>
+          <h2 style={{ fontFamily: "'Syne', sans-serif" }} className="text-3xl font-bold text-white mb-4 tracking-tight">Welcome to Krovaa</h2>
           <p className="max-w-[280px] mx-auto text-sm text-white/40 leading-relaxed font-light">
             Select a conversation from the list to start chatting. <br />
             Your privacy is our priority.
@@ -527,7 +527,15 @@ const ChatView = ({
             </div>
             <h2 className="text-2xl font-bold text-foreground mb-3 tracking-tight">Screenshot Detected</h2>
             <p className="text-sm text-muted-foreground mb-2">Unauthorized screen capture attempt blocked.</p>
-            <p className="text-xs text-muted-foreground opacity-70">Your chat privacy is protected.</p>
+            <p className="text-xs text-muted-foreground opacity-70 mb-6">Your chat privacy is protected.</p>
+
+            <Button
+              variant="outline"
+              className="bg-white/5 border-white/10 hover:bg-white/10 text-white rounded-xl px-6"
+              onClick={() => setIsBlurred(false)}
+            >
+              Click to Restore View
+            </Button>
           </div>
         </div>
       )}
@@ -813,7 +821,7 @@ const ChatView = ({
                               <div className="flex-1 min-w-0">
                                 <p className="font-semibold text-[13px] text-white leading-none tracking-tight">
                                   {isAdminMsg
-                                    ? "Support"
+                                    ? "Krovaa"
                                     : msg.messageType === 'escrow_created' || msg.message_type === 'escrow_created'
                                       ? "Deal Created"
                                       : (msg.messageType === 'escrow_released' || msg.message_type === 'escrow_released')
@@ -1098,6 +1106,14 @@ const ChatView = ({
               className="max-w-full max-h-[85vh] h-auto object-contain rounded-lg shadow-2xl select-none pointer-events-none privacy-protected"
               onContextMenu={(e) => e.preventDefault()}
             />
+
+            {/* Watermark for view-once media */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden origin-center">
+              <div className="text-white/[0.03] text-9xl font-black tracking-widest uppercase -rotate-45 whitespace-nowrap">
+                Krovaa
+              </div>
+            </div>
+
             {isPreviewViewOnce && !isHoldingView && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm rounded-lg pointer-events-none">
                 <div className="text-center p-6 text-white">

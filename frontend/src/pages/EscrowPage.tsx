@@ -16,6 +16,7 @@ import { getEscrowDeals, createEscrowDeal, releaseEscrowPayment, EscrowDeal, ini
 import { socketService } from "@/lib/socket";
 import LoadingScreen from "@/components/ui/LoadingScreen";
 import { useRazorpay } from "@/hooks/useRazorpay";
+import { Checkbox } from "@/components/ui/checkbox";
 
 function formatCurrency(n: number) {
   return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(n);
@@ -56,6 +57,7 @@ const EscrowPage = () => {
     terms: "",
     totalAmount: ""
   });
+  const [agreeToEscrowTerms, setAgreeToEscrowTerms] = useState(false);
   const [activeTab, setActiveTab] = useState<"active" | "completed">("active");
   const [platformFeePercent, setPlatformFeePercent] = useState<number>(0.10); // Default 10%
 
@@ -251,6 +253,7 @@ const EscrowPage = () => {
 
       setIsNewDealOpen(false);
       setNewDeal({ chatId: "", vendorId: "", vendorUsername: "", title: "", description: "", terms: "", totalAmount: "" });
+      setAgreeToEscrowTerms(false);
       loadDeals();
     } catch (err) {
       toast({
@@ -508,9 +511,26 @@ const EscrowPage = () => {
                     </div>
                   )}
 
-                  <Button className="w-full mt-2" onClick={handleCreateDeal} disabled={isCreating}>
-                    {isCreating ? "Creating..." : "Create Deal"}
-                  </Button>
+                    <div className="flex items-start space-x-2 mt-2">
+                      <Checkbox 
+                        id="escrow-terms" 
+                        checked={agreeToEscrowTerms} 
+                        onCheckedChange={(checked) => setAgreeToEscrowTerms(checked === true)}
+                        className="mt-0.5"
+                      />
+                      <div className="grid gap-1.5 leading-none">
+                        <Label
+                          htmlFor="escrow-terms"
+                          className="text-xs text-muted-foreground cursor-pointer leading-normal"
+                        >
+                          I agree to the <Link to="/terms" target="_blank" className="text-primary hover:underline">Terms & Conditions</Link>, <Link to="/privacy" target="_blank" className="text-primary hover:underline">Privacy Policy</Link> and <Link to="/refund" target="_blank" className="text-primary hover:underline">Refund Policy</Link>
+                        </Label>
+                      </div>
+                    </div>
+
+                    <Button className="w-full mt-2" onClick={handleCreateDeal} disabled={isCreating || !agreeToEscrowTerms}>
+                      {isCreating ? "Creating..." : "Create Deal"}
+                    </Button>
                 </div>
               </DialogContent>
             </Dialog>
