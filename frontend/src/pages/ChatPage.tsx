@@ -117,7 +117,8 @@ const ConversationList = ({
   setSelectedChat,
   user,
   onLogout,
-  onSupport
+  onSupport,
+  isMobile
 }: {
   searchQuery: string;
   setSearchQuery: (val: string) => void;
@@ -131,6 +132,7 @@ const ConversationList = ({
   user: AuthUser | null;
   onLogout: () => void;
   onSupport: () => void;
+  isMobile: boolean;
 }) => {
   const [isSearchVisible, setIsSearchVisible] = useState(false);
 
@@ -142,7 +144,10 @@ const ConversationList = ({
 
         <div className="flex items-center justify-between">
           {!isSearchVisible ? (
-            <h1 style={{ fontFamily: "'Syne', sans-serif" }} className="text-xl font-bold text-white tracking-tight">Chats</h1>
+            <div className="flex flex-col">
+              <h1 style={{ fontFamily: "'Syne', sans-serif" }} className="text-xl font-bold text-white tracking-tight leading-none">Chats</h1>
+              <span className="text-[10px] text-muted-foreground/60 font-medium tracking-wide mt-1 uppercase">Messages</span>
+            </div>
           ) : (
 
             <div className="flex-1 relative mr-2 animate-in fade-in slide-in-from-right-4 duration-200">
@@ -229,6 +234,26 @@ const ConversationList = ({
           </div>
         </div>
       </div>
+
+      {/* Welcome Banner for Mobile (New Users) */}
+      {isMobile && !searchQuery.trim() && filteredChats.length <= 1 && (
+        <div className="mx-4 mt-2 mb-4 p-5 rounded-2xl bg-gradient-to-br from-blue-600/10 to-blue-900/5 border border-blue-500/20 relative overflow-hidden group shadow-lg shadow-blue-950/20 animate-in slide-in-from-top-4 duration-500">
+          <div className="absolute top-0 right-0 p-3 opacity-[0.05] group-hover:scale-110 transition-transform duration-500">
+            <Shield className="w-14 h-14 text-blue-500" />
+          </div>
+          <div className="relative z-10">
+            <h2 style={{ fontFamily: "'Syne', sans-serif" }} className="text-xl font-extrabold text-white tracking-tight mb-1.5 flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+              Welcome to Krovaa
+            </h2>
+            <p className="text-[11px] text-white/40 leading-relaxed max-w-[85%] font-light">
+              Your secure end-to-end encrypted workspace is active. Search for users or contact support to start chatting.
+            </p>
+          </div>
+          {/* Decorative line */}
+          <div className="absolute bottom-0 left-0 h-0.5 bg-gradient-to-r from-blue-500/40 via-blue-500/10 to-transparent w-full" />
+        </div>
+      )}
 
       {/* Chat list */}
       <ScrollArea className="flex-1">
@@ -406,6 +431,7 @@ const ChatView = ({
   const [isHoldingView, setIsHoldingView] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [previewSenderUsername, setPreviewSenderUsername] = useState<string | null>(null);
   const inputBarRef = useRef<HTMLDivElement | null>(null);
   const [inputBarHeight, setInputBarHeight] = useState(0);
   const [activeMessageMenu, setActiveMessageMenu] = useState<MessageType | null>(null);
@@ -500,7 +526,7 @@ const ChatView = ({
   };
   if (!selectedChat) {
     return (
-      <div className="flex flex-col h-full min-h-0 items-center justify-center bg-[#050810] relative overflow-hidden">
+      <div className={`flex flex-col h-full min-h-0 items-center ${isMobile ? 'justify-start pt-20' : 'justify-center'} bg-[#050810] relative overflow-hidden`}>
         {/* Decorative background for empty state */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-blue-600/5 rounded-full blur-[120px] pointer-events-none" />
 
@@ -789,6 +815,7 @@ const ChatView = ({
                                 if (msg.attachmentUrl) {
                                   setIsPreviewViewOnce(true);
                                   setPreviewImage(msg.attachmentUrl);
+                                  setPreviewSenderUsername(selectedChat.username);
                                   handleOpenViewOnce(msg);
                                 }
                               }
@@ -897,6 +924,7 @@ const ChatView = ({
                                 onClick={() => {
                                   setIsPreviewViewOnce(false);
                                   setPreviewImage(msg.attachmentUrl || null);
+                                  setPreviewSenderUsername(isMine ? user?.username : selectedChat.username);
                                 }}
                               >
                                 <img src={msg.attachmentUrl} alt="attachment" className="max-w-full rounded h-48 object-cover shadow-sm border border-white/10 select-none pointer-events-none" />
@@ -1110,10 +1138,15 @@ const ChatView = ({
               onContextMenu={(e) => e.preventDefault()}
             />
 
-            {/* Watermark for view-once media */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden origin-center">
-              <div className="text-white/[0.03] text-9xl font-black tracking-widest uppercase -rotate-45 whitespace-nowrap">
-                Krovaa
+            {/* Watermark for tracing and security */}
+            <div className="absolute inset-0 pointer-events-none select-none overflow-hidden origin-center flex items-center justify-center z-10">
+              <div className={`grid grid-cols-2 md:grid-cols-3 gap-24 -rotate-45 scale-125 transition-opacity duration-300 ${isPreviewViewOnce ? 'opacity-[0.08]' : 'opacity-[0.03]'}`}>
+                {Array.from({ length: 12 }).map((_, i) => (
+                  <div key={i} className="text-white text-xl md:text-3xl font-black tracking-widest uppercase whitespace-nowrap flex flex-col items-center">
+                    <span>@{previewSenderUsername || user?.username}</span>
+                    {isPreviewViewOnce && <span className="text-[10px] font-bold tracking-[0.4em] opacity-40">CONFIDENTIAL</span>}
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -1993,8 +2026,9 @@ const ChatPage = () => {
             selectedChat={selectedChat}
             setSelectedChat={setSelectedChat}
             user={user}
-            onLogout={handleLogout}
             onSupport={handleSupport}
+            onLogout={handleLogout}
+            isMobile={isMobile}
           />
         )}
       </div>
@@ -2017,8 +2051,9 @@ const ChatPage = () => {
           selectedChat={selectedChat}
           setSelectedChat={setSelectedChat}
           user={user}
-          onLogout={handleLogout}
           onSupport={handleSupport}
+          onLogout={handleLogout}
+          isMobile={isMobile}
         />
       </div>
       <div className="flex-1 h-full min-h-0 overflow-hidden">

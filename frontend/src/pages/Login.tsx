@@ -101,7 +101,7 @@ const Login = () => {
         <div className="relative z-10 flex flex-col h-full p-14">
           {/* Logo */}
           <Link to="/" className="flex items-center group w-fit">
-            <img src="/1.svg" alt="Krovaa Logo" className="h-11 w-auto" />
+            <img src="/krovaa-logo.svg?v=2" alt="Krovaa Logo" className="h-11 w-auto" />
           </Link>
 
           {/* Statement */}
@@ -135,7 +135,7 @@ const Login = () => {
         {/* Mobile logo */}
         <div className="lg:hidden flex items-center justify-between px-8 pt-8 pb-4">
           <Link to="/" className="flex items-center">
-            <img src="/1.svg" alt="Krovaa Logo" className="h-9 w-auto" />
+            <img src="/krovaa-logo.svg?v=2" alt="Krovaa Logo" className="h-9 w-auto" />
           </Link>
         </div>
 

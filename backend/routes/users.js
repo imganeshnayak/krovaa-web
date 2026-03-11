@@ -91,6 +91,7 @@ router.get('/username/:username', async (req, res) => {
                 status: true,
                 verified: true,
                 city: true,          // city (general area) is OK to show
+                profession: true,
                 createdAt: true,
                 ratingsReceived: {
                     select: { rating: true }
@@ -271,6 +272,7 @@ router.get('/:id', auth, async (req, res) => {
                 verified: true,
                 city: true,
                 pincode: true,
+                profession: true,
                 createdAt: true,
                 ratingsReceived: {
                     select: { rating: true }
@@ -328,6 +330,7 @@ router.get('/profile/:id', auth, async (req, res) => {
                 createdAt: true,
                 city: true,
                 pincode: true,
+                profession: true,
                 ratingsReceived: {
                     select: { rating: true }
                 }
@@ -393,6 +396,7 @@ router.put('/profile/:id', auth, async (req, res) => {
                 phoneNumber: true,
                 city: true,
                 pincode: true,
+                profession: true,
                 createdAt: true
             }
         });

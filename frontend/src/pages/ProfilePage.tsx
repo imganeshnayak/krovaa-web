@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import {
   ArrowLeft, Share2, MessageSquare, Twitter, Instagram, Linkedin,
   Github, Globe, Plus, Trash2, Star, LogOut, Facebook, Youtube,
-  Camera, Save, X, Edit2, Eye, MapPin, CheckCircle2, RotateCcw, Trash, Phone, Lock
+  Camera, Save, X, Edit2, Eye, MapPin, CheckCircle2, RotateCcw, Trash, Phone, Lock, Briefcase
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -419,6 +419,12 @@ const ProfilePage = () => {
             </div>
             <div className="flex items-center gap-3 mt-1 flex-wrap">
               <span className="text-xs text-white/30">@{user.username}</span>
+              {user.profession && (
+                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-blue-500/10 border border-blue-500/20">
+                  <Briefcase className="h-3 w-3 text-blue-400" />
+                  <span className="text-[10px] text-blue-300 font-bold uppercase tracking-wider">{user.profession}</span>
+                </div>
+              )}
               <div className="flex items-center gap-1.5">
                 <span className={`w-1.5 h-1.5 rounded-full ${user.status === "active" ? "bg-emerald-400 animate-pulse" : "bg-white/20"}`} />
                 <span className="text-[10px] text-white/30 uppercase tracking-widest font-medium">

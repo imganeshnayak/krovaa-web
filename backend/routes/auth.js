@@ -64,7 +64,7 @@ router.post('/send-otp', async (req, res) => {
 // ─────────────────────────────────────────────────────────────────
 router.post('/register', async (req, res) => {
     try {
-        let { username, email, password, display_name, otp } = req.body;
+        let { username, email, password, display_name, otp, profession } = req.body;
         username = username?.trim();
         email = email?.trim().toLowerCase();
 
@@ -123,8 +123,8 @@ router.post('/register', async (req, res) => {
 
         const hashedPassword = await bcrypt.hash(password, 10);
         const user = await prisma.user.create({
-            data: { username, email, password: hashedPassword, displayName: display_name || username },
-            select: { id: true, username: true, email: true, displayName: true, role: true },
+            data: { username, email, password: hashedPassword, displayName: display_name || username, profession },
+            select: { id: true, username: true, email: true, displayName: true, role: true, profession: true },
         });
 
         const token = jwt.sign(

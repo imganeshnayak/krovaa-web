@@ -111,41 +111,41 @@ const otpBlock = (otp, accent, expiry = '10 minutes') => `
 
 /* ── Registration OTP ── */
 export async function sendRegistrationOtp(email, otp) {
-  const accent = '#3b82f6';
+  const subject = `Your Krovaa verification code`;
+  const text = `Hello,
 
-  const body = `
-    <h2 style="color:#ffffff;font-size:22px;font-weight:700;margin:0 0 10px;letter-spacing:-0.3px;">Verify your email address</h2>
-    <p style="color:rgba(255,255,255,0.35);font-size:14px;line-height:1.7;margin:0;">
-      Someone used this email to create a Krovaa account. Enter the code below to confirm it's you.
-    </p>
+Your Krovaa verification code is:
 
-    ${otpBlock(otp, accent)}
+${otp}
 
-    <table width="100%" cellpadding="0" cellspacing="0">
-      <tr>
-        <td style="padding:16px;background:#060a12;border-radius:12px;border:1px solid rgba(255,255,255,0.05);">
-          <p style="color:rgba(255,255,255,0.2);font-size:12px;margin:0;line-height:1.6;">
-            Do not share this code with anyone. Krovaa will never ask for it over chat or phone.
-            If you did not create an account, you can safely ignore this email.
-          </p>
-        </td>
-      </tr>
-    </table>`;
+This code expires in 10 minutes.
 
-  const html = emailShell(accent, 'Email Verification', body);
-  const text = `Verify your email address: Your Krovaa verification code is ${otp}. This code expires in 10 minutes. If you did not create an account, please ignore this email.`;
+If you did not request this code, you can ignore this email.
+
+— Krovaa Security
+https://krovaa.com`;
+
+  const html = `
+    <div style="font-family: sans-serif; color: #333; line-height: 1.6; max-width: 600px;">
+      <p>Hello,</p>
+      <p>Your Krovaa verification code is:</p>
+      <p style="font-size: 24px; font-weight: bold; letter-spacing: 2px; margin: 20px 0;">${otp}</p>
+      <p>This code expires in 10 minutes.</p>
+      <p>If you did not request this code, you can ignore this email.</p>
+      <p style="margin-top: 30px;">
+        — Krovaa Security<br>
+        <a href="https://krovaa.com" style="color: #3b82f6; text-decoration: none;">https://krovaa.com</a>
+      </p>
+    </div>
+  `;
 
   await transporter.sendMail({
-    from: `"Krovaa Security" <${process.env.EMAIL_USER}>`,
+    from: `"Krovaa Security" <noreply@krovaa.com>`,
     to: email,
-    subject: `${otp} — your Krovaa verification code`,
+    replyTo: 'support@krovaa.com',
+    subject,
     text,
     html,
-    headers: {
-      'X-Priority': '1 (Highest)',
-      'X-MSMail-Priority': 'High',
-      'Importance': 'high'
-    }
   });
 
   console.log(`Registration OTP sent to ${email}`);
@@ -153,43 +153,44 @@ export async function sendRegistrationOtp(email, otp) {
 
 /* ── Password reset OTP ── */
 export async function sendPasswordResetOtp(email, otp) {
-  const accent = '#ef4444';
+  const subject = `Your Krovaa password reset code`;
+  const text = `Hello,
 
-  const body = `
-    <h2 style="color:#ffffff;font-size:22px;font-weight:700;margin:0 0 10px;letter-spacing:-0.3px;">Reset your password</h2>
-    <p style="color:rgba(255,255,255,0.35);font-size:14px;line-height:1.7;margin:0;">
-      We received a request to reset the password for the Krovaa account associated with this email.
-      Use the code below to proceed.
-    </p>
+Your Krovaa password reset code is:
 
-    ${otpBlock(otp, accent)}
+${otp}
 
-    <table width="100%" cellpadding="0" cellspacing="0">
-      <tr>
-        <td style="padding:16px;background:#060a12;border-radius:12px;border:1px solid rgba(255,255,255,0.05);">
-          <p style="color:rgba(255,255,255,0.2);font-size:12px;margin:0;line-height:1.6;">
-            If you did not request a password reset, your account remains secure — no action is needed.
-            Never share this code with anyone.
-          </p>
-        </td>
-      </tr>
-    </table>`;
+This code expires in 10 minutes.
 
-  const html = emailShell(accent, 'Password Reset', body);
-  const text = `Reset your password: Your Krovaa password reset code is ${otp}. This code expires in 10 minutes. If you did not request this, your account remains secure.`;
+If you did not request this code, you can ignore this email.
+
+— Krovaa Security
+https://krovaa.com`;
+
+  const html = `
+    <div style="font-family: sans-serif; color: #333; line-height: 1.6; max-width: 600px;">
+      <p>Hello,</p>
+      <p>Your Krovaa password reset code is:</p>
+      <p style="font-size: 24px; font-weight: bold; letter-spacing: 2px; margin: 20px 0;">${otp}</p>
+      <p>This code expires in 10 minutes.</p>
+      <p>If you did not request this code, your account remains secure.</p>
+      <p style="margin-top: 30px;">
+        — Krovaa Security<br>
+        <a href="https://krovaa.com" style="color: #3b82f6; text-decoration: none;">https://krovaa.com</a>
+      </p>
+    </div>
+  `;
 
   await transporter.sendMail({
-    from: `"Krovaa Security" <${process.env.EMAIL_USER}>`,
+    from: `"Krovaa Security" <noreply@krovaa.com>`,
     to: email,
-    subject: `${otp} — your Krovaa password reset code`,
+    replyTo: 'support@krovaa.com',
+    subject,
     text,
     html,
-    headers: {
-      'X-Priority': '1 (Highest)',
-      'X-MSMail-Priority': 'High',
-      'Importance': 'high'
-    }
   });
+
+
 
   console.log(`Password reset OTP sent to ${email}`);
 }

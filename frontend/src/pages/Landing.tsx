@@ -128,7 +128,7 @@ const Landing = () => {
       <nav className="sticky top-0 z-50 border-b border-white/5 backdrop-blur-2xl bg-[#050810]/80">
         <div className="flex items-center justify-between px-6 py-4 max-w-7xl mx-auto">
           <Link to="/" className="flex items-center group">
-            <img src="/1.svg" alt="Krovaa Logo" className="h-16 w-auto" />
+            <img src="/krovaa-logo.svg?v=2" alt="Krovaa Logo" className="h-16 w-auto" />
           </Link>
 
 

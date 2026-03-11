@@ -74,6 +74,7 @@ export function registerUser(data: {
   email: string;
   password: string;
   display_name?: string;
+  profession?: string;
   otp: string;
 }): Promise<AuthResponse> {
   return apiFetch<AuthResponse>("/api/auth/register", {

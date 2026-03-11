@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Mail, CheckCircle2, Loader2, Eye, EyeOff,
-  User, AtSign, ArrowRight, ChevronLeft, RotateCcw
+  User, AtSign, ArrowRight, ChevronLeft, RotateCcw, Briefcase
 } from "lucide-react";
 import TelegramLogin from "@/components/TelegramLogin";
 import { Button } from "@/components/ui/button";
@@ -42,6 +42,30 @@ const Field = ({
   </div>
 );
 
+const SelectField = ({
+  label, icon: Icon, options, value, onChange, className = "", ...props
+}: { label: string; icon: React.ElementType; options: string[]; value: string; onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void; className?: string;[k: string]: any }) => (
+  <div className="group">
+    <label className="block text-[9px] font-bold tracking-[0.25em] uppercase text-white/25 mb-2 ml-0.5">
+      {label}
+    </label>
+    <div className="relative">
+      <Icon className="absolute left-0 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/20 group-focus-within:text-blue-400 transition-colors duration-200" />
+      <select
+        className={`w-full bg-transparent border-0 border-b border-white/10 focus:border-blue-500/60 outline-none pl-6 pb-2.5 pt-1 text-sm text-white appearance-none cursor-pointer transition-colors duration-200 ${className}`}
+        value={value}
+        onChange={onChange}
+        {...props}
+      >
+        <option value="" className="bg-[#0a0f1e] text-white/40">Select your {label.toLowerCase()}...</option>
+        {options.map(p => (
+          <option key={p} value={p} className="bg-[#0a0f1e] text-white">{p}</option>
+        ))}
+      </select>
+    </div>
+  </div>
+);
+
 /* ── Checkbox ── */
 const Check = ({ checked, onChange, children }: { checked: boolean; onChange: () => void; children: React.ReactNode }) => (
   <button type="button" onClick={onChange} className="flex items-start gap-3 text-left group">
@@ -61,6 +85,7 @@ const Register = () => {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [displayName, setDisplayName] = useState("");
+  const [profession, setProfession] = useState("");
   const [otp, setOtp] = useState("");
   const [error, setError] = useState("");
   const [isSendingOtp, setIsSendingOtp] = useState(false);
@@ -89,7 +114,7 @@ const Register = () => {
     e.preventDefault();
     setError("");
     try {
-      await register(username.trim(), email.trim().toLowerCase(), password, displayName.trim(), otp);
+      await register(username.trim(), email.trim().toLowerCase(), password, displayName.trim(), otp, profession.trim());
       toast.success(`Welcome to Krovaa, ${displayName || username}!`);
       navigate("/chat", { replace: true });
     } catch (err) {
@@ -137,7 +162,7 @@ const Register = () => {
         <div className="relative z-10 flex flex-col h-full p-14">
           {/* Logo */}
           <Link to="/" className="flex items-center group w-fit">
-            <img src="/1.svg" alt="Krovaa Logo" className="h-11 w-auto" />
+            <img src="/krovaa-logo.svg?v=2" alt="Krovaa Logo" className="h-11 w-auto" />
           </Link>
 
           {/* Main statement */}
@@ -176,7 +201,7 @@ const Register = () => {
         {/* Mobile logo */}
         <div className="lg:hidden flex items-center justify-between px-8 pt-8 pb-4">
           <Link to="/" className="flex items-center">
-            <img src="/1.svg" alt="Krovaa Logo" className="h-9 w-auto" />
+            <img src="/krovaa-logo.svg?v=2" alt="Krovaa Logo" className="h-9 w-auto" />
           </Link>
           <div className="text-xs text-white/30">
             Step {step === "form" ? "1" : "2"} of 2
@@ -253,6 +278,23 @@ const Register = () => {
                     placeholder="you@example.com"
                     value={email}
                     onChange={(e: any) => setEmail(e.target.value)}
+                    required
+                  />
+
+                   <SelectField
+                    label="Profession / Skill"
+                    icon={Briefcase}
+                    options={[
+                      "Software Developer", "UI/UX Designer", "Graphic Designer", "Web Developer",
+                      "Data Scientist", "AI / ML Engineer", "Cybersecurity Analyst", "DevOps Engineer",
+                      "Product Manager", "Digital Marketer", "Content Creator", "Video Editor",
+                      "Photographer", "Videographer", "Artist / Illustrator", "Musician",
+                      "Civil Engineer", "Mechanical Engineer", "Electrical Engineer", "Architect",
+                      "Doctor", "Nurse", "Pharmacist", "Lawyer", "Chartered Accountant",
+                      "Teacher / Educator", "Writer / Author", "Entrepreneur", "Consultant", "Other"
+                    ]}
+                    value={profession}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setProfession(e.target.value)}
                     required
                   />
 
