@@ -45,7 +45,11 @@ const CookieConsent = () => {
                             <h3 className="font-bold text-lg text-white tracking-tight">Cookie Settings</h3>
                         </div>
                         <button
-                            onClick={() => setIsVisible(false)}
+                            onClick={() => {
+                                localStorage.setItem("cookie_consent", "dismissed");
+                                sessionStorage.setItem("cookie_consent", "dismissed");
+                                setIsVisible(false);
+                            }}
                             className="p-1.5 rounded-full hover:bg-white/10 text-white/40 hover:text-white transition-colors"
                         >
                             <X className="h-4 w-4" />
