@@ -135,6 +135,16 @@ const ConversationList = ({
   isMobile: boolean;
 }) => {
   const [isSearchVisible, setIsSearchVisible] = useState(false);
+  const [isBannerDismissed, setIsBannerDismissed] = useState(() => localStorage.getItem("welcome_banner_dismissed") === "true");
+
+  useEffect(() => {
+    if (!isBannerDismissed && isMobile && !searchQuery.trim() && filteredChats.length <= 1) {
+      const timer = setTimeout(() => {
+        setIsBannerDismissed(true);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [isBannerDismissed, isMobile, searchQuery, filteredChats.length]);
 
   return (
     <div className="flex flex-col h-full min-h-0 bg-background/50 overflow-hidden font-dm-sans">
@@ -236,13 +246,23 @@ const ConversationList = ({
       </div>
 
       {/* Welcome Banner for Mobile (New Users) */}
-      {isMobile && !searchQuery.trim() && filteredChats.length <= 1 && (
+      {isMobile && !searchQuery.trim() && filteredChats.length <= 1 && !isBannerDismissed && (
         <div className="mx-4 mt-2 mb-4 p-5 rounded-2xl bg-gradient-to-br from-blue-600/10 to-blue-900/5 border border-blue-500/20 relative overflow-hidden group shadow-lg shadow-blue-950/20 animate-in slide-in-from-top-4 duration-500">
           <div className="absolute top-0 right-0 p-3 opacity-[0.05] group-hover:scale-110 transition-transform duration-500">
             <Shield className="w-14 h-14 text-blue-500" />
           </div>
+          <button
+            onClick={() => {
+              localStorage.setItem("welcome_banner_dismissed", "true");
+              setIsBannerDismissed(true);
+            }}
+            className="absolute top-2 right-2 p-1.5 rounded-full hover:bg-white/10 text-white/40 hover:text-white transition-colors z-20"
+          >
+            <X className="h-4 w-4" />
+          </button>
           <div className="relative z-10">
             <h2 style={{ fontFamily: "'Syne', sans-serif" }} className="text-xl font-extrabold text-white tracking-tight mb-1.5 flex items-center gap-2">
+
               <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
               Welcome to Krovaa
             </h2>
