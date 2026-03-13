@@ -40,7 +40,8 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, isLoading } = useAuth();
   if (isLoading) return <LoadingScreen />;
-  if (!user || (user.role !== 'admin' && user.role !== 'staff')) return <Navigate to="/chat" replace />;
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role !== 'admin') return <Navigate to="/chat" replace />;
   return <>{children}</>;
 };
 
@@ -102,7 +103,7 @@ const MainContent = () => {
 
         {/* Public profile pages at /:username - works without login */}
         <Route path="/:username" element={<ProfilePage />} />
-        
+
         <Route path="*" element={<NotFound />} />
       </Routes>
       {showNavbar && <BottomNavbar />}

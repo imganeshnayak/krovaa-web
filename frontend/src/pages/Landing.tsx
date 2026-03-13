@@ -129,7 +129,6 @@ const Landing = () => {
         <div className="w-full flex items-center justify-between px-4 md:px-8">
           <Link to="/" className="flex items-center group shrink-0 -ml-2 sm:-ml-0">
             {/* Using scale and origin-left to make the logo bigger without expanding the header height */}
-            <img src="/krovaa-logo.svg?v=3" alt="Krovaa Logo" className="h-16 w-auto scale-125 origin-left" />
           </Link>
 
 
@@ -429,9 +428,9 @@ const Landing = () => {
             </p>
           </div>
 
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pt-8 border-t border-white/5">
+          <div className="flex flex-col md:flex-row justify-between items-center md:items-center gap-4 pt-8 border-t border-white/5 text-center md:text-left">
             <p className="text-xs text-white/20">© 2026 Krovaa &nbsp;·&nbsp; <a href="mailto:support@krovaa.com" className="hover:text-white transition-colors">support@krovaa.com</a></p>
-            <div className="flex flex-wrap gap-6 text-xs text-white/20">
+            <div className="flex flex-wrap justify-center md:justify-end gap-x-6 gap-y-3 text-xs text-white/20">
               <Link to="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
               <Link to="/terms" className="hover:text-white transition-colors">Terms of Service</Link>
               <Link to="/refund" className="hover:text-white transition-colors">Refund Policy</Link>

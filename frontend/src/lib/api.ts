@@ -118,10 +118,11 @@ export function searchUsers(query: string): Promise<AuthUser[]> {
   return apiFetch<AuthUser[]>(`/api/users/search?q=${encodeURIComponent(query)}`);
 }
 
-export function getBestProfiles(params: { city?: string; pincode?: string }): Promise<AuthUser[]> {
+export function getBestProfiles(params: { city?: string; pincode?: string; profession?: string }): Promise<AuthUser[]> {
   const query = new URLSearchParams();
   if (params.city) query.append("city", params.city);
   if (params.pincode) query.append("pincode", params.pincode);
+  if (params.profession) query.append("profession", params.profession);
   return apiFetch<AuthUser[]>(`/api/users/best-profiles?${query.toString()}`);
 }
 

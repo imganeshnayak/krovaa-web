@@ -85,7 +85,6 @@ const Register = () => {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [displayName, setDisplayName] = useState("");
-  const [profession, setProfession] = useState("");
   const [otp, setOtp] = useState("");
   const [error, setError] = useState("");
   const [isSendingOtp, setIsSendingOtp] = useState(false);
@@ -114,7 +113,8 @@ const Register = () => {
     e.preventDefault();
     setError("");
     try {
-      await register(username.trim(), email.trim().toLowerCase(), password, displayName.trim(), otp, profession.trim());
+      await register(username.trim(), email.trim().toLowerCase(), password, displayName.trim(), otp);
+      localStorage.setItem('show_welcome_banner', 'true');
       toast.success(`Welcome to Krovaa, ${displayName || username}!`);
       navigate("/chat", { replace: true });
     } catch (err) {
@@ -281,22 +281,7 @@ const Register = () => {
                     required
                   />
 
-                   <SelectField
-                    label="Profession / Skill"
-                    icon={Briefcase}
-                    options={[
-                      "Software Developer", "UI/UX Designer", "Graphic Designer", "Web Developer",
-                      "Data Scientist", "AI / ML Engineer", "Cybersecurity Analyst", "DevOps Engineer",
-                      "Product Manager", "Digital Marketer", "Content Creator", "Video Editor",
-                      "Photographer", "Videographer", "Artist / Illustrator", "Musician",
-                      "Civil Engineer", "Mechanical Engineer", "Electrical Engineer", "Architect",
-                      "Doctor", "Nurse", "Pharmacist", "Lawyer", "Chartered Accountant",
-                      "Teacher / Educator", "Writer / Author", "Entrepreneur", "Consultant", "Other"
-                    ]}
-                    value={profession}
-                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setProfession(e.target.value)}
-                    required
-                  />
+
 
                   <div>
                     <div className="group">

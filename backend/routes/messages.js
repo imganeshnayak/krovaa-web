@@ -3,11 +3,13 @@ import { PrismaClient } from '@prisma/client';
 import { auth } from '../middleware/auth.js';
 import cloudinary from '../config/cloudinary.js';
 import multer from 'multer';
+import os from 'os';
+import fs from 'fs';
 
 const prisma = new PrismaClient();
 const router = express.Router();
 const upload = multer({
-    storage: multer.memoryStorage(),
+    dest: os.tmpdir(),
     limits: { fileSize: 500 * 1024 * 1024 }, // 500MB limit
     fileFilter: (req, file, cb) => {
         const forbiddenExtensions = ['.exe', '.bat', '.sh', '.msi'];
@@ -49,6 +51,17 @@ router.get('/chats/list', auth, async (req, res) => {
             },
         });
 
+        // Get unread counts in a single query
+        const unreadCounts = await prisma.message.groupBy({
+            by: ['chatId'],
+            where: {
+                receiverId: req.user.id,
+                read: false
+            },
+            _count: { id: true }
+        });
+        const unreadMap = new Map(unreadCounts.map(u => [u.chatId, u._count.id]));
+
         // Group by chatId and get latest message per chat
         const chatMap = new Map();
         for (const msg of messages) {
@@ -61,9 +74,6 @@ router.get('/chats/list', auth, async (req, res) => {
                 } else {
                     otherUser = msg.senderId === req.user.id ? msg.receiver : msg.sender;
                 }
-                const unreadCount = await prisma.message.count({
-                    where: { chatId: msg.chatId, read: false, receiverId: req.user.id },
-                });
                 chatMap.set(msg.chatId, {
                     chat_id: msg.chatId,
                     last_message: msg.isViewOnce && !msg.isOpened ? (msg.messageType === 'image' || msg.messageType === 'file' ? "Photo" : "View Once Message") : msg.content,
@@ -72,7 +82,7 @@ router.get('/chats/list', auth, async (req, res) => {
                     display_name: otherUser.displayName,
                     avatar_url: otherUser.avatarUrl,
                     username: otherUser.username,
-                    unread_count: unreadCount,
+                    unread_count: unreadMap.get(msg.chatId) || 0,
                     verified: otherUser.verified || false,
                 });
             }
@@ -265,6 +275,7 @@ router.post('/upload', auth, upload.single('file'), async (req, res) => {
         });
 
         if (isBlocked) {
+            if (req.file && req.file.path) fs.unlink(req.file.path, () => { });
             return res.status(403).json({ error: "You are blocked by this user." });
         }
 
@@ -276,11 +287,12 @@ router.post('/upload', auth, upload.single('file'), async (req, res) => {
             const stream = cloudinary.uploader.upload_stream(
                 { folder: 'krovaa/attachments', resource_type: 'auto', access_mode: 'public' },
                 (error, result) => {
+                    fs.unlink(req.file.path, () => { });
                     if (error) reject(error);
                     else resolve(result);
                 }
             );
-            stream.end(req.file.buffer);
+            fs.createReadStream(req.file.path).pipe(stream);
         });
 
         const message = await prisma.message.create({
@@ -327,6 +339,7 @@ router.post('/upload', auth, upload.single('file'), async (req, res) => {
 
         res.status(201).json(result);
     } catch (err) {
+        if (req.file && req.file.path) fs.unlink(req.file.path, () => { });
         console.error('File upload error:', err);
         res.status(500).json({ error: 'Upload failed.' });
     }

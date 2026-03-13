@@ -66,6 +66,14 @@ import FilePreviewDialog from "@/components/chat/FilePreviewDialog";
 import NotificationBell from "@/components/NotificationBell";
 import AdBanner from "@/components/chat/AdBanner";
 import { getActiveAd, Ad } from "@/lib/api";
+import { ProfileCompletionModal } from "@/components/profile/ProfileCompletionModal";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 type LocalMessage = MessageType & { message_type?: string; isUploading?: boolean; sender?: { role?: string; avatarUrl?: string; displayName?: string } };
 
@@ -135,16 +143,17 @@ const ConversationList = ({
   isMobile: boolean;
 }) => {
   const [isSearchVisible, setIsSearchVisible] = useState(false);
-  const [isBannerDismissed, setIsBannerDismissed] = useState(() => localStorage.getItem("welcome_banner_dismissed") === "true");
+  const [showWelcomeBanner, setShowWelcomeBanner] = useState(() => localStorage.getItem("show_welcome_banner") === "true");
 
   useEffect(() => {
-    if (!isBannerDismissed && isMobile && !searchQuery.trim() && filteredChats.length <= 1) {
+    if (showWelcomeBanner && isMobile && !searchQuery.trim() && filteredChats.length <= 1) {
       const timer = setTimeout(() => {
-        setIsBannerDismissed(true);
+        setShowWelcomeBanner(false);
+        localStorage.removeItem("show_welcome_banner");
       }, 5000);
       return () => clearTimeout(timer);
     }
-  }, [isBannerDismissed, isMobile, searchQuery, filteredChats.length]);
+  }, [showWelcomeBanner, isMobile, searchQuery, filteredChats.length]);
 
   return (
     <div className="flex flex-col h-full min-h-0 bg-background/50 overflow-hidden font-dm-sans">
@@ -246,15 +255,15 @@ const ConversationList = ({
       </div>
 
       {/* Welcome Banner for Mobile (New Users) */}
-      {isMobile && !searchQuery.trim() && filteredChats.length <= 1 && !isBannerDismissed && (
+      {isMobile && !searchQuery.trim() && filteredChats.length <= 1 && showWelcomeBanner && (
         <div className="mx-4 mt-2 mb-4 p-5 rounded-2xl bg-gradient-to-br from-blue-600/10 to-blue-900/5 border border-blue-500/20 relative overflow-hidden group shadow-lg shadow-blue-950/20 animate-in slide-in-from-top-4 duration-500">
           <div className="absolute top-0 right-0 p-3 opacity-[0.05] group-hover:scale-110 transition-transform duration-500">
             <Shield className="w-14 h-14 text-blue-500" />
           </div>
           <button
             onClick={() => {
-              localStorage.setItem("welcome_banner_dismissed", "true");
-              setIsBannerDismissed(true);
+              localStorage.removeItem("show_welcome_banner");
+              setShowWelcomeBanner(false);
             }}
             className="absolute top-2 right-2 p-1.5 rounded-full hover:bg-white/10 text-white/40 hover:text-white transition-colors z-20"
           >
@@ -435,10 +444,10 @@ const ChatView = ({
   pendingFile: File | null;
   setPendingFile: (file: File | null) => void;
   handleConfirmUpload: (caption: string, viewOnce: boolean) => void;
-  botState: 'IDLE' | 'AWAITING_CITY' | 'AWAITING_PINCODE' | 'SEARCHING';
-  setBotState: (state: 'IDLE' | 'AWAITING_CITY' | 'AWAITING_PINCODE' | 'SEARCHING') => void;
-  botData: { city?: string; pincode?: string };
-  setBotData: (data: { city?: string; pincode?: string } | ((prev: { city?: string; pincode?: string }) => { city?: string; pincode?: string })) => void;
+  botState: 'IDLE' | 'AWAITING_PROFESSION' | 'AWAITING_CITY' | 'AWAITING_PINCODE' | 'SEARCHING';
+  setBotState: (state: 'IDLE' | 'AWAITING_PROFESSION' | 'AWAITING_CITY' | 'AWAITING_PINCODE' | 'SEARCHING') => void;
+  botData: { city?: string; pincode?: string; profession?: string };
+  setBotData: (data: { city?: string; pincode?: string; profession?: string } | ((prev: { city?: string; pincode?: string; profession?: string }) => { city?: string; pincode?: string; profession?: string })) => void;
   setMessages: React.Dispatch<React.SetStateAction<MessageType[]>>;
   isLoading: boolean;
   isBlurred: boolean;
@@ -500,15 +509,21 @@ const ChatView = ({
   };
 
   const scrollingRef = useRef(false);
+  const prevChatIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (messages.length > 0 && selectedChat) {
+      if (prevChatIdRef.current !== selectedChat.chat_id) {
+        scrollingRef.current = false;
+        prevChatIdRef.current = selectedChat.chat_id;
+      }
       // Use auto for chat switch, smooth for new messages
       const behavior = scrollingRef.current ? "smooth" : "auto";
       messagesEndRef.current?.scrollIntoView({ behavior });
       scrollingRef.current = true;
     } else {
       scrollingRef.current = false;
+      if (!selectedChat) prevChatIdRef.current = null;
     }
   }, [messages.length, selectedChat?.chat_id]);
 
@@ -998,13 +1013,13 @@ const ChatView = ({
           <div className="flex flex-wrap gap-2 mb-3">
             <button
               onClick={() => {
-                setBotState('AWAITING_CITY');
+                setBotState('AWAITING_PROFESSION');
                 const botReply: MessageType = {
                   id: Date.now(),
                   senderId: selectedChat.user_id,
                   receiverId: user?.id || 0,
                   chatId: selectedChat.chat_id,
-                  content: "I can help you find the best verified profiles! 🌟 First, could you please tell me your City name?",
+                  content: "I can help you find the best verified profiles! 🌟 First, what profession or skill are you looking for?",
                   messageType: 'text',
                   read: true,
                   createdAt: new Date().toISOString()
@@ -1035,11 +1050,43 @@ const ChatView = ({
             </button>
           </div>
         )}
+
+        {selectedChat?.isOfficial && botState === 'AWAITING_PROFESSION' && (
+          <div className="flex flex-col gap-2 mb-3 max-w-[280px]">
+            <p className="text-[10px] text-muted-foreground font-medium px-1">Choose a profession:</p>
+            <div className="flex gap-2">
+              <Select onValueChange={(val) => {
+                setNewMessage(val);
+              }}>
+                <SelectTrigger className="h-9 bg-card border-border rounded-xl text-sm">
+                  <SelectValue placeholder="Select Profession" />
+                </SelectTrigger>
+                <SelectContent className="bg-card border-border">
+                  <SelectItem value="Software Engineer">Software Engineer</SelectItem>
+                  <SelectItem value="Graphic Designer">Graphic Designer</SelectItem>
+                  <SelectItem value="Web Developer">Web Developer</SelectItem>
+                  <SelectItem value="Video Editor">Video Editor</SelectItem>
+                  <SelectItem value="Content Writer">Content Writer</SelectItem>
+                  <SelectItem value="Digital Marketer">Digital Marketer</SelectItem>
+                  <SelectItem value="Other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button 
+                onClick={handleSend}
+                size="sm"
+                className="bg-primary hover:bg-primary/90 rounded-xl"
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        )}
+
         {botState !== 'IDLE' && (
           <div className="flex items-center justify-between mb-2">
             <span className="text-[10px] uppercase tracking-widest font-bold text-primary animate-pulse flex items-center gap-1.5">
               <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-              Bot: {botState === 'AWAITING_CITY' ? "Awaiting City..." : botState === 'AWAITING_PINCODE' ? "Awaiting Pincode..." : "Searching Profiles..."}
+              Bot: {botState === 'AWAITING_PROFESSION' ? "Awaiting Profession..." : botState === 'AWAITING_CITY' ? "Awaiting City..." : botState === 'AWAITING_PINCODE' ? "Awaiting Pincode..." : "Searching Profiles..."}
             </span>
             <button
               onClick={() => {
@@ -1447,8 +1494,8 @@ const ChatPage = () => {
   const [newMessage, setNewMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
-  const [botState, setBotState] = useState<'IDLE' | 'AWAITING_CITY' | 'AWAITING_PINCODE' | 'SEARCHING'>('IDLE');
-  const [botData, setBotData] = useState<{ city?: string; pincode?: string }>({});
+  const [botState, setBotState] = useState<'IDLE' | 'AWAITING_PROFESSION' | 'AWAITING_CITY' | 'AWAITING_PINCODE' | 'SEARCHING'>('IDLE');
+  const [botData, setBotData] = useState<{ city?: string; pincode?: string; profession?: string }>({});
   const [error, setError] = useState("");
   const messageInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1746,7 +1793,39 @@ const ChatPage = () => {
 
     // Bot Logic
     if (selectedChat?.isOfficial) {
-      if (botState === 'AWAITING_CITY') {
+      if (botState === 'AWAITING_PROFESSION') {
+        setBotData(prev => ({ ...prev, profession: messageToSend }));
+        setBotState('AWAITING_CITY');
+
+        // Add user message to UI immediately for better UX
+        const userMsg: MessageType = {
+          id: Date.now(),
+          senderId: user.id,
+          receiverId: selectedChat.user_id,
+          chatId: selectedChat.chat_id,
+          content: messageToSend,
+          messageType: 'text',
+          read: true,
+          createdAt: new Date().toISOString()
+        };
+        setMessages(prev => [...prev, userMsg]);
+
+        // Add Bot reply
+        setTimeout(() => {
+          const botReply: MessageType = {
+            id: Date.now() + 1,
+            senderId: selectedChat.user_id,
+            receiverId: user.id,
+            chatId: selectedChat.chat_id,
+            content: "Got it. Now, which City are you looking in?",
+            messageType: 'text',
+            read: true,
+            createdAt: new Date().toISOString()
+          };
+          setMessages(prev => [...prev, botReply]);
+        }, 600);
+        return;
+      } else if (botState === 'AWAITING_CITY') {
         setBotData(prev => ({ ...prev, city: messageToSend }));
         setBotState('AWAITING_PINCODE');
 
@@ -1798,15 +1877,19 @@ const ChatPage = () => {
         // Trigger Search
         setTimeout(async () => {
           try {
-            const results = await getBestProfiles({ city: botData.city, pincode: messageToSend });
+            const results = await getBestProfiles({ 
+              city: botData.city, 
+              pincode: messageToSend,
+              profession: botData.profession 
+            });
             setBotState('IDLE');
             setBotData({});
 
             let content = "";
             if (results.length === 0) {
-              content = "I couldn't find any verified profiles in that location. 😔";
+              content = `I couldn't find any verified ${botData.profession || ''} profiles in ${botData.city || 'that location'}. 😔`;
             } else {
-              content = `I found ${results.length} verified profile(s) for you! 🌟\n\n` +
+              content = `I found ${results.length} verified ${botData.profession || 'profile'}(s) for you! 🌟\n\n` +
                 results.map(u => `• @${u.username} (${u.displayName || 'No Name'})${u.city ? ` in ${u.city}` : ''}`).join('\n');
             }
 
@@ -2112,6 +2195,7 @@ const ChatPage = () => {
           setMessages={setMessages}
         />
       </div>
+      <ProfileCompletionModal />
     </div>
   );
 };

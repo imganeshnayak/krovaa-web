@@ -50,8 +50,7 @@ export default function NotificationBell() {
                 setNotifications(filtered);
             })
             .catch((err) => console.error("Failed to load notifications:", err));
-    }, [token]);
-
+    }, [token, user]);
     // Socket.IO: listen for real-time broadcasts
     useEffect(() => {
         if (!token || !user) return;

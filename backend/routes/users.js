@@ -214,10 +214,10 @@ router.get('/:id/ratings', async (req, res) => {
 // GET /api/users/best-profiles - Get verified profiles by location (Moved up to avoid conflict with /:id)
 router.get('/best-profiles', auth, async (req, res) => {
     try {
-        const { city, pincode } = req.query;
+        const { city, pincode, profession } = req.query;
 
-        if (!city && !pincode) {
-            return res.status(400).json({ error: "City or Pincode is required." });
+        if (!city && !pincode && !profession) {
+            return res.status(400).json({ error: "City, Pincode or Profession is required." });
         }
 
         const users = await prisma.user.findMany({
@@ -227,7 +227,8 @@ router.get('/best-profiles', auth, async (req, res) => {
                 role: { notIn: ['staff', 'admin'] },
                 AND: [
                     city ? { city: { contains: city, mode: 'insensitive' } } : {},
-                    pincode ? { pincode: pincode } : {}
+                    pincode ? { pincode: pincode } : {},
+                    profession ? { profession: { contains: profession, mode: 'insensitive' } } : {}
                 ]
             },
             select: {
