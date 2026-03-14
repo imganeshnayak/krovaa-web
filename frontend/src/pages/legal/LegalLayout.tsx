@@ -2,6 +2,8 @@ import React, { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { ChevronLeft } from "lucide-react";
 
+import Logo from "@/components/Logo";
+
 interface LegalLayoutProps {
   children: React.ReactNode;
   title: string;
@@ -26,7 +28,7 @@ const LegalLayout = ({ children, title, lastUpdated }: LegalLayoutProps) => {
       <nav className="sticky top-0 z-50 border-b border-white/5 backdrop-blur-xl bg-[#050810]/60 h-20 flex items-center">
         <div className="w-full px-4 md:px-8 flex items-center justify-between">
           <Link to="/" className="flex items-center group shrink-0 -ml-2 sm:-ml-0">
-            <img src="/krovaa-logo.svg?v=3" alt="Krovaa Logo" className="h-16 w-auto scale-125 origin-left" />
+            <Logo size="lg" className="scale-125 origin-left" />
           </Link>
           <Link 
             to="/" 

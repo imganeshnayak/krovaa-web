@@ -92,6 +92,8 @@ router.get('/username/:username', async (req, res) => {
                 verified: true,
                 city: true,          // city (general area) is OK to show
                 profession: true,
+                skills: true,
+                userGoal: true,
                 createdAt: true,
                 ratingsReceived: {
                     select: { rating: true }
@@ -162,7 +164,7 @@ router.get('/:id/rating-eligibility', auth, async (req, res) => {
         }
 
         if (!escrowDeal) {
-            return res.json({ canRate: false, reason: "You can rate only users you have an escrow deal with." });
+            return res.json({ canRate: false, reason: "You can rate only users you have an  deal with." });
         }
 
         return res.json({ canRate: true, reason: null });
@@ -274,6 +276,11 @@ router.get('/:id', auth, async (req, res) => {
                 city: true,
                 pincode: true,
                 profession: true,
+                phoneNumber: true,
+                gender: true,
+                age: true,
+                userGoal: true,
+                skills: true,
                 createdAt: true,
                 ratingsReceived: {
                     select: { rating: true }
@@ -332,6 +339,11 @@ router.get('/profile/:id', auth, async (req, res) => {
                 city: true,
                 pincode: true,
                 profession: true,
+                phoneNumber: true,
+                gender: true,
+                age: true,
+                userGoal: true,
+                skills: true,
                 ratingsReceived: {
                     select: { rating: true }
                 }
@@ -364,7 +376,7 @@ router.put('/profile/:id', auth, async (req, res) => {
             return res.status(403).json({ error: 'Not authorized.' });
         }
 
-        const { displayName, bio, email, avatarUrl, role, socialLinks, phoneNumber, city, pincode, profession } = req.body;
+        const { displayName, bio, email, avatarUrl, role, socialLinks, skills, phoneNumber, city, pincode, profession, gender, age, userGoal } = req.body;
 
         const updateData = {};
         if (displayName !== undefined) updateData.displayName = displayName?.trim();
@@ -372,10 +384,14 @@ router.put('/profile/:id', auth, async (req, res) => {
         if (email !== undefined) updateData.email = email?.trim()?.toLowerCase();
         if (avatarUrl !== undefined) updateData.avatarUrl = avatarUrl;
         if (socialLinks !== undefined) updateData.socialLinks = socialLinks;
+        if (skills !== undefined) updateData.skills = skills;
         if (profession !== undefined) updateData.profession = profession?.trim() || null;
         if (phoneNumber !== undefined) updateData.phoneNumber = phoneNumber?.trim();
         if (city !== undefined) updateData.city = city?.trim();
         if (pincode !== undefined) updateData.pincode = pincode?.trim();
+        if (gender !== undefined) updateData.gender = gender;
+        if (age !== undefined) updateData.age = parseInt(age) || null;
+        if (userGoal !== undefined) updateData.userGoal = userGoal;
         if (role !== undefined && ['client', 'admin'].includes(role)) updateData.role = role;
 
         const updatedUser = await prisma.user.update({
@@ -398,6 +414,10 @@ router.put('/profile/:id', auth, async (req, res) => {
                 city: true,
                 pincode: true,
                 profession: true,
+                gender: true,
+                age: true,
+                userGoal: true,
+                skills: true,
                 createdAt: true
             }
         });
@@ -591,7 +611,7 @@ router.post('/rate', auth, async (req, res) => {
         }
 
         if (!escrowDeal) {
-            return res.status(403).json({ error: "You can rate only users you have an escrow deal with." });
+            return res.status(403).json({ error: "You can rate only users you have an  deal with." });
         }
 
         const trimmedComment = comment.trim();

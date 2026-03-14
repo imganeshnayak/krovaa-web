@@ -30,6 +30,10 @@ model User {
   phoneNumber          String?               @map("phone_number")
   city                 String?
   pincode              String?
+  gender               String?
+  age                  Int?
+  userGoal             String?               @map("user_goal")
+  skills               Json?                 @default("[]")
   activities           ActivityLog[]
   blockedBy            BlockedUser[]         @relation("BlockedByUser")
   blockedUsers         BlockedUser[]         @relation("BlockingUser")

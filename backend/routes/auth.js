@@ -191,6 +191,7 @@ router.get('/me', auth, async (req, res) => {
                 id: true, username: true, email: true, displayName: true, 
                 avatarUrl: true, role: true, status: true, city: true, 
                 pincode: true, profession: true, bio: true, phoneNumber: true,
+                gender: true, age: true, userGoal: true, skills: true,
                 createdAt: true 
             },
         });

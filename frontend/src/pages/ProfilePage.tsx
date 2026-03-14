@@ -24,6 +24,12 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 /* ── Font injection ── */
 if (typeof document !== "undefined" && !document.getElementById("krovaa-profile-fonts")) {
@@ -98,7 +104,7 @@ const Stars = ({ value, max = 5, size = "h-4 w-4", interactive = false, onChange
 
 const ProfilePage = () => {
   const { username } = useParams();
-  const { user: currentUser, isLoading: authLoading, logout } = useAuth();
+  const { user: currentUser, isLoading: authLoading, logout, refreshUser } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -108,9 +114,11 @@ const ProfilePage = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [editForm, setEditForm] = useState({
     displayName: "", bio: "", email: "", city: "", pincode: "", phoneNumber: "",
-    profession: "",
+    profession: "", gender: "", age: "", userGoal: "",
+    skills: [] as string[],
     socialLinks: [] as { platform: string; url: string }[]
   });
+  const [skillInput, setSkillInput] = useState("");
   const [isRatingDialogOpen, setIsRatingDialogOpen] = useState(false);
   const [rating, setRating] = useState(5);
   const [ratingComment, setRatingComment] = useState("");
@@ -143,9 +151,13 @@ const ProfilePage = () => {
           email: userData.email || "",
           city: userData.city || "",
           pincode: userData.pincode || "",
-          phoneNumber: (userData as any).phoneNumber || "",
-          profession: (userData as any).profession || "",
-          socialLinks: userData.socialLinks || []
+          phoneNumber: userData.phoneNumber || "",
+          profession: userData.profession || "",
+          gender: userData.gender || "",
+          age: userData.age ? userData.age.toString() : "",
+          skills: userData.skills || [],
+          socialLinks: userData.socialLinks || [],
+          userGoal: userData.userGoal || ""
         });
       } else {
         // Not logged in and no username in URL — shouldn't happen but handle gracefully
@@ -212,10 +224,16 @@ const ProfilePage = () => {
         city: editForm.city.trim(),
         pincode: editForm.pincode.trim(),
         profession: editForm.profession.trim() || null,
-        phoneNumber: (editForm as any).phoneNumber ? (editForm as any).phoneNumber.trim() : undefined,
+        phoneNumber: editForm.phoneNumber?.trim(),
+        gender: editForm.gender,
+        age: editForm.age ? parseInt(editForm.age) : null,
+        userGoal: editForm.userGoal,
+        skills: editForm.skills
       });
       setUser(updated);
       setIsEditing(false);
+      // Refresh global auth context to update other UI parts like navbars
+      await refreshUser();
       toast({ title: "Saved!", description: "Your profile has been updated." });
     } catch (err) {
       toast({ title: "Error", description: err instanceof Error ? err.message : "Update failed", variant: "destructive" });
@@ -343,7 +361,10 @@ const ProfilePage = () => {
         {/* ── Cover ── */}
         <div className="relative h-44 rounded-b-3xl overflow-hidden -mx-4 group/cover">
           {user.coverPhotoUrl ? (
-            <img src={user.coverPhotoUrl} alt="Cover" className="w-full h-full object-cover" />
+            <>
+              <img src={user.coverPhotoUrl} alt="Cover" className="w-full h-full object-cover" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
+            </>
           ) : (
             <div className="w-full h-full bg-gradient-to-br from-blue-900/40 via-[#050810] to-[#070d1f]">
               <div className="absolute inset-0 opacity-[0.06]" style={{
@@ -353,20 +374,22 @@ const ProfilePage = () => {
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 rounded-full bg-blue-600/10 blur-[60px]" />
             </div>
           )}
-          {/* Cover actions — visible on hover */}
+          
+          {/* Cover actions — improved visibility */}
           {isOwnProfile && (
-            <div className="absolute bottom-3 right-3 flex items-center gap-2 opacity-0 group-hover/cover:opacity-100 transition-opacity duration-200">
+            <div className="absolute bottom-3 right-3 flex items-center gap-2 z-30">
               {user.coverPhotoUrl && (
                 <button
                   onClick={handleDeleteCoverPhoto}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-black/70 text-red-400 hover:bg-red-500/20 text-xs font-medium border border-red-500/30 transition-all"
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-black/50 backdrop-blur-md text-red-400 hover:bg-red-500/20 text-xs font-medium border border-red-500/30 transition-all opacity-0 group-hover/cover:opacity-100"
                   title="Remove cover photo"
                 >
-                  <Trash className="h-3 w-3" /> Remove
+                  <Trash className="h-3 w-3" />
                 </button>
               )}
-              <label className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-black/70 text-white hover:bg-white/10 text-xs font-medium border border-white/20 cursor-pointer transition-all">
-                <Camera className="h-3 w-3" /> Change cover
+              <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-black/50 backdrop-blur-md text-white hover:bg-blue-600/20 text-xs font-medium border border-white/20 cursor-pointer transition-all">
+                <Camera className="h-3.5 w-3.5" /> 
+                <span className="hidden sm:inline">Change cover</span>
                 <input type="file" className="hidden" accept="image/*" onChange={handleCoverPhotoUpload} />
               </label>
             </div>
@@ -374,10 +397,10 @@ const ProfilePage = () => {
         </div>
 
         {/* ── Avatar + header ── */}
-        <div className="flex items-end gap-4 px-2 -mt-12 mb-5">
+        <div className="flex flex-col sm:flex-row sm:items-end gap-6 px-6 sm:px-2 -mt-10 sm:-mt-14 mb-8 relative z-20">
           {/* Avatar with camera + delete overlay */}
-          <div className="relative flex-shrink-0 group/avatar">
-            <div className="w-24 h-24 rounded-2xl border-4 border-[#050810] overflow-hidden shadow-xl shadow-black/50">
+          <div className="relative flex-shrink-0 group/avatar w-fit">
+            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl border-4 border-[#050810] overflow-hidden shadow-xl shadow-black/50">
               {user.avatarUrl ? (
                 <img src={user.avatarUrl} alt={user.displayName} className="w-full h-full object-cover" />
               ) : (
@@ -389,108 +412,205 @@ const ProfilePage = () => {
               )}
             </div>
             {isOwnProfile && (
-              <div className="absolute inset-0 rounded-2xl bg-black/0 group-hover/avatar:bg-black/50 transition-all duration-200 flex items-center justify-center gap-1.5 opacity-0 group-hover/avatar:opacity-100">
-                <label className="cursor-pointer p-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-colors" title="Change photo">
-                  <Camera className="h-3.5 w-3.5 text-white" />
-                  <input type="file" className="hidden" accept="image/*" onChange={handleAvatarUpload} />
-                </label>
-                {user.avatarUrl && (
-                  <button
-                    onClick={handleDeleteAvatar}
-                    className="p-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/40 transition-colors"
-                    title="Remove photo"
-                  >
-                    <Trash className="h-3.5 w-3.5 text-red-400" />
-                  </button>
-                )}
+              <div className="absolute -bottom-2 -right-2 z-30 scale-90 sm:scale-100">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="p-2 rounded-xl bg-blue-600 shadow-xl shadow-blue-500/20 text-white hover:bg-blue-500 transition-all border border-blue-400/30 active:scale-95 ring-2 ring-[#050810]">
+                      <Edit2 className="h-4 w-4" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="bg-[#0a0f1e] border-white/10 text-white min-w-[140px]">
+                    <DropdownMenuItem className="focus:bg-blue-600/20 focus:text-blue-400 cursor-pointer py-2.5">
+                      <label className="flex items-center gap-2 w-full cursor-pointer">
+                        <Camera className="h-3.5 w-3.5" />
+                        <span className="text-xs font-semibold">Change Photo</span>
+                        <input type="file" className="hidden" accept="image/*" onChange={handleAvatarUpload} />
+                      </label>
+                    </DropdownMenuItem>
+                    {user.avatarUrl && (
+                      <DropdownMenuItem 
+                        onClick={handleDeleteAvatar}
+                        className="focus:bg-red-500/10 text-red-400 focus:text-red-500 cursor-pointer py-2.5"
+                      >
+                        <div className="flex items-center gap-2 w-full">
+                          <Trash className="h-3.5 w-3.5" />
+                          <span className="text-xs font-semibold">Remove Photo</span>
+                        </div>
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             )}
           </div>
 
-          {/* Name & status — below cover, no overlap */}
-          <div className="pb-1 flex-1 min-w-0">
+          {/* Name & status — stacked on mobile, beside on desktop */}
+          <div className="sm:pb-1 flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 style={{ fontFamily: "'Syne', sans-serif" }} className="text-xl font-extrabold tracking-tight truncate">
+              <h1 style={{ fontFamily: "'Syne', sans-serif" }} className="text-xl font-extrabold tracking-tight truncate flex items-center gap-2">
                 {user.displayName || user.username}
+                {isOwnProfile && !isEditing && (
+                  <button onClick={() => setIsEditing(true)} className="p-1 text-white/20 hover:text-blue-400 transition-colors">
+                    <Edit2 className="h-4 w-4" />
+                  </button>
+                )}
               </h1>
               {user.verified && (
                 <img src="/verified-badge.svg" alt="Verified" className="h-5 w-5 flex-shrink-0" title="Verified" />
               )}
             </div>
-            <div className="flex items-center gap-3 mt-1 flex-wrap">
-              <span className="text-xs text-white/30">@{user.username}</span>
-              {user.profession && (
-                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-blue-500/10 border border-blue-500/20">
-                  <Briefcase className="h-3 w-3 text-blue-400" />
-                  <span className="text-[10px] text-blue-300 font-bold uppercase tracking-wider">{user.profession}</span>
-                </div>
-              )}
-              <div className="flex items-center gap-1.5">
-                <span className={`w-1.5 h-1.5 rounded-full ${user.status === "active" ? "bg-emerald-400 animate-pulse" : "bg-white/20"}`} />
-                <span className="text-[10px] text-white/30 uppercase tracking-widest font-medium">
-                  {user.status === "active" ? "Available" : "Unavailable"}
-                </span>
-              </div>
-              {(user.city || (isOwnProfile && user.pincode)) && (
-                <div className="flex items-center gap-1 text-[11px] text-white/30">
-                  <MapPin className="h-3 w-3" />
-                  {user.city}{isOwnProfile && user.city && user.pincode ? ", " : ""}{isOwnProfile ? user.pincode : ""}
-                </div>
-              )}
-            </div>
           </div>
         </div>
 
-        {/* ── Rating strip ── */}
-        {user.averageRating !== undefined && user.averageRating > 0 && (
-          <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-white/[0.03] border border-white/5 mb-5">
-            <div className="flex items-center gap-3">
-              <Stars value={Math.round(user.averageRating)} />
-              <span style={{ fontFamily: "'Syne', sans-serif" }} className="text-sm font-bold">{user.averageRating}</span>
-              <span className="text-xs text-white/25">({user.ratingCount} {user.ratingCount === 1 ? "review" : "reviews"})</span>
+        {/* ── Rating Strip & Goal ── */}
+        <div className="px-6 sm:px-2 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          {user.userGoal && (
+            <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest border w-fit ${
+              user.userGoal === 'OFFER_SERVICE' 
+                ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' 
+                : 'bg-purple-500/10 border-purple-500/20 text-purple-400'
+            }`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${user.userGoal === 'OFFER_SERVICE' ? 'bg-blue-400' : 'bg-purple-400'}`} />
+              {user.userGoal === 'OFFER_SERVICE' ? 'Offering Services' : 'Looking to Hire'}
             </div>
-            {!isOwnProfile && user.ratingCount > 0 && (
-              <button onClick={openViewAllRatings} className="text-[11px] text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1">
-                <Eye className="h-3.5 w-3.5" /> View all
+          )}
+
+          {user.averageRating !== undefined && user.averageRating > 0 && (
+            <div className="flex items-center gap-4 bg-white/5 border border-white/5 px-3 py-1.5 rounded-full w-fit">
+              <div className="flex items-center gap-1.5">
+                <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" />
+                <span style={{ fontFamily: "'Syne', sans-serif" }} className="text-xs font-bold text-white/80">{user.averageRating}</span>
+              </div>
+              <div className="w-px h-3 bg-white/10" />
+              <button onClick={openViewAllRatings} className="text-[10px] font-bold uppercase tracking-wider text-blue-400 hover:text-blue-300 transition-colors">
+                {user.ratingCount} {user.ratingCount === 1 ? "Review" : "Reviews"}
               </button>
-            )}
-          </div>
-        )}
-
-        {/* ── Bio ── */}
-        {!isEditing && user.bio && (
-          <p className="text-sm text-white/40 leading-relaxed mb-5 whitespace-pre-wrap font-light">
-            {user.bio}
-          </p>
-        )}
-
-        {/* Phone (private) shown only to owner */}
-        {!isEditing && isOwnProfile && user.phoneNumber && (
-          <div className="mb-4">
-            <label className="block text-[9px] font-bold tracking-[0.25em] uppercase text-white/25 mb-2 ml-0.5">Phone (private)</label>
-            <div className="flex items-center gap-2 text-sm text-white/60">
-              <Lock className="h-4 w-4 text-white/30" />
-              <span>{user.phoneNumber}</span>
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
-        {/* ── Social links ── */}
-        {!isEditing && user.socialLinks && user.socialLinks.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-6">
-            {user.socialLinks.map((link: any, i: number) => (
-              <a
-                key={i}
-                href={link.url.startsWith("http") ? link.url : `https://${link.url}`}
-                target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-2 px-3 py-2 rounded-xl border border-white/8 bg-white/[0.03] hover:border-blue-500/40 hover:bg-blue-500/5 text-white/30 hover:text-blue-400 transition-all text-xs"
-              >
-                <SocialIcon platform={link.platform} className="h-3.5 w-3.5" />
-                <span className="capitalize">{link.platform}</span>
-              </a>
-            ))}
-          </div>
-        )}
+        {/* ── Info Sections ── */}
+        <div className="space-y-6 px-6 sm:px-2 mb-10">
+          
+          {/* Bio Section */}
+          {!isEditing && user.bio && (
+            <div className="space-y-3 p-5 rounded-2xl bg-white/[0.03] border border-white/5 shadow-sm">
+              <label className="block text-[10px] font-bold tracking-[0.2em] uppercase text-white/30 flex items-center gap-2">
+                <div className="w-1 h-3 bg-blue-500 rounded-full" /> About
+              </label>
+              <p className="text-sm text-white/60 leading-relaxed whitespace-pre-wrap font-light">
+                {user.bio}
+              </p>
+            </div>
+          )}
+
+          {/* Details Grid */}
+          {!isEditing && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Personal Details */}
+              {(user.age || user.gender || user.city) && (
+                <div className="p-5 rounded-2xl bg-white/[0.03] border border-white/5 space-y-4">
+                  <label className="block text-[10px] font-bold tracking-[0.2em] uppercase text-white/30 flex items-center gap-2">
+                    <div className="w-1 h-3 bg-emerald-500 rounded-full" /> Personal Details
+                  </label>
+                  <div className="grid grid-cols-2 gap-y-4">
+                    {user.age && (
+                      <div>
+                        <span className="block text-[9px] text-white/20 uppercase tracking-wider mb-1">Age</span>
+                        <span className="text-sm text-white/70">{user.age} Years</span>
+                      </div>
+                    )}
+                    {user.gender && (
+                      <div>
+                        <span className="block text-[9px] text-white/20 uppercase tracking-wider mb-1">Gender</span>
+                        <span className="text-sm text-white/70">{user.gender}</span>
+                      </div>
+                    )}
+                    {user.city && (
+                      <div className="col-span-2">
+                        <span className="block text-[9px] text-white/20 uppercase tracking-wider mb-1">Location</span>
+                        <div className="flex items-center gap-1.5 text-sm text-white/70">
+                          <MapPin className="h-3.5 w-3.5 text-emerald-500/60" />
+                          <span>{user.city}{isOwnProfile && user.pincode ? ` (${user.pincode})` : ""}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Identity & Contact */}
+              <div className="p-5 rounded-2xl bg-white/[0.03] border border-white/5 space-y-4">
+                <label className="block text-[10px] font-bold tracking-[0.2em] uppercase text-white/30 flex items-center gap-2">
+                  <div className="w-1 h-3 bg-blue-500 rounded-full" /> Identity & Contact
+                </label>
+                <div className="space-y-4">
+                  <div>
+                    <span className="block text-[9px] text-white/20 uppercase tracking-wider mb-1">Username</span>
+                    <span className="text-sm text-white/70 tracking-tight">@{user.username}</span>
+                  </div>
+                  {isOwnProfile && user.phoneNumber && (
+                    <div>
+                      <span className="block text-[9px] text-white/20 uppercase tracking-wider mb-1 flex items-center gap-1">
+                        Phone <Lock className="h-2 w-2" />
+                      </span>
+                      <span className="text-sm text-blue-400 font-medium">{user.phoneNumber}</span>
+                    </div>
+                  )}
+                  {user.socialLinks && user.socialLinks.length > 0 && (
+                    <div>
+                      <span className="block text-[9px] text-white/20 uppercase tracking-wider mb-2">Connect</span>
+                      <div className="flex flex-wrap gap-2">
+                        {user.socialLinks.map((link: any, i: number) => (
+                          <a
+                            key={i}
+                            href={link.url.startsWith("http") ? link.url : `https://${link.url}`}
+                            target="_blank" rel="noopener noreferrer"
+                            className="p-2 rounded-lg bg-white/5 border border-white/5 hover:border-blue-500/40 hover:bg-blue-500/10 text-white/40 hover:text-blue-400 transition-all"
+                            title={link.platform}
+                          >
+                            <SocialIcon platform={link.platform} className="h-4 w-4" />
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Skills Section */}
+          {!isEditing && (user.profession || (user.skills && user.skills.length > 0)) && (
+            <div className="p-5 rounded-2xl bg-white/[0.03] border border-white/5 space-y-4">
+              <label className="block text-[10px] font-bold tracking-[0.2em] uppercase text-white/30 flex items-center gap-2">
+                <div className="w-1 h-3 bg-purple-500 rounded-full" /> Expertise & Skills
+              </label>
+              <div className="space-y-4">
+                {user.profession && (
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-500/10 border border-blue-500/20 w-fit">
+                    <Briefcase className="h-3.5 w-3.5 text-blue-400" />
+                    <span className="text-xs text-blue-300 font-bold uppercase tracking-wider">
+                      {user.profession === 'None' ? 'Krovaa User' : user.profession}
+                    </span>
+                  </div>
+                )}
+                {user.skills && user.skills.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {user.skills.map(skill => (
+                      <Badge 
+                        key={skill} 
+                        className="bg-purple-500/5 text-purple-300 border-purple-500/10 hover:bg-purple-500/10 transition-colors text-[10px] px-3 py-1 font-bold tracking-wide uppercase"
+                      >
+                        {skill}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* ── Edit form ── */}
         {isEditing && (
@@ -498,6 +618,19 @@ const ProfilePage = () => {
             className="mb-6 p-6 rounded-2xl border border-white/8 bg-white/[0.02] space-y-6"
             style={{ animation: "slideUp 0.35s cubic-bezier(0.16,1,0.3,1) both" }}
           >
+            <div className="group">
+              <label className="block text-[9px] font-bold tracking-[0.25em] uppercase text-white/25 mb-2 ml-0.5">I am here to...</label>
+              <select
+                className="w-full bg-transparent border-b border-white/10 focus:border-blue-500/60 outline-none pb-2.5 pt-1 text-sm text-white appearance-none cursor-pointer"
+                value={editForm.userGoal}
+                onChange={(e) => setEditForm({ ...editForm, userGoal: e.target.value })}
+              >
+                <option value="" className="bg-[#0a0f1e] text-white/40">Select goal...</option>
+                <option value="OFFER_SERVICE" className="bg-[#0a0f1e] text-white">Offer my services</option>
+                <option value="HIRE_PROFESSIONALS" className="bg-[#0a0f1e] text-white">Hire professionals</option>
+              </select>
+            </div>
+
             <div className="grid grid-cols-2 gap-5">
               <Field label="Display Name" icon={null}
                 placeholder="Your name"
@@ -526,6 +659,27 @@ const ProfilePage = () => {
               onChange={(e: any) => setEditForm({ ...editForm, bio: e.target.value })}
             />
 
+            <div className="grid grid-cols-2 gap-5">
+              <div className="group">
+                <label className="block text-[9px] font-bold tracking-[0.25em] uppercase text-white/25 mb-2 ml-0.5">Gender</label>
+                <select
+                  className="w-full bg-transparent border-b border-white/10 focus:border-blue-500/60 outline-none pb-2.5 pt-1 text-sm text-white appearance-none cursor-pointer"
+                  value={editForm.gender}
+                  onChange={(e) => setEditForm({ ...editForm, gender: e.target.value })}
+                >
+                  <option value="" className="bg-[#0a0f1e] text-white/40">Select Gender</option>
+                  <option value="Male" className="bg-[#0a0f1e] text-white">Male</option>
+                  <option value="Female" className="bg-[#0a0f1e] text-white">Female</option>
+                  <option value="Other" className="bg-[#0a0f1e] text-white">Other</option>
+                </select>
+              </div>
+              <Field label="Age" icon={null} type="number"
+                placeholder="25"
+                value={editForm.age}
+                onChange={(e: any) => setEditForm({ ...editForm, age: e.target.value })}
+              />
+            </div>
+
             {/* Profession / Skill */}
             <div className="group">
               <label className="block text-[9px] font-bold tracking-[0.25em] uppercase text-white/25 mb-2 ml-0.5">Profession / Skill</label>
@@ -536,17 +690,57 @@ const ProfilePage = () => {
               >
                 <option value="" className="bg-[#0a0f1e] text-white/40">Select your profession...</option>
                 {[
-                  "Software Developer", "UI/UX Designer", "Graphic Designer", "Web Developer",
+                  "Software Developer", "UI/UX Designer", "Graphic Designer", "3D Designer", "2D Designer", "Web Developer",
                   "Data Scientist", "AI / ML Engineer", "Cybersecurity Analyst", "DevOps Engineer",
                   "Product Manager", "Digital Marketer", "Content Creator", "Video Editor",
                   "Photographer", "Videographer", "Artist / Illustrator", "Musician",
                   "Civil Engineer", "Mechanical Engineer", "Electrical Engineer", "Architect",
                   "Doctor", "Nurse", "Pharmacist", "Lawyer", "Chartered Accountant",
-                  "Teacher / Educator", "Writer / Author", "Entrepreneur", "Consultant", "Other"
+                  "Teacher / Educator", "Writer / Author", "Entrepreneur", "Consultant",
+                  "Freelancer", "Student", "None", "Other"
                 ].map(p => (
                   <option key={p} value={p} className="bg-[#0a0f1e] text-white">{p}</option>
                 ))}
               </select>
+            </div>
+
+            {/* Skills Multi-Select */}
+            <div className="group">
+              <label className="block text-[9px] font-bold tracking-[0.25em] uppercase text-white/25 mb-2 ml-0.5">Skills (Press Enter to add)</label>
+              <div className="space-y-3">
+                <Input 
+                  placeholder="Coding, Design, Marketing..."
+                  value={skillInput}
+                  onChange={e => setSkillInput(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && skillInput.trim()) {
+                      e.preventDefault();
+                      if (!editForm.skills.includes(skillInput.trim())) {
+                        setEditForm({ ...editForm, skills: [...editForm.skills, skillInput.trim()] });
+                      }
+                      setSkillInput("");
+                    }
+                  }}
+                  className="bg-white/5 border-white/10 text-white h-10 focus:ring-blue-500/50"
+                />
+                <div className="flex flex-wrap gap-2">
+                  {editForm.skills.map(skill => (
+                    <div 
+                      key={skill} 
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-blue-500/10 border border-blue-500/20 group/skill animate-in fade-in zoom-in duration-200"
+                    >
+                      <span className="text-[11px] text-blue-300 font-bold uppercase tracking-wider">{skill}</span>
+                      <button 
+                        type="button"
+                        onClick={() => setEditForm({ ...editForm, skills: editForm.skills.filter(s => s !== skill) })}
+                        className="hover:text-red-400 text-blue-400/50 transition-colors"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
 
             {/* Social links */}

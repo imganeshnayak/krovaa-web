@@ -4,6 +4,7 @@ import { Mail, Loader2, Eye, EyeOff, ArrowRight, ChevronLeft, Lock } from "lucid
 import TelegramLogin from "@/components/TelegramLogin";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import Logo from "@/components/Logo";
 
 /* ── Font injection ── */
 if (typeof document !== "undefined" && !document.getElementById("krovaa-login-fonts")) {
@@ -101,7 +102,7 @@ const Login = () => {
         <div className="relative z-10 flex flex-col h-full p-14">
           {/* Logo */}
           <Link to="/" className="flex items-center group w-fit">
-            <img src="/krovaa-logo.svg?v=3" alt="Krovaa Logo" className="h-16 w-auto scale-125 origin-left" />
+            <Logo size="lg" className="scale-125 origin-left" />
           </Link>
 
           {/* Statement */}
@@ -135,7 +136,7 @@ const Login = () => {
         {/* Mobile logo */}
         <div className="lg:hidden flex items-center justify-between px-8 pt-8 pb-4">
           <Link to="/" className="flex items-center">
-            <img src="/krovaa-logo.svg?v=2" alt="Krovaa Logo" className="h-9 w-auto" />
+            <Logo size="md" />
           </Link>
         </div>
 

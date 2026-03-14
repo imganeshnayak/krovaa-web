@@ -18,7 +18,12 @@ import {
   GanttChart,
   UserCircle,
   HelpCircle,
-  Hash
+  Hash,
+  GraduationCap,
+  Users,
+  Target,
+  Search,
+  Handshake
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { updateUserProfile } from "@/lib/api";
@@ -30,13 +35,15 @@ const CATEGORIES = [
   { id: "creative", label: "Creative", icon: Palette, color: "text-purple-400", bg: "bg-purple-400/10", border: "border-purple-400/20" },
   { id: "engineering", label: "Engineering", icon: Hammer, color: "text-orange-400", bg: "bg-orange-400/10", border: "border-orange-400/20" },
   { id: "professional", label: "Professional", icon: GanttChart, color: "text-emerald-400", bg: "bg-emerald-400/10", border: "border-emerald-400/20" },
-  { id: "client", label: "I am a Client", icon: UserCircle, color: "text-indigo-400", bg: "bg-indigo-400/10", border: "border-indigo-400/20" },
+  { id: "freelancer", label: "Freelancer", icon: Users, color: "text-pink-400", bg: "bg-pink-400/10", border: "border-pink-400/20" },
+  { id: "student", label: "Student", icon: GraduationCap, color: "text-cyan-400", bg: "bg-cyan-400/10", border: "border-cyan-400/20" },
+  { id: "none", label: "None", icon: UserCircle, color: "text-indigo-400", bg: "bg-indigo-400/10", border: "border-indigo-400/20" },
   { id: "other", label: "Other", icon: HelpCircle, color: "text-zinc-400", bg: "bg-zinc-400/10", border: "border-zinc-400/20" },
 ];
 
 const SUB_PROFESSIONS: Record<string, string[]> = {
   tech: ["Software Developer", "Web Developer", "Data Scientist", "AI / ML Engineer", "Cybersecurity Analyst", "DevOps Engineer", "Mobile App Developer"],
-  creative: ["UI/UX Designer", "Graphic Designer", "Content Creator", "Video Editor", "Photographer", "Videographer", "Artist / Illustrator", "Musician"],
+  creative: ["UI/UX Designer", "Graphic Designer", "3D Designer", "2D Designer", "Content Creator", "Video Editor", "Photographer", "Videographer", "Artist / Illustrator", "Musician"],
   engineering: ["Civil Engineer", "Mechanical Engineer", "Electrical Engineer", "Architect", "Structural Engineer"],
   professional: ["Product Manager", "Digital Marketer", "Doctor", "Nurse", "Pharmacist", "Lawyer", "Chartered Accountant", "Teacher / Educator", "Consultant"],
 };
@@ -57,22 +64,38 @@ export function ProfileCompletionModal() {
     category: "",
     profession: "",
     customProfession: "",
+    gender: "",
+    age: "",
+    userGoal: "",
   });
 
   useEffect(() => {
     if (user) {
-      setFormData(prev => ({ ...prev, displayName: user.displayName || "" }));
+      setFormData(prev => ({ 
+        ...prev, 
+        displayName: user.displayName || "",
+        phoneNumber: user.phoneNumber || "",
+        city: user.city || "",
+        pincode: user.pincode || "",
+        gender: user.gender || "",
+        age: user.age ? user.age.toString() : "",
+        userGoal: user.userGoal || "",
+        bio: user.bio || ""
+      }));
     }
   }, [user]);
 
-  // Only show if user is logged in and doesn't have a profession
-  if (!user || user.profession || forceClose) return null;
+  // Robust check: modal only shows if user exists AND profession is missing/empty
+  const hasProfession = !!(user?.profession && user.profession.trim() !== "");
+  if (!user || hasProfession || forceClose) return null;
 
   const handleNext = () => setStep(s => s + 1);
   const handleBack = () => setStep(s => s - 1);
 
   const handleSubmit = async () => {
     let finalProfession = formData.profession;
+    if (formData.category === "freelancer") finalProfession = "Freelancer";
+    if (formData.category === "student") finalProfession = "Student";
     if (formData.category === "client") finalProfession = "Client";
     if (formData.category === "other") finalProfession = formData.customProfession || "Other";
     if (formData.profession === "Other") finalProfession = formData.customProfession || "Other";
@@ -90,7 +113,10 @@ export function ProfileCompletionModal() {
         city: formData.city,
         pincode: formData.pincode,
         bio: formData.bio,
-        profession: finalProfession,
+        profession: formData.category === 'none' ? 'None' : finalProfession,
+        gender: formData.gender,
+        age: formData.age ? parseInt(formData.age) : null,
+        userGoal: formData.userGoal,
       });
       
       toast.success("Profile completed! Welcome aboard.");
@@ -102,6 +128,75 @@ export function ProfileCompletionModal() {
       setIsSubmitting(false);
     }
   };
+
+  const renderStepGoal = () => (
+    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+      <div className="space-y-4">
+        <label className="text-[10px] font-bold tracking-widest uppercase text-zinc-500 ml-1">
+          I want to...
+        </label>
+        <div className="grid grid-cols-1 gap-3">
+          <button
+            type="button"
+            onClick={() => setFormData({ ...formData, userGoal: "OFFER_SERVICE" })}
+            className={cn(
+              "flex items-center gap-4 p-5 rounded-2xl border transition-all duration-300 text-left group",
+              formData.userGoal === "OFFER_SERVICE"
+                ? "bg-blue-500/10 border-blue-500/50 ring-1 ring-blue-500/50"
+                : "bg-zinc-900/40 border-zinc-800/50 hover:bg-zinc-900/60 hover:border-zinc-700"
+            )}
+          >
+            <div className={cn(
+              "p-3 rounded-xl transition-colors",
+              formData.userGoal === "OFFER_SERVICE" ? "bg-blue-500 text-white" : "bg-zinc-800 text-zinc-400 group-hover:text-zinc-200"
+            )}>
+              <Handshake className="w-5 h-5" />
+            </div>
+            <div>
+              <p className={cn("text-sm font-bold", formData.userGoal === "OFFER_SERVICE" ? "text-white" : "text-zinc-200")}>
+                Offer my services
+              </p>
+              <p className="text-[10px] text-zinc-500 mt-0.5">I'm here to work and earn</p>
+            </div>
+            {formData.userGoal === "OFFER_SERVICE" && <CheckCircle2 className="w-4 h-4 text-blue-500 ml-auto" />}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setFormData({ ...formData, userGoal: "HIRE_PROFESSIONALS" })}
+            className={cn(
+              "flex items-center gap-4 p-5 rounded-2xl border transition-all duration-300 text-left group",
+              formData.userGoal === "HIRE_PROFESSIONALS"
+                ? "bg-purple-500/10 border-purple-500/50 ring-1 ring-purple-500/50"
+                : "bg-zinc-900/40 border-zinc-800/50 hover:bg-zinc-900/60 hover:border-zinc-700"
+            )}
+          >
+            <div className={cn(
+              "p-3 rounded-xl transition-colors",
+              formData.userGoal === "HIRE_PROFESSIONALS" ? "bg-purple-500 text-white" : "bg-zinc-800 text-zinc-400 group-hover:text-zinc-200"
+            )}>
+              <Target className="w-5 h-5" />
+            </div>
+            <div>
+              <p className={cn("text-sm font-bold", formData.userGoal === "HIRE_PROFESSIONALS" ? "text-white" : "text-zinc-200")}>
+                Hire professionals
+              </p>
+              <p className="text-[10px] text-zinc-500 mt-0.5">I'm looking for talent for my projects</p>
+            </div>
+            {formData.userGoal === "HIRE_PROFESSIONALS" && <CheckCircle2 className="w-4 h-4 text-purple-500 ml-auto" />}
+          </button>
+        </div>
+      </div>
+
+      <Button 
+        onClick={handleNext} 
+        disabled={!formData.userGoal}
+        className="w-full h-11 bg-zinc-100 hover:bg-white text-zinc-950 font-bold mt-4"
+      >
+        Continue <ArrowRight className="ml-2 w-4 h-4" />
+      </Button>
+    </div>
+  );
 
   const renderStep1 = () => (
     <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
@@ -132,30 +227,42 @@ export function ProfileCompletionModal() {
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-1.5">
           <label className="text-[10px] font-bold tracking-widest uppercase text-zinc-500 ml-1 flex items-center gap-1.5">
-            <MapPin className="w-3 h-3" /> City
+            Gender
           </label>
-          <Input 
-            value={formData.city}
-            onChange={e => setFormData({ ...formData, city: e.target.value })}
-            className="bg-zinc-900/50 border-zinc-800 text-zinc-200 focus:ring-blue-500/50 h-11"
-            placeholder="Mumbai"
-          />
+          <div className="flex gap-2">
+            {['Male', 'Female', 'Other'].map(g => (
+              <button
+                key={g}
+                type="button"
+                onClick={() => setFormData({ ...formData, gender: g })}
+                className={cn(
+                  "flex-1 h-10 rounded-xl text-xs font-medium border transition-all",
+                  formData.gender === g 
+                    ? "bg-blue-600 border-blue-500 text-white" 
+                    : "bg-zinc-900/50 border-zinc-800 text-zinc-400 hover:border-zinc-700"
+                )}
+              >
+                {g}
+              </button>
+            ))}
+          </div>
         </div>
         <div className="space-y-1.5">
           <label className="text-[10px] font-bold tracking-widest uppercase text-zinc-500 ml-1 flex items-center gap-1.5">
-            <Hash className="w-3 h-3" /> Pincode
+            Age
           </label>
-          <Input 
-            value={formData.pincode}
-            onChange={e => setFormData({ ...formData, pincode: e.target.value })}
-            className="bg-zinc-900/50 border-zinc-800 text-zinc-200 focus:ring-blue-500/50 h-11"
-            placeholder="400001"
+          <Input
+            type="number"
+            value={formData.age}
+            onChange={e => setFormData({ ...formData, age: e.target.value })}
+            className="bg-zinc-900/50 border-zinc-800 text-zinc-200 focus:ring-blue-500/50 h-10"
+            placeholder="25"
           />
         </div>
       </div>
-      <Button 
-        onClick={handleNext} 
-        disabled={!formData.displayName || !formData.phoneNumber || !formData.city}
+      <Button
+        onClick={handleNext}
+        disabled={!formData.displayName || !formData.phoneNumber || !formData.gender || !formData.age}
         className="w-full h-11 bg-zinc-100 hover:bg-white text-zinc-950 font-bold mt-2"
       >
         Continue <ArrowRight className="ml-2 w-4 h-4" />
@@ -181,8 +288,8 @@ export function ProfileCompletionModal() {
                 onClick={() => setFormData({ ...formData, category: cat.id, profession: "", customProfession: "" })}
                 className={cn(
                   "flex items-center gap-3 p-3 rounded-xl border transition-all duration-200 text-left",
-                  formData.category === cat.id 
-                    ? `${cat.bg} ${cat.border} ring-1 ring-offset-2 ring-offset-zinc-950 ring-${cat.id}-400/50` 
+                  formData.category === cat.id
+                    ? `${cat.bg} ${cat.border} ring-1 ring-offset-2 ring-offset-zinc-950 ring-${cat.id}-400/50`
                     : "bg-zinc-900/30 border-zinc-800/50 hover:bg-zinc-900/60 hover:border-zinc-700"
                 )}
               >
@@ -239,7 +346,7 @@ export function ProfileCompletionModal() {
             <label className="text-[10px] font-bold tracking-widest uppercase text-zinc-500 ml-1">
               Specify Profession
             </label>
-            <Input 
+            <Input
               value={formData.customProfession}
               onChange={e => setFormData({ ...formData, customProfession: e.target.value })}
               className="bg-zinc-900/50 border-zinc-800 text-zinc-200 h-11"
@@ -253,9 +360,9 @@ export function ProfileCompletionModal() {
           <Button variant="ghost" onClick={handleBack} className="flex-1 h-11 text-zinc-400 hover:text-white hover:bg-zinc-900">
             <ArrowLeft className="mr-2 w-4 h-4" /> Back
           </Button>
-          <Button 
-            onClick={handleNext} 
-            disabled={!formData.category || (formData.category !== 'client' && formData.category !== 'other' && !formData.profession) || (formData.category === 'other' && !formData.customProfession) || (formData.profession === 'Other' && !formData.customProfession)}
+          <Button
+            onClick={handleNext}
+            disabled={!formData.category || (formData.category !== 'none' && formData.category !== 'freelancer' && formData.category !== 'student' && formData.category !== 'other' && !formData.profession) || (formData.category === 'other' && !formData.customProfession) || (formData.profession === 'Other' && !formData.customProfession)}
             className="flex-[2] h-11 bg-zinc-100 hover:bg-white text-zinc-950 font-bold"
           >
             Continue <ArrowRight className="ml-2 w-4 h-4" />
@@ -271,7 +378,7 @@ export function ProfileCompletionModal() {
         <label className="text-[10px] font-bold tracking-widest uppercase text-zinc-500 ml-1">
           Bio (Optional)
         </label>
-        <Textarea 
+        <Textarea
           value={formData.bio}
           onChange={e => setFormData({ ...formData, bio: e.target.value })}
           className="bg-zinc-900/50 border-zinc-800 text-zinc-200 min-h-[120px] focus:ring-blue-500/50 resize-none placeholder:text-zinc-700"
@@ -284,8 +391,8 @@ export function ProfileCompletionModal() {
         <Button variant="ghost" onClick={handleBack} className="flex-1 h-11 text-zinc-400 hover:text-white hover:bg-zinc-900" disabled={isSubmitting}>
           <ArrowLeft className="mr-2 w-4 h-4" /> Back
         </Button>
-        <Button 
-          onClick={handleSubmit} 
+        <Button
+          onClick={handleSubmit}
           className="flex-[2] h-11 bg-blue-600 hover:bg-blue-500 text-white font-bold transition-all shadow-lg shadow-blue-900/20"
           disabled={isSubmitting}
         >
@@ -307,42 +414,48 @@ export function ProfileCompletionModal() {
 
   return (
     <Dialog open={true} onOpenChange={() => {}}>
-      <DialogContent className="sm:max-w-[480px] bg-zinc-950 border-zinc-900 text-white p-0 overflow-hidden shadow-2xl shadow-black/50" hideCloseButton>
+      <DialogContent className="sm:max-w-[480px] w-[calc(100%-32px)] max-h-[90vh] overflow-y-auto bg-zinc-950 border-zinc-900 text-white p-0 shadow-2xl shadow-black/50 z-[100]" hideCloseButton>
         {/* Progress Bar */}
         <div className="absolute top-0 left-0 w-full h-1 bg-zinc-900 z-50">
-          <div 
-            className="h-full bg-blue-500 transition-all duration-500 ease-out" 
-            style={{ width: `${(step / 3) * 100}%` }}
+          <div
+            className="h-full bg-blue-500 transition-all duration-500 ease-out"
+            style={{ width: `${(step / 4) * 100}%` }}
           />
         </div>
 
         <div className="p-8">
           <div className="mb-8 text-center">
             <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-blue-600/10 border border-blue-500/20 text-blue-400 mb-4 animate-bounce-slow">
-              {step === 1 && <UserIcon className="w-6 h-6" />}
-              {step === 2 && <Briefcase className="w-6 h-6" />}
-              {step === 3 && <CheckCircle2 className="w-6 h-6" />}
+              {step === 1 && <Handshake className="w-6 h-6" />}
+              {step === 2 && <UserIcon className="w-6 h-6" />}
+              {step === 3 && <Briefcase className="w-6 h-6" />}
+              {step === 4 && <CheckCircle2 className="w-6 h-6" />}
             </div>
             <DialogHeader>
               <DialogTitle className="text-2xl font-bold text-white tracking-tight">
-                {step === 1 && "Personalize Presence"}
-                {step === 2 && "What's your Skill?"}
-                {step === 3 && "Almost there!"}
+                {step === 1 && "Start Your Journey"}
+                {step === 2 && "Personalize Presence"}
+                {step === 3 && "Professional Identity"}
+                {step === 4 && "Final Touches"}
               </DialogTitle>
-              <DialogDescription className="text-zinc-500 mt-2 text-sm">
-                {step === 1 && "Complete basic details to help users find you."}
-                {step === 2 && "Categorise your core expertise to get better deals."}
-                {step === 3 && "Add a short bio to complete your profile identity."}
+              <DialogDescription className="text-zinc-500 text-sm mt-1">
+                {step === 1 && "What brings you to Krovaa today?"}
+                {step === 2 && "Help us get to know you better."}
+                {step === 3 && "Tell us about your skills and expertise."}
+                {step === 4 && "A little bit about yourself goes a long way."}
               </DialogDescription>
             </DialogHeader>
           </div>
 
-          {step === 1 && renderStep1()}
-          {step === 2 && renderStep2()}
-          {step === 3 && renderStep3()}
+          <div className="mt-2">
+            {step === 1 && renderStepGoal()}
+            {step === 2 && renderStep1()}
+            {step === 3 && renderStep2()}
+            {step === 4 && renderStep3()}
+          </div>
 
           <div className="mt-8 flex justify-center gap-1.5">
-            {[1, 2, 3].map(s => (
+            {[1, 2, 3, 4].map(s => (
               <div 
                 key={s} 
                 className={cn(

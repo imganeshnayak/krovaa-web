@@ -7,6 +7,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffect, useState, useRef } from "react";
+import Logo from "@/components/Logo";
 
 /* ─── Google Font import (Syne + DM Sans) injected once ─── */
 if (typeof document !== "undefined" && !document.getElementById("krovaa-fonts")) {
@@ -128,7 +129,7 @@ const Landing = () => {
       <nav className="sticky top-0 z-50 border-b border-white/5 backdrop-blur-2xl bg-[#050810]/80 h-20 flex items-center">
         <div className="w-full flex items-center justify-between px-4 md:px-8">
           <Link to="/" className="flex items-center group shrink-0 -ml-2 sm:-ml-0">
-            {/* Using scale and origin-left to make the logo bigger without expanding the header height */}
+            <Logo size="lg" className="scale-110 origin-left" />
           </Link>
 
 
@@ -420,7 +421,7 @@ const Landing = () => {
         <div className="w-full px-4 md:px-8">
           <div className="flex flex-col gap-6 mb-12 items-center text-center">
             <Link to="/" className="flex flex-col items-center group shrink-0">
-              <img src="/krovaa-logo.svg?v=3" alt="Krovaa Logo" className="h-16 w-auto scale-125 origin-center" />
+              <Logo size="lg" className="scale-125 origin-center" />
             </Link>
 
             <p className="text-sm text-white/25 leading-relaxed max-w-xs font-light">

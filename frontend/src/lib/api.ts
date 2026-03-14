@@ -62,6 +62,10 @@ export interface AuthUser {
   phoneNumber?: string;
   permissions?: string[];
   profession?: string;
+  gender?: string;
+  age?: number;
+  userGoal?: string;
+  skills?: string[];
 }
 
 export interface AuthResponse {
@@ -158,6 +162,10 @@ export function updateUserProfile(
     pincode?: string;
     phoneNumber?: string;
     profession?: string | null;
+    gender?: string;
+    age?: number | null;
+    userGoal?: string;
+    skills?: string[];
   }
 ): Promise<AuthUser> {
   return apiFetch<AuthUser>(`/api/users/profile/${userId}`, {

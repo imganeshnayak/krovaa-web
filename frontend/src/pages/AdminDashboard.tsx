@@ -33,6 +33,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import AdminUserDetailDialog from "@/components/AdminUserDetailDialog";
+import Logo from "@/components/Logo";
 import {
   getAdminStats,
   getAdminUsers,
@@ -493,9 +494,9 @@ const AdminDashboard = () => {
     <div className="min-h-screen bg-background flex">
       {/* Sidebar */}
       <div className="hidden md:flex flex-col w-64 border-r border-border bg-card p-4">
-        <div className="flex items-center gap-2 mb-8">
-          <Shield className="h-6 w-6 text-primary" />
-          <span className="text-lg font-bold text-card-foreground">Admin Panel</span>
+        <div className="flex items-center gap-2 mb-8 px-2">
+          <Logo size="md" />
+          <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1 opacity-50">Admin</span>
         </div>
         <nav className="space-y-1">
           {tabs.map((tab) => (

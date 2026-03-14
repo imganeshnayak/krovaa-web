@@ -2134,9 +2134,10 @@ const ChatPage = () => {
             isMobile={isMobile}
           />
         )}
-      </div>
-    );
-  }
+      <ProfileCompletionModal />
+    </div>
+  );
+}
 
   // Desktop: side-by-side
   return (
