@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import {
   ArrowLeft, Share2, MessageSquare, Twitter, Instagram, Linkedin,
   Github, Globe, Plus, Trash2, Star, LogOut, Facebook, Youtube,
-  Camera, Save, X, Edit2, Eye, MapPin, CheckCircle2, RotateCcw, Trash, Phone, Lock, Briefcase
+  Camera, Save, X, Edit2, Eye, MapPin, CheckCircle2, RotateCcw, Trash, Phone, Lock, Briefcase,
+  Code, Palette, Hammer, GanttChart, Users, GraduationCap, UserCircle, HelpCircle, ChevronRight
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -38,6 +39,29 @@ if (typeof document !== "undefined" && !document.getElementById("krovaa-profile-
   l.rel = "stylesheet";
   l.href = "https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap";
   document.head.appendChild(l);
+}
+
+/* ── Constants for Profession Selection ── */
+const CATEGORIES = [
+  { id: "tech", label: "Tech", icon: Code, color: "text-blue-400", bg: "bg-blue-400/10", border: "border-blue-400/20" },
+  { id: "creative", label: "Creative", icon: Palette, color: "text-purple-400", bg: "bg-purple-400/10", border: "border-purple-400/20" },
+  { id: "engineering", label: "Engineering", icon: Hammer, color: "text-orange-400", bg: "bg-orange-400/10", border: "border-orange-400/20" },
+  { id: "professional", label: "Professional", icon: GanttChart, color: "text-emerald-400", bg: "bg-emerald-400/10", border: "border-emerald-400/20" },
+  { id: "freelancer", label: "Freelancer", icon: Users, color: "text-pink-400", bg: "bg-pink-400/10", border: "border-pink-400/20" },
+  { id: "student", label: "Student", icon: GraduationCap, color: "text-cyan-400", bg: "bg-cyan-400/10", border: "border-cyan-400/20" },
+  { id: "none", label: "None", icon: UserCircle, color: "text-indigo-400", bg: "bg-indigo-400/10", border: "border-indigo-400/20" },
+  { id: "other", label: "Other", icon: HelpCircle, color: "text-zinc-400", bg: "bg-zinc-400/10", border: "border-zinc-400/20" },
+];
+
+const SUB_PROFESSIONS: Record<string, string[]> = {
+  tech: ["Software Developer", "Web Developer", "Data Scientist", "AI / ML Engineer", "Cybersecurity Analyst", "DevOps Engineer", "Mobile App Developer"],
+  creative: ["UI/UX Designer", "Graphic Designer", "3D Designer", "2D Designer", "Content Creator", "Video Editor", "Photographer", "Videographer", "Artist / Illustrator", "Musician"],
+  engineering: ["Civil Engineer", "Mechanical Engineer", "Electrical Engineer", "Architect", "Structural Engineer"],
+  professional: ["Product Manager", "Digital Marketer", "Doctor", "Nurse", "Pharmacist", "Lawyer", "Chartered Accountant", "Teacher / Educator", "Consultant"],
+};
+
+function cn(...classes: string[]) {
+  return classes.filter(Boolean).join(" ");
 }
 
 const PLATFORMS = [
@@ -110,6 +134,8 @@ const ProfilePage = () => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [customProfession, setCustomProfession] = useState<string>("");
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -159,6 +185,28 @@ const ProfilePage = () => {
           socialLinks: userData.socialLinks || [],
           userGoal: userData.userGoal || ""
         });
+
+        // Try to match current profession to a category
+        const currentProf = userData.profession;
+        if (currentProf) {
+          if (currentProf === "None") setSelectedCategory("none");
+          else if (currentProf === "Freelancer") setSelectedCategory("freelancer");
+          else if (currentProf === "Student") setSelectedCategory("student");
+          else {
+            let found = false;
+            for (const [cat, subProfs] of Object.entries(SUB_PROFESSIONS)) {
+              if (subProfs.includes(currentProf)) {
+                setSelectedCategory(cat);
+                found = true;
+                break;
+              }
+            }
+            if (!found) {
+              setSelectedCategory("other");
+              setCustomProfession(currentProf);
+            }
+          }
+        }
       } else {
         // Not logged in and no username in URL — shouldn't happen but handle gracefully
         setError("Please log in to view your profile.");
@@ -214,6 +262,14 @@ const ProfilePage = () => {
 
   const handleSave = async () => {
     if (!user) return;
+
+    let finalProfession = editForm.profession;
+    if (selectedCategory === "none") finalProfession = "None";
+    else if (selectedCategory === "freelancer") finalProfession = "Freelancer";
+    else if (selectedCategory === "student") finalProfession = "Student";
+    else if (selectedCategory === "other") finalProfession = customProfession || "Other";
+    else if (editForm.profession === "Other") finalProfession = customProfession || "Other";
+
     setIsSaving(true);
     try {
       const updated = await updateUserProfile(user.id, {
@@ -223,7 +279,7 @@ const ProfilePage = () => {
         email: editForm.email.trim().toLowerCase(),
         city: editForm.city.trim(),
         pincode: editForm.pincode.trim(),
-        profession: editForm.profession.trim() || null,
+        profession: finalProfession?.trim() || null,
         phoneNumber: editForm.phoneNumber?.trim(),
         gender: editForm.gender,
         age: editForm.age ? parseInt(editForm.age) : null,
@@ -680,28 +736,91 @@ const ProfilePage = () => {
               />
             </div>
 
-            {/* Profession / Skill */}
-            <div className="group">
-              <label className="block text-[9px] font-bold tracking-[0.25em] uppercase text-white/25 mb-2 ml-0.5">Profession / Skill</label>
-              <select
-                className="w-full bg-transparent border-b border-white/10 focus:border-blue-500/60 outline-none pb-2.5 pt-1 text-sm text-white appearance-none cursor-pointer"
-                value={editForm.profession}
-                onChange={(e) => setEditForm({ ...editForm, profession: e.target.value })}
-              >
-                <option value="" className="bg-[#0a0f1e] text-white/40">Select your profession...</option>
-                {[
-                  "Software Developer", "UI/UX Designer", "Graphic Designer", "3D Designer", "2D Designer", "Web Developer",
-                  "Data Scientist", "AI / ML Engineer", "Cybersecurity Analyst", "DevOps Engineer",
-                  "Product Manager", "Digital Marketer", "Content Creator", "Video Editor",
-                  "Photographer", "Videographer", "Artist / Illustrator", "Musician",
-                  "Civil Engineer", "Mechanical Engineer", "Electrical Engineer", "Architect",
-                  "Doctor", "Nurse", "Pharmacist", "Lawyer", "Chartered Accountant",
-                  "Teacher / Educator", "Writer / Author", "Entrepreneur", "Consultant",
-                  "Freelancer", "Student", "None", "Other"
-                ].map(p => (
-                  <option key={p} value={p} className="bg-[#0a0f1e] text-white">{p}</option>
+            {/* Profession — Category/Subcategory Structure */}
+            <div className="space-y-4 pt-2">
+              <label className="block text-[9px] font-bold tracking-[0.25em] uppercase text-white/25 ml-0.5">Profession / My Category</label>
+              
+              {/* Category Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {CATEGORIES.map((cat) => (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedCategory(cat.id);
+                      setEditForm({ ...editForm, profession: "" });
+                      setCustomProfession("");
+                    }}
+                    className={cn(
+                      "flex flex-col items-center justify-center gap-2 p-3 rounded-xl border transition-all duration-200 text-center",
+                      selectedCategory === cat.id
+                        ? `${cat.bg} ${cat.border} ring-1 ring-blue-500/20`
+                        : "bg-white/[0.02] border-white/5 hover:bg-white/[0.05] hover:border-white/10"
+                    )}
+                  >
+                    <div className={cn("p-2 rounded-lg", cat.bg, cat.color)}>
+                      <cat.icon className="w-4 h-4" />
+                    </div>
+                    <span className={cn("text-[10px] font-bold uppercase tracking-wider", selectedCategory === cat.id ? "text-white" : "text-white/40")}>
+                      {cat.label}
+                    </span>
+                  </button>
                 ))}
-              </select>
+              </div>
+
+              {/* Sub-Professions Display */}
+              {selectedCategory && SUB_PROFESSIONS[selectedCategory] && (
+                <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <label className="block text-[9px] font-bold tracking-[0.15em] uppercase text-blue-400/60 ml-0.5 flex items-center gap-1.5">
+                    <ChevronRight className="w-3 h-3" /> Select Expertise
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {SUB_PROFESSIONS[selectedCategory].map((prof) => (
+                      <button
+                        key={prof}
+                        type="button"
+                        onClick={() => setEditForm({ ...editForm, profession: prof })}
+                        className={cn(
+                          "px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all border uppercase tracking-wider",
+                          editForm.profession === prof
+                            ? "bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-900/20"
+                            : "bg-white/5 border-white/5 text-white/30 hover:border-white/10"
+                        )}
+                      >
+                        {prof}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => setEditForm({ ...editForm, profession: "Other" })}
+                      className={cn(
+                        "px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all border uppercase tracking-wider",
+                        editForm.profession === "Other"
+                          ? "bg-blue-600 border-blue-500 text-white"
+                          : "bg-white/5 border-white/5 text-white/30 hover:border-white/10"
+                      )}
+                    >
+                      Other...
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Specify Custom Profession */}
+              {(selectedCategory === "other" || editForm.profession === "Other") && (
+                <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <label className="block text-[9px] font-bold tracking-[0.15em] uppercase text-blue-400/60 ml-0.5 flex items-center gap-1.5">
+                    <ChevronRight className="w-3 h-3" /> Specify Profession
+                  </label>
+                  <Input
+                    value={customProfession}
+                    onChange={e => setCustomProfession(e.target.value)}
+                    className="bg-white/5 border-white/10 text-white h-10 focus:ring-blue-500/50 placeholder:text-white/10 text-sm"
+                    placeholder="E.g. Full Stack Engineer, UX Specialist..."
+                    autoFocus
+                  />
+                </div>
+              )}
             </div>
 
             {/* Skills Multi-Select */}
