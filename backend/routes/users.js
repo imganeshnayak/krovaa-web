@@ -432,70 +432,117 @@ router.put('/profile/:id', auth, async (req, res) => {
 // POST /api/users/avatar - Upload avatar
 router.post('/avatar', auth, upload.single('avatar'), async (req, res) => {
     try {
+        console.log('Avatar upload endpoint called');
+        console.log('File object:', req.file ? { fieldname: req.file.fieldname, originalname: req.file.originalname, encoding: req.file.encoding, mimetype: req.file.mimetype, size: req.file.size, buffer: req.file.buffer ? 'exists' : 'missing' } : 'no file');
+        console.log('User ID:', req.user.id);
+        
         if (!req.file) {
+            console.log('No file provided in request');
             return res.status(400).json({ error: 'No file uploaded.' });
         }
 
-        const result = await new Promise((resolve, reject) => {
-            const stream = cloudinary.uploader.upload_stream(
-                {
-                    folder: 'krovaa/avatars',
-                    transformation: [{ width: 400, height: 400, crop: 'fill', gravity: 'face' }],
-                    access_mode: 'public'
-                },
-                (error, result) => {
-                    if (error) reject(error);
-                    else resolve(result);
-                }
-            );
-            stream.end(req.file.buffer);
+        if (!req.file.buffer) {
+            console.log('File buffer is missing');
+            return res.status(400).json({ error: 'File buffer is missing.' });
+        }
+
+        console.log('Cloudinary config:', { 
+            cloud_name: process.env.CLOUDINARY_CLOUD_NAME ? 'set' : 'missing',
+            api_key: process.env.CLOUDINARY_API_KEY ? 'set' : 'missing',
+            api_secret: process.env.CLOUDINARY_API_SECRET ? 'set' : 'missing'
         });
+
+        console.log('Cloudinary upload starting...');
+        
+        // Convert buffer to base64 for more reliable upload in some environments
+        const b64 = req.file.buffer.toString('base64');
+        const dataURI = "data:" + req.file.mimetype + ";base64," + b64;
+
+        const result = await cloudinary.uploader.upload(dataURI, {
+            folder: 'krovaa/avatars',
+            transformation: [{ width: 400, height: 400, crop: 'fill', gravity: 'auto' }],
+            access_mode: 'public'
+        });
+
+        console.log('Cloudinary full response:', JSON.stringify(result, null, 2));
+
+        if (!result || (!result.secure_url && !result.url)) {
+            throw new Error('Cloudinary returned an invalid response: ' + JSON.stringify(result));
+        }
+
+        const finalAvatarUrl = result.secure_url || result.url;
+        console.log('Using avatar URL:', finalAvatarUrl);
 
         // Update user's avatar URL
-        await prisma.user.update({
+        const updatedUser = await prisma.user.update({
             where: { id: req.user.id },
-            data: { avatarUrl: result.secure_url },
+            data: { avatarUrl: finalAvatarUrl },
+            select: { id: true, avatarUrl: true }
         });
+        console.log('User updated:', updatedUser);
 
-        res.json({ avatarUrl: result.secure_url });
+        res.json({ avatarUrl: finalAvatarUrl });
     } catch (err) {
         console.error('Avatar upload error:', err);
-        res.status(500).json({ error: 'Upload failed.' });
+        res.status(500).json({ error: 'Upload failed.', details: err.message });
     }
 });
 
 // POST /api/users/cover-photo - Upload cover photo
 router.post('/cover-photo', auth, upload.single('coverPhoto'), async (req, res) => {
     try {
+        console.log('Cover photo upload endpoint called');
+        console.log('File object:', req.file ? { fieldname: req.file.fieldname, originalname: req.file.originalname, encoding: req.file.encoding, mimetype: req.file.mimetype, size: req.file.size, buffer: req.file.buffer ? 'exists' : 'missing' } : 'no file');
+        console.log('User ID:', req.user.id);
+        
         if (!req.file) {
+            console.log('No file provided in request');
             return res.status(400).json({ error: 'No file uploaded.' });
         }
 
-        const result = await new Promise((resolve, reject) => {
-            const stream = cloudinary.uploader.upload_stream(
-                {
-                    folder: 'krovaa/covers',
-                    transformation: [{ width: 1200, height: 300, crop: 'fill', gravity: 'auto' }],
-                    access_mode: 'public'
-                },
-                (error, result) => {
-                    if (error) reject(error);
-                    else resolve(result);
-                }
-            );
-            stream.end(req.file.buffer);
+        if (!req.file.buffer) {
+            console.log('File buffer is missing');
+            return res.status(400).json({ error: 'File buffer is missing.' });
+        }
+
+        console.log('Cloudinary config:', { 
+            cloud_name: process.env.CLOUDINARY_CLOUD_NAME ? 'set' : 'missing',
+            api_key: process.env.CLOUDINARY_API_KEY ? 'set' : 'missing',
+            api_secret: process.env.CLOUDINARY_API_SECRET ? 'set' : 'missing'
         });
 
+        console.log('Cloudinary cover upload starting...');
+        
+        const b64 = req.file.buffer.toString('base64');
+        const dataURI = "data:" + req.file.mimetype + ";base64," + b64;
+
+        const result = await cloudinary.uploader.upload(dataURI, {
+            folder: 'krovaa/covers',
+            transformation: [{ width: 1200, height: 300, crop: 'fill', gravity: 'auto' }],
+            access_mode: 'public'
+        });
+
+        console.log('Cloudinary cover full response:', JSON.stringify(result, null, 2));
+
+        if (!result || (!result.secure_url && !result.url)) {
+            throw new Error('Cloudinary returned an invalid response for cover: ' + JSON.stringify(result));
+        }
+
+        const finalCoverUrl = result.secure_url || result.url;
+        console.log('Using cover URL:', finalCoverUrl);
+
         // Update user's cover photo URL
-        await prisma.user.update({
+        const updatedUser = await prisma.user.update({
             where: { id: req.user.id },
             data: { coverPhotoUrl: result.secure_url },
+            select: { id: true, coverPhotoUrl: true }
         });
+        console.log('User updated:', updatedUser);
 
         res.json({ coverPhotoUrl: result.secure_url });
     } catch (err) {
         console.error('Cover photo upload error:', err);
-        res.status(500).json({ error: 'Upload failed.' });
+        res.status(500).json({ error: 'Upload failed.', details: err.message });
     }
 });
 

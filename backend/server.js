@@ -9,7 +9,9 @@ import { fileURLToPath } from 'url';
 // Resolve __dirname for ESM and load .env from the project root
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-dotenv.config({ path: path.join(__dirname, '..', '.env') });
+dotenv.config(); // This will look in the current working directory (backend)
+// Also try loading from the current file's directory just in case CWD is different
+dotenv.config({ path: path.join(__dirname, '.env') });
 
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/users.js';
@@ -27,6 +29,15 @@ import setupSocket from './socket/chat.js';
 
 const app = express();
 const server = createServer(app);
+
+// Global Logger (Move to top)
+app.use((req, res, next) => {
+    if (req.url !== '/api/health') { // Skip health checks to reduce noise
+        console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    }
+    next();
+});
+
 const allowedOrigins = [
     'http://localhost:5173',
     'http://localhost:8080',
@@ -87,6 +98,15 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/wallet', walletRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/ads', adsRoutes);
+
+// Global Error Handler
+app.use((err, req, res, next) => {
+    console.error('SERVER ERROR:', err);
+    res.status(err.status || 500).json({
+        error: err.message || 'Internal Server Error',
+        stack: process.env.NODE_ENV === 'production' ? null : err.stack
+    });
+});
 
 // Health check (with DB connectivity test)
 app.get('/api/health', async (req, res) => {

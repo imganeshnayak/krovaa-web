@@ -6,14 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import Logo from "@/components/Logo";
 
-/* ── Font injection ── */
-if (typeof document !== "undefined" && !document.getElementById("krovaa-login-fonts")) {
-  const l = document.createElement("link");
-  l.id = "krovaa-login-fonts";
-  l.rel = "stylesheet";
-  l.href = "https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800&family=Syne:wght@700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap";
-  document.head.appendChild(l);
-}
+
 
 /* ── Underline field (matches Register) ── */
 const Field = ({

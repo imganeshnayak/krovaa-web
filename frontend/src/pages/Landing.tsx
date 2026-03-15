@@ -9,15 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useEffect, useState, useRef } from "react";
 import Logo from "@/components/Logo";
 
-/* ─── Google Font import (Syne + DM Sans) injected once ─── */
-if (typeof document !== "undefined" && !document.getElementById("krovaa-fonts")) {
-  const link = document.createElement("link");
-  link.id = "krovaa-fonts";
-  link.rel = "stylesheet";
-  link.href =
-    "https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800&family=Syne:wght@700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap";
-  document.head.appendChild(link);
-}
+
 
 /* ─── Data ─── */
 const slides = [

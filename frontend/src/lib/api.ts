@@ -2,17 +2,26 @@
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
-export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
+ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const token = localStorage.getItem("authToken");
 
-  const res = await fetch(`${API_URL}${path}`, {
+  const headers: Record<string, string> = {
+    ...(token && { 'Authorization': `Bearer ${token}` }),
+    ...(options?.headers as Record<string, string> || {}),
+  };
+
+  // Only set Content-Type to application/json if the body is not FormData
+  if (!(options?.body instanceof FormData) && !headers['Content-Type']) {
+    headers['Content-Type'] = 'application/json';
+  }
+
+  const fullUrl = `${API_URL}${path}`;
+  console.log(`[API Request] ${options?.method || 'GET'} ${fullUrl}`);
+  
+  const res = await fetch(fullUrl, {
     credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token && { 'Authorization': `Bearer ${token}` }),
-      ...(options?.headers || {}),
-    },
     ...options,
+    headers,
   });
 
   if (!res.ok) {
@@ -174,46 +183,36 @@ export function updateUserProfile(
   });
 }
 
-export async function uploadAvatar(file: File): Promise<{ avatarUrl: string }> {
+export function uploadAvatar(file: File): Promise<{ avatarUrl: string }> {
   const formData = new FormData();
   formData.append("avatar", file);
-
-  const token = localStorage.getItem("authToken");
-  const res = await fetch(`${API_URL}/api/users/avatar`, {
+  console.log('Uploading avatar:', { fileName: file.name, fileSize: file.size, fileType: file.type });
+  return apiFetch<{ avatarUrl: string }>("/api/users/avatar", {
     method: "POST",
-    headers: {
-      ...(token && { 'Authorization': `Bearer ${token}` }),
-    },
     body: formData,
+  }).then(response => {
+    console.log('Avatar upload response:', response);
+    return response;
+  }).catch(error => {
+    console.error('Avatar upload failed:', error);
+    throw error;
   });
-
-  if (!res.ok) {
-    const error = await res.text();
-    throw new Error(error);
-  }
-
-  return res.json();
 }
 
-export async function uploadCoverPhoto(file: File): Promise<{ coverPhotoUrl: string }> {
+export function uploadCoverPhoto(file: File): Promise<{ coverPhotoUrl: string }> {
   const formData = new FormData();
   formData.append("coverPhoto", file);
-
-  const token = localStorage.getItem("authToken");
-  const res = await fetch(`${API_URL}/api/users/cover-photo`, {
+  console.log('Uploading cover photo:', { fileName: file.name, fileSize: file.size, fileType: file.type });
+  return apiFetch<{ coverPhotoUrl: string }>("/api/users/cover-photo", {
     method: "POST",
-    headers: {
-      ...(token && { 'Authorization': `Bearer ${token}` }),
-    },
     body: formData,
+  }).then(response => {
+    console.log('Cover photo upload response:', response);
+    return response;
+  }).catch(error => {
+    console.error('Cover photo upload failed:', error);
+    throw error;
   });
-
-  if (!res.ok) {
-    const error = await res.text();
-    throw new Error(error);
-  }
-
-  return res.json();
 }
 
 export function deleteAvatar(): Promise<{ message: string }> {

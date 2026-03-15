@@ -1,5 +1,5 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,7 @@ import {
   Github, Globe, Plus, Trash2, Star, LogOut, Facebook, Youtube,
   Camera, Save, X, Edit2, Eye, MapPin, CheckCircle2, RotateCcw, Trash, Phone, Lock, Briefcase,
   Code, Palette, Hammer, GanttChart, Users, GraduationCap, UserCircle, HelpCircle, ChevronRight,
-  MoreHorizontal, Flag, AlertCircle
+  MoreHorizontal, Flag, AlertCircle, Loader2
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -33,14 +33,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-/* ── Font injection ── */
-if (typeof document !== "undefined" && !document.getElementById("krovaa-profile-fonts")) {
-  const l = document.createElement("link");
-  l.id = "krovaa-profile-fonts";
-  l.rel = "stylesheet";
-  l.href = "https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800&family=Syne:wght@700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap";
-  document.head.appendChild(l);
-}
+
 
 /* ── Constants for Profession Selection ── */
 const CATEGORIES = [
@@ -155,6 +148,32 @@ const ProfilePage = () => {
   const [verificationFee, setVerificationFee] = useState(0);
   const [isViewAllRatingsOpen, setIsViewAllRatingsOpen] = useState(false);
   const [allRatings, setAllRatings] = useState<any[]>([]);
+  const [imageVersion, setImageVersion] = useState(Date.now());
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const coverPhotoInputRef = useRef<HTMLInputElement>(null);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [isUploadingCoverPhoto, setIsUploadingCoverPhoto] = useState(false);
+  const [localAvatarOverride, setLocalAvatarOverride] = useState<string | null>(null);
+  const [localCoverOverride, setLocalCoverOverride] = useState<string | null>(null);
+
+  // Helper to get image URL with cache busting, unless it's a blob preview
+  // Helper to get image URL with cache busting, unless it's a blob preview
+  const getImageUrl = (url?: string, type: 'avatar' | 'cover' = 'avatar') => {
+    // Priority: Local override (blob or server-confirmed URL) > user object URL
+    const effectiveUrl = (type === 'avatar' ? localAvatarOverride : localCoverOverride) || url;
+    
+    if (!effectiveUrl) return "";
+    if (effectiveUrl.startsWith('blob:') || effectiveUrl.startsWith('data:')) return effectiveUrl;
+    
+    // If it's a relative path, prepend API_URL (using standard http/https check)
+    let finalUrl = effectiveUrl;
+    if (!effectiveUrl.startsWith('http')) {
+      const baseApiUrl = (import.meta.env.VITE_API_URL || "http://localhost:5000").replace(/\/$/, "");
+      finalUrl = `${baseApiUrl}${effectiveUrl.startsWith('/') ? '' : '/'}${effectiveUrl}`;
+    }
+    
+    return `${finalUrl}${finalUrl.includes('?') ? '&' : '?'}v=${imageVersion}`;
+  };
 
   const loadUser = async () => {
     setIsLoading(true);
@@ -162,6 +181,9 @@ const ProfilePage = () => {
       if (username) {
         const userData = await getUserByUsername(username);
         setUser(userData);
+        // Clear overrides if server now has the data
+        if (userData.avatarUrl) setLocalAvatarOverride(null);
+        if (userData.coverPhotoUrl) setLocalCoverOverride(null);
         if (currentUser?.id && userData.id !== currentUser.id) {
           try {
             const eligibility = await getRatingEligibility(userData.id);
@@ -172,6 +194,9 @@ const ProfilePage = () => {
       } else if (currentUser?.id) {
         const userData = await getUser(currentUser.id);
         setUser(userData);
+        // Clear overrides if server now has the data
+        if (userData.avatarUrl) setLocalAvatarOverride(null);
+        if (userData.coverPhotoUrl) setLocalCoverOverride(null);
         setEditForm({
           displayName: userData.displayName || "",
           bio: userData.bio || "",
@@ -312,27 +337,105 @@ const ProfilePage = () => {
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    console.log('Avatar upload started', { file: file?.name, size: file?.size, type: file?.type });
     if (!file || !user) return;
     if (file.size > 5 * 1024 * 1024) { toast({ title: "File too large", variant: "destructive" }); return; }
+    
+    setIsUploadingAvatar(true);
     try {
-      const { avatarUrl } = await uploadAvatar(file);
-      setUser({ ...user, avatarUrl });
+      // Create immediate preview using functional override
+      const blobUrl = URL.createObjectURL(file);
+      setLocalAvatarOverride(blobUrl);
+      setImageVersion(Date.now());
+      
+      // Upload to server
+      const response = await uploadAvatar(file);
+      const { avatarUrl } = response;
+      
+      // Confirm the server URL locally
+      setLocalAvatarOverride(avatarUrl);
+      setImageVersion(Date.now());
+      
+      setUser((prevUser) => prevUser ? { ...prevUser, avatarUrl } : prevUser);
+      
+      // Update global user state
+      await refreshUser();
+      console.log('User refreshed from context');
+      
       toast({ title: "Avatar updated!" });
+      // Clear the input so the same file can be uploaded again
+      if (avatarInputRef.current) {
+        avatarInputRef.current.value = '';
+      }
     } catch (err) {
-      toast({ title: "Upload failed", variant: "destructive" });
+      console.error('Avatar upload error:', err);
+      toast({ title: "Upload failed", description: err instanceof Error ? err.message : "Failed to upload avatar", variant: "destructive" });
+      // Re-fetch user data to restore correct avatar on error
+      try {
+        const freshUser = await getUser(user.id);
+        console.log('Fetched fresh user after error:', freshUser);
+        setUser(freshUser);
+      } catch (e) {
+        console.error('Failed to restore user state:', e);
+      }
+      // Clear input on error too
+      if (avatarInputRef.current) {
+        avatarInputRef.current.value = '';
+      }
+    } finally {
+      setIsUploadingAvatar(false);
     }
   };
 
   const handleCoverPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    console.log('Cover photo upload started', { file: file?.name, size: file?.size, type: file?.type });
     if (!file || !user) return;
     if (file.size > 5 * 1024 * 1024) { toast({ title: "File too large", variant: "destructive" }); return; }
+    
+    setIsUploadingCoverPhoto(true);
     try {
-      const { coverPhotoUrl } = await uploadCoverPhoto(file);
-      setUser({ ...user, coverPhotoUrl });
+      // Create immediate preview
+      const blobUrl = URL.createObjectURL(file);
+      setLocalCoverOverride(blobUrl);
+      setImageVersion(Date.now());
+      
+      // Upload to server
+      const response = await uploadCoverPhoto(file);
+      const { coverPhotoUrl } = response;
+      
+      // Confirm server URL
+      setLocalCoverOverride(coverPhotoUrl);
+      setImageVersion(Date.now());
+      
+      setUser((prevUser) => prevUser ? { ...prevUser, coverPhotoUrl } : prevUser);
+      
+      // Update global user state
+      await refreshUser();
+      console.log('User refreshed from context');
+      
       toast({ title: "Cover updated!" });
-    } catch {
-      toast({ title: "Upload failed", variant: "destructive" });
+      // Clear the input so the same file can be uploaded again
+      if (coverPhotoInputRef.current) {
+        coverPhotoInputRef.current.value = '';
+      }
+    } catch (err) {
+      console.error('Cover photo upload error:', err);
+      toast({ title: "Upload failed", description: err instanceof Error ? err.message : "Failed to upload cover", variant: "destructive" });
+      // Re-fetch user data to restore correct cover on error
+      try {
+        const freshUser = await getUser(user.id);
+        console.log('Fetched fresh user after error:', freshUser);
+        setUser(freshUser);
+      } catch (e) {
+        console.error('Failed to restore user state:', e);
+      }
+      // Clear input on error too
+      if (coverPhotoInputRef.current) {
+        coverPhotoInputRef.current.value = '';
+      }
+    } finally {
+      setIsUploadingCoverPhoto(false);
     }
   };
 
@@ -379,6 +482,11 @@ const ProfilePage = () => {
 
   const initials = user.displayName ? user.displayName.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2) : "?";
 
+  console.log('Rendering for:', user.username, 'Auth ID:', currentUser?.id, 'Display User ID:', user.id, 'Avatar:', user.avatarUrl, 'Override:', localAvatarOverride);
+
+  const currentAvatarUrl = localAvatarOverride || user.avatarUrl;
+  const currentCoverUrl = localCoverOverride || user.coverPhotoUrl;
+
   return (
     <div
       style={{ fontFamily: "'DM Sans', sans-serif" }}
@@ -403,23 +511,30 @@ const ProfilePage = () => {
             <ArrowLeft className="h-4 w-4" />
             Back
           </Link>
-          <Link to="/" style={{ fontFamily: "'Syne', sans-serif" }} className="text-base font-bold text-white/60 hover:text-white transition-colors">
+          <Link to="/" style={{ fontFamily: "'Outfit', sans-serif" }} className="text-base font-bold text-white/60 hover:text-white transition-colors">
             Krovaa
           </Link>
-          <button onClick={copyLink} className="flex items-center gap-1.5 text-xs text-white/30 hover:text-blue-400 transition-colors">
-            <Share2 className="h-3.5 w-3.5" />
-            Share
+          <button 
+            onClick={copyLink}
+            className="flex items-center justify-center p-2 rounded-xl text-white/30 hover:text-white hover:bg-white/5 transition-all"
+            title="Share profile"
+          >
+            <Share2 className="h-4.5 w-4.5" />
           </button>
         </div>
       </div>
 
       <div className="max-w-2xl mx-auto px-4 pb-24 relative z-10">
-
         {/* ── Cover ── */}
         <div className="relative h-44 rounded-b-3xl overflow-hidden -mx-4 group/cover">
-          {user.coverPhotoUrl ? (
+          {currentCoverUrl ? (
             <>
-              <img src={user.coverPhotoUrl} alt="Cover" className="w-full h-full object-cover" />
+              <img 
+                key={`cover-${imageVersion}`}
+                src={getImageUrl(user.coverPhotoUrl, 'cover')} 
+                alt="Cover" 
+                className="w-full h-full object-cover" 
+              />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
             </>
           ) : (
@@ -431,55 +546,78 @@ const ProfilePage = () => {
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 rounded-full bg-blue-600/10 blur-[60px]" />
             </div>
           )}
-          
-          {/* Secondary Actions — Share & More (Positioned like the reference image) */}
-          <div className="absolute -bottom-14 right-4 flex items-center gap-3 z-30">
-            <button 
-              onClick={copyLink}
-              className="p-2 rounded-full border border-white/10 bg-white/5 hover:bg-white/10 text-white/40 hover:text-white transition-all shadow-lg"
-              title="Share profile"
-            >
-              <Share2 className="h-4.5 w-4.5" />
-            </button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="p-2 rounded-full border border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 transition-all shadow-lg">
-                  <MoreHorizontal className="h-4.5 w-4.5" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="bg-[#0a0f1e] border-white/10 text-white min-w-[160px]">
-                {isOwnProfile ? (
-                  <DropdownMenuItem onClick={() => setIsEditing(true)} className="cursor-pointer py-2.5">
-                    <Edit2 className="h-3.5 w-3.5 mr-2" /> Edit Details
-                  </DropdownMenuItem>
-                ) : (
-                  <>
-                    <DropdownMenuItem className="cursor-pointer py-2.5 text-red-400 focus:text-red-400">
-                      <Flag className="h-3.5 w-3.5 mr-2" /> Block this user
-                    </DropdownMenuItem>
-                    <DropdownMenuItem className="cursor-pointer py-2.5 text-red-400 focus:text-red-400">
-                      <AlertCircle className="h-3.5 w-3.5 mr-2" /> Report this user
-                    </DropdownMenuItem>
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+          {isUploadingCoverPhoto && (
+            <div className="absolute inset-0 bg-black/50 rounded-b-3xl flex items-center justify-center backdrop-blur-sm">
+              <Loader2 className="h-8 w-8 text-white animate-spin" />
+            </div>
+          )}
         </div>
+
+        {/* Secondary Actions — More (Now only for owner) */}
+        {isOwnProfile && (
+          <div className="relative h-0 w-full z-30">
+            <div className="absolute -top-12 right-4">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="p-2.5 rounded-full border border-blue-500/30 bg-blue-500/10 backdrop-blur-md hover:bg-blue-500/20 text-blue-400 transition-all shadow-xl">
+                    <MoreHorizontal className="h-4.5 w-4.5" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="bg-[#0a0f1e] border-white/10 text-white min-w-[180px] p-1.5 shadow-2xl">
+                  <DropdownMenuItem onClick={() => setIsEditing(true)} className="cursor-pointer py-2.5 rounded-lg focus:bg-white/5">
+                    <Edit2 className="h-3.5 w-3.5 mr-2.5 text-blue-400" /> 
+                    <span className="text-xs font-semibold">Edit Details</span>
+                  </DropdownMenuItem>
+                  
+                  <div className="h-px bg-white/5 my-1.5" />
+                  
+                  <DropdownMenuItem 
+                    onClick={() => coverPhotoInputRef.current?.click()} 
+                    className="focus:bg-blue-600/20 focus:text-blue-400 cursor-pointer py-2.5 rounded-lg" 
+                    disabled={isUploadingCoverPhoto}
+                  >
+                    <div className={`flex items-center gap-2.5 w-full ${isUploadingCoverPhoto ? 'opacity-50' : ''}`}>
+                      {isUploadingCoverPhoto ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
+                      <span className="text-xs font-semibold">{isUploadingCoverPhoto ? 'Uploading...' : 'Change Cover'}</span>
+                    </div>
+                  </DropdownMenuItem>
+                  
+                  {user.coverPhotoUrl && (
+                    <DropdownMenuItem onClick={handleDeleteCoverPhoto} className="focus:bg-red-500/10 text-red-400 cursor-pointer py-2.5 rounded-lg">
+                      <div className="flex items-center gap-2.5 w-full text-xs font-semibold">
+                        <Trash className="h-3.5 w-3.5" /> Remove Cover
+                      </div>
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+        )}
 
         {/* ── Avatar + header ── */}
         {/* ── Avatar + header ── */}
         <div className="relative z-20 px-6 -mt-16 sm:-mt-20 flex flex-col items-center text-center">
           {/* Centered Square Avatar */}
           <div className="relative group/avatar mb-6">
-            <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-white p-1 shadow-2xl overflow-hidden border-4 border-[#050810]">
-              {user.avatarUrl ? (
-                <img src={user.avatarUrl} alt={user.displayName} className="w-full h-full object-cover rounded-xl" />
+            <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-white p-1 shadow-2xl overflow-hidden border-4 border-[#050810] relative">
+              {currentAvatarUrl ? (
+                <img 
+                  key={`avatar-${imageVersion}`}
+                  src={getImageUrl(user.avatarUrl, 'avatar')} 
+                  alt={user.displayName} 
+                  className="w-full h-full object-cover rounded-xl" 
+                />
               ) : (
                 <div className="w-full h-full bg-blue-600/20 flex items-center justify-center rounded-xl">
-                  <span style={{ fontFamily: "'Syne', sans-serif" }} className="text-3xl font-extrabold text-blue-300">
+                  <span style={{ fontFamily: "'Outfit', sans-serif" }} className="text-3xl font-extrabold text-blue-300">
                     {initials}
                   </span>
+                </div>
+              )}
+              {isUploadingAvatar && (
+                <div className="absolute inset-0 bg-black/50 rounded-xl flex items-center justify-center backdrop-blur-sm">
+                  <Loader2 className="h-6 w-6 text-white animate-spin" />
                 </div>
               )}
             </div>
@@ -487,17 +625,20 @@ const ProfilePage = () => {
               <div className="absolute -bottom-2 -right-2 z-30">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <button className="p-1.5 rounded-full bg-blue-600 text-white border-2 border-[#050810] hover:bg-blue-500 transition-all active:scale-95 shadow-lg">
-                      <Edit2 className="h-3 w-3" />
+                    <button className="p-2.5 rounded-full bg-blue-600 text-white border-2 border-[#050810] hover:bg-blue-500 transition-all active:scale-95 shadow-lg group-hover:scale-110">
+                      <Camera className="h-4 w-4" />
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="center" className="bg-[#0a0f1e] border-white/10 text-white min-w-[140px]">
-                    <DropdownMenuItem className="focus:bg-blue-600/20 focus:text-blue-400 cursor-pointer py-2">
-                      <label className="flex items-center gap-2 w-full cursor-pointer">
-                        <Camera className="h-3.5 w-3.5" />
-                        <span className="text-xs font-semibold">Change Photo</span>
-                        <input type="file" className="hidden" accept="image/*" onChange={handleAvatarUpload} />
-                      </label>
+                    <DropdownMenuItem 
+                      onClick={() => avatarInputRef.current?.click()} 
+                      className="focus:bg-blue-600/20 focus:text-blue-400 cursor-pointer py-2" 
+                      disabled={isUploadingAvatar}
+                    >
+                      <div className={`flex items-center gap-2 w-full ${isUploadingAvatar ? 'opacity-50' : ''}`}>
+                        {isUploadingAvatar ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
+                        <span className="text-xs font-semibold">{isUploadingAvatar ? 'Uploading...' : 'Change Photo'}</span>
+                      </div>
                     </DropdownMenuItem>
                     {user.avatarUrl && (
                       <DropdownMenuItem onClick={handleDeleteAvatar} className="focus:bg-red-500/10 text-red-400 cursor-pointer py-2">
@@ -594,13 +735,7 @@ const ProfilePage = () => {
                 </Link>
               )}
 
-              {/* Share profile button — Styled exactly like image */}
-              <button 
-                onClick={copyLink}
-                className="w-full h-12 border border-white/5 bg-white/[0.01] hover:bg-white/[0.03] text-white/20 hover:text-white/40 font-bold rounded-2xl transition-all flex items-center justify-center gap-2 text-[11px] uppercase tracking-widest"
-              >
-                <Share2 className="h-3.5 w-3.5" /> Share profile
-              </button>
+              {/* Redundant share button removed */}
             </div>
 
             {/* Skills Section - Centered Minimal badges */}
@@ -1032,6 +1167,22 @@ const ProfilePage = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Hidden File Inputs */}
+      <input 
+        ref={avatarInputRef} 
+        type="file" 
+        className="hidden" 
+        accept="image/*" 
+        onChange={handleAvatarUpload} 
+      />
+      <input 
+        ref={coverPhotoInputRef} 
+        type="file" 
+        className="hidden" 
+        accept="image/*" 
+        onChange={handleCoverPhotoUpload} 
+      />
 
       <style>{`
         @keyframes slideUp {
