@@ -57,15 +57,17 @@ const FilePreviewDialog = ({ file, isOpen, onClose, onSend, isUploading = false 
                         <div className="relative w-full aspect-square max-h-[350px] rounded-lg overflow-hidden shadow-lg border border-border group/preview">
                             <img src={previewUrl} alt="Preview" className="w-full h-full object-contain bg-black/5" />
 
-                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden origin-center z-10">
-                                <div className="grid grid-cols-2 gap-x-12 gap-y-16 -rotate-45 opacity-20 scale-110">
-                                    {Array.from({ length: 9 }).map((_, i) => (
-                                        <div key={i} className="text-white text-xl font-black tracking-widest uppercase whitespace-nowrap">
-                                            @{user?.username}
-                                        </div>
-                                    ))}
+                            {isViewOnce && (
+                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden origin-center z-10">
+                                    <div className="grid grid-cols-2 gap-x-12 gap-y-16 -rotate-45 opacity-20 scale-110">
+                                        {Array.from({ length: 9 }).map((_, i) => (
+                                            <div key={i} className="text-white text-xl font-black tracking-widest uppercase whitespace-nowrap">
+                                                @{user?.username}
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
+                            )}
                             <div className="absolute bottom-2 right-2 px-2 py-1 bg-black/60 backdrop-blur-md rounded border border-white/10 text-[9px] text-white/60 font-bold tracking-widest uppercase pointer-events-none z-20 flex items-center gap-1.5">
                                 <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
                                 Krovaa Protection
