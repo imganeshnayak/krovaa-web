@@ -7,7 +7,8 @@ import {
   ArrowLeft, Share2, MessageSquare, Twitter, Instagram, Linkedin,
   Github, Globe, Plus, Trash2, Star, LogOut, Facebook, Youtube,
   Camera, Save, X, Edit2, Eye, MapPin, CheckCircle2, RotateCcw, Trash, Phone, Lock, Briefcase,
-  Code, Palette, Hammer, GanttChart, Users, GraduationCap, UserCircle, HelpCircle, ChevronRight
+  Code, Palette, Hammer, GanttChart, Users, GraduationCap, UserCircle, HelpCircle, ChevronRight,
+  MoreHorizontal, Flag, AlertCircle
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -37,7 +38,7 @@ if (typeof document !== "undefined" && !document.getElementById("krovaa-profile-
   const l = document.createElement("link");
   l.id = "krovaa-profile-fonts";
   l.rel = "stylesheet";
-  l.href = "https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap";
+  l.href = "https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800&family=Syne:wght@700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap";
   document.head.appendChild(l);
 }
 
@@ -431,52 +432,67 @@ const ProfilePage = () => {
             </div>
           )}
           
-          {/* Cover actions — improved visibility */}
-          {isOwnProfile && (
-            <div className="absolute bottom-3 right-3 flex items-center gap-2 z-30">
-              {user.coverPhotoUrl && (
-                <button
-                  onClick={handleDeleteCoverPhoto}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-black/50 backdrop-blur-md text-red-400 hover:bg-red-500/20 text-xs font-medium border border-red-500/30 transition-all opacity-0 group-hover/cover:opacity-100"
-                  title="Remove cover photo"
-                >
-                  <Trash className="h-3 w-3" />
+          {/* Secondary Actions — Share & More (Positioned like the reference image) */}
+          <div className="absolute -bottom-14 right-4 flex items-center gap-3 z-30">
+            <button 
+              onClick={copyLink}
+              className="p-2 rounded-full border border-white/10 bg-white/5 hover:bg-white/10 text-white/40 hover:text-white transition-all shadow-lg"
+              title="Share profile"
+            >
+              <Share2 className="h-4.5 w-4.5" />
+            </button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="p-2 rounded-full border border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 transition-all shadow-lg">
+                  <MoreHorizontal className="h-4.5 w-4.5" />
                 </button>
-              )}
-              <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-black/50 backdrop-blur-md text-white hover:bg-blue-600/20 text-xs font-medium border border-white/20 cursor-pointer transition-all">
-                <Camera className="h-3.5 w-3.5" /> 
-                <span className="hidden sm:inline">Change cover</span>
-                <input type="file" className="hidden" accept="image/*" onChange={handleCoverPhotoUpload} />
-              </label>
-            </div>
-          )}
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="bg-[#0a0f1e] border-white/10 text-white min-w-[160px]">
+                {isOwnProfile ? (
+                  <DropdownMenuItem onClick={() => setIsEditing(true)} className="cursor-pointer py-2.5">
+                    <Edit2 className="h-3.5 w-3.5 mr-2" /> Edit Details
+                  </DropdownMenuItem>
+                ) : (
+                  <>
+                    <DropdownMenuItem className="cursor-pointer py-2.5 text-red-400 focus:text-red-400">
+                      <Flag className="h-3.5 w-3.5 mr-2" /> Block this user
+                    </DropdownMenuItem>
+                    <DropdownMenuItem className="cursor-pointer py-2.5 text-red-400 focus:text-red-400">
+                      <AlertCircle className="h-3.5 w-3.5 mr-2" /> Report this user
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
 
         {/* ── Avatar + header ── */}
-        <div className="flex flex-col sm:flex-row sm:items-end gap-6 px-6 sm:px-2 -mt-10 sm:-mt-14 mb-8 relative z-20">
-          {/* Avatar with camera + delete overlay */}
-          <div className="relative flex-shrink-0 group/avatar w-fit">
-            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl border-4 border-[#050810] overflow-hidden shadow-xl shadow-black/50">
+        {/* ── Avatar + header ── */}
+        <div className="relative z-20 px-6 -mt-16 sm:-mt-20 flex flex-col items-center text-center">
+          {/* Centered Square Avatar */}
+          <div className="relative group/avatar mb-6">
+            <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-white p-1 shadow-2xl overflow-hidden border-4 border-[#050810]">
               {user.avatarUrl ? (
-                <img src={user.avatarUrl} alt={user.displayName} className="w-full h-full object-cover" />
+                <img src={user.avatarUrl} alt={user.displayName} className="w-full h-full object-cover rounded-xl" />
               ) : (
-                <div className="w-full h-full bg-blue-600/20 flex items-center justify-center">
-                  <span style={{ fontFamily: "'Syne', sans-serif" }} className="text-2xl font-extrabold text-blue-300">
+                <div className="w-full h-full bg-blue-600/20 flex items-center justify-center rounded-xl">
+                  <span style={{ fontFamily: "'Syne', sans-serif" }} className="text-3xl font-extrabold text-blue-300">
                     {initials}
                   </span>
                 </div>
               )}
             </div>
             {isOwnProfile && (
-              <div className="absolute -bottom-2 -right-2 z-30 scale-90 sm:scale-100">
+              <div className="absolute -bottom-2 -right-2 z-30">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <button className="p-2 rounded-xl bg-blue-600 shadow-xl shadow-blue-500/20 text-white hover:bg-blue-500 transition-all border border-blue-400/30 active:scale-95 ring-2 ring-[#050810]">
-                      <Edit2 className="h-4 w-4" />
+                    <button className="p-1.5 rounded-full bg-blue-600 text-white border-2 border-[#050810] hover:bg-blue-500 transition-all active:scale-95 shadow-lg">
+                      <Edit2 className="h-3 w-3" />
                     </button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="bg-[#0a0f1e] border-white/10 text-white min-w-[140px]">
-                    <DropdownMenuItem className="focus:bg-blue-600/20 focus:text-blue-400 cursor-pointer py-2.5">
+                  <DropdownMenuContent align="center" className="bg-[#0a0f1e] border-white/10 text-white min-w-[140px]">
+                    <DropdownMenuItem className="focus:bg-blue-600/20 focus:text-blue-400 cursor-pointer py-2">
                       <label className="flex items-center gap-2 w-full cursor-pointer">
                         <Camera className="h-3.5 w-3.5" />
                         <span className="text-xs font-semibold">Change Photo</span>
@@ -484,13 +500,9 @@ const ProfilePage = () => {
                       </label>
                     </DropdownMenuItem>
                     {user.avatarUrl && (
-                      <DropdownMenuItem 
-                        onClick={handleDeleteAvatar}
-                        className="focus:bg-red-500/10 text-red-400 focus:text-red-500 cursor-pointer py-2.5"
-                      >
-                        <div className="flex items-center gap-2 w-full">
-                          <Trash className="h-3.5 w-3.5" />
-                          <span className="text-xs font-semibold">Remove Photo</span>
+                      <DropdownMenuItem onClick={handleDeleteAvatar} className="focus:bg-red-500/10 text-red-400 cursor-pointer py-2">
+                        <div className="flex items-center gap-2 w-full text-xs font-semibold">
+                          <Trash className="h-3.5 w-3.5" /> Remove Photo
                         </div>
                       </DropdownMenuItem>
                     )}
@@ -500,102 +512,160 @@ const ProfilePage = () => {
             )}
           </div>
 
-          {/* Name & status — stacked on mobile, beside on desktop */}
-          <div className="sm:pb-1 flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 style={{ fontFamily: "'Syne', sans-serif" }} className="text-xl font-extrabold tracking-tight truncate flex items-center gap-2">
-                {user.displayName || user.username}
-                {isOwnProfile && !isEditing && (
-                  <button onClick={() => setIsEditing(true)} className="p-1 text-white/20 hover:text-blue-400 transition-colors">
-                    <Edit2 className="h-4 w-4" />
-                  </button>
-                )}
-              </h1>
-              {user.verified && (
-                <img src="/verified-badge.svg" alt="Verified" className="h-5 w-5 flex-shrink-0" title="Verified" />
+          {/* Centered Info Container */}
+          <div className="flex flex-col items-center gap-4 mb-10 w-full">
+            {/* Username */}
+            <span className="text-sm font-bold text-white/40 tracking-tight">@{user.username}</span>
+            
+            {/* Profession Badge */}
+            {user.profession && user.profession !== 'None' && (
+              <div className="px-3 py-1.5 rounded-full bg-blue-600/10 border border-blue-500/20 text-[9px] font-bold text-blue-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                <Briefcase className="h-3 w-3" /> {user.profession}
+              </div>
+            )}
+            
+            {/* Status & Location Row */}
+            <div className="flex items-center justify-center gap-5 text-[10px] font-bold uppercase tracking-[0.15em] text-white/20">
+              <div className="flex items-center gap-2">
+                <span className={`w-1.5 h-1.5 rounded-full ${user.status === "active" ? "bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.5)]" : "bg-white/10"}`} />
+                <span>{user.status === "active" ? "Available" : "Away"}</span>
+              </div>
+              {user.city && (
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-3 w-3 opacity-50" />
+                  <span>{user.city}</span>
+                </div>
               )}
             </div>
           </div>
-        </div>
 
-        {/* ── Rating Strip & Goal ── */}
-        <div className="px-6 sm:px-2 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          {user.userGoal && (
-            <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest border w-fit ${
-              user.userGoal === 'OFFER_SERVICE' 
-                ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' 
-                : 'bg-purple-500/10 border-purple-500/20 text-purple-400'
-            }`}>
-              <span className={`w-1.5 h-1.5 rounded-full ${user.userGoal === 'OFFER_SERVICE' ? 'bg-blue-400' : 'bg-purple-400'}`} />
-              {user.userGoal === 'OFFER_SERVICE' ? 'Offering Services' : 'Looking to Hire'}
-            </div>
-          )}
-
-          {user.averageRating !== undefined && user.averageRating > 0 && (
-            <div className="flex items-center gap-4 bg-white/5 border border-white/5 px-3 py-1.5 rounded-full w-fit">
-              <div className="flex items-center gap-1.5">
-                <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" />
-                <span style={{ fontFamily: "'Syne', sans-serif" }} className="text-xs font-bold text-white/80">{user.averageRating}</span>
-              </div>
-              <div className="w-px h-3 bg-white/10" />
-              <button onClick={openViewAllRatings} className="text-[10px] font-bold uppercase tracking-wider text-blue-400 hover:text-blue-300 transition-colors">
-                {user.ratingCount} {user.ratingCount === 1 ? "Review" : "Reviews"}
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* ── Info Sections ── */}
-        <div className="space-y-6 px-6 sm:px-2 mb-10">
-          
-          {/* Bio Section */}
+          {/* Bio Section - Centered Clean Typography */}
           {!isEditing && user.bio && (
-            <div className="space-y-3 p-5 rounded-2xl bg-white/[0.03] border border-white/5 shadow-sm">
-              <label className="block text-[10px] font-bold tracking-[0.2em] uppercase text-white/30 flex items-center gap-2">
-                <div className="w-1 h-3 bg-blue-500 rounded-full" /> About
-              </label>
-              <p className="text-sm text-white/60 leading-relaxed whitespace-pre-wrap font-light">
-                {user.bio}
+            <div className="mb-10 max-w-lg">
+              <p className="text-sm text-white/40 leading-relaxed font-medium italic">
+                "{user.bio}"
               </p>
             </div>
           )}
+        </div>
 
-          {/* Details Grid */}
-          {!isEditing && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Personal Details */}
-              {(user.age || user.gender || user.city) && (
-                <div className="p-5 rounded-2xl bg-white/[0.03] border border-white/5 space-y-4">
-                  <label className="block text-[10px] font-bold tracking-[0.2em] uppercase text-white/30 flex items-center gap-2">
-                    <div className="w-1 h-3 bg-emerald-500 rounded-full" /> Personal Details
-                  </label>
-                  <div className="grid grid-cols-2 gap-y-4">
-                    {user.age && (
-                      <div>
-                        <span className="block text-[9px] text-white/20 uppercase tracking-wider mb-1">Age</span>
-                        <span className="text-sm text-white/70">{user.age} Years</span>
-                      </div>
-                    )}
-                    {user.gender && (
-                      <div>
-                        <span className="block text-[9px] text-white/20 uppercase tracking-wider mb-1">Gender</span>
-                        <span className="text-sm text-white/70">{user.gender}</span>
-                      </div>
-                    )}
-                    {user.city && (
-                      <div className="col-span-2">
-                        <span className="block text-[9px] text-white/20 uppercase tracking-wider mb-1">Location</span>
-                        <div className="flex items-center gap-1.5 text-sm text-white/70">
-                          <MapPin className="h-3.5 w-3.5 text-emerald-500/60" />
-                          <span>{user.city}{isOwnProfile && user.pincode ? ` (${user.pincode})` : ""}</span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
+        {/* ── Social Chips & Main Actions ── */}
+        {!isEditing && (
+          <div className="px-6 space-y-8 mb-12">
+            {/* Social Media Chips - Perfectly Centered Grid-like row */}
+            {user.socialLinks && user.socialLinks.length > 0 && (
+              <div className="flex flex-wrap justify-center gap-3">
+                {user.socialLinks.map((link: any, i: number) => (
+                  <a
+                    key={i}
+                    href={link.url.startsWith("http") ? link.url : `https://${link.url}`}
+                    target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-[#0a101f] border border-white/5 hover:bg-white/[0.05] hover:border-white/10 transition-all active:scale-95 group min-w-[120px] justify-center"
+                  >
+                    <SocialIcon platform={link.platform} className="h-4 w-4 text-white/30 group-hover:text-blue-400 transition-colors" />
+                    <span className="text-[11px] font-bold text-white/30 group-hover:text-white transition-colors capitalize tracking-wide">
+                      {link.platform}
+                    </span>
+                  </a>
+                ))}
+              </div>
+            )}
+
+            {/* Main Primary Actions */}
+            <div className="space-y-3.5 w-full">
+              {isOwnProfile ? (
+                <button
+                  onClick={() => setIsEditing(true)}
+                  className="w-full h-14 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-500 transition-all flex items-center justify-center gap-2 shadow-2xl shadow-blue-600/20 active:scale-[0.98]"
+                >
+                  <Edit2 className="h-4 w-4" /> Edit Profile
+                </button>
+              ) : currentUser ? (
+                <Link to={`/chat?userId=${user.id}`} className="w-full block">
+                  <button className="w-full h-14 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-500 transition-all flex items-center justify-center gap-2 shadow-2xl shadow-blue-600/20 active:scale-[0.98]">
+                    <MessageSquare className="h-5 w-5" /> Message
+                  </button>
+                </Link>
+              ) : (
+                <Link to={`/login`} className="w-full block">
+                  <button className="w-full h-14 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-500 transition-all flex items-center justify-center gap-2 shadow-2xl shadow-blue-600/20 active:scale-[0.98]">
+                    <MessageSquare className="h-5 w-5" /> Login to message
+                  </button>
+                </Link>
               )}
 
-              {/* Identity & Contact */}
+              {/* Share profile button — Styled exactly like image */}
+              <button 
+                onClick={copyLink}
+                className="w-full h-12 border border-white/5 bg-white/[0.01] hover:bg-white/[0.03] text-white/20 hover:text-white/40 font-bold rounded-2xl transition-all flex items-center justify-center gap-2 text-[11px] uppercase tracking-widest"
+              >
+                <Share2 className="h-3.5 w-3.5" /> Share profile
+              </button>
+            </div>
+
+            {/* Skills Section - Centered Minimal badges */}
+            {!isEditing && (user.profession || (user.skills && user.skills.length > 0)) && (
+              <div className="space-y-4 pt-6 border-t border-white/5 text-center">
+                <label className="block text-[10px] font-bold tracking-[0.2em] uppercase text-white/10">Expertise & Skills</label>
+                <div className="flex flex-wrap justify-center gap-2 max-w-2xl mx-auto">
+                  {user.profession && user.profession !== 'None' && (
+                    <Badge className="bg-blue-600/10 text-blue-400 border-none text-[9px] px-3 py-1 font-bold tracking-widest uppercase">
+                      {user.profession}
+                    </Badge>
+                  )}
+                  {user.skills && user.skills.length > 0 && user.skills.map(skill => (
+                    <Badge 
+                      key={skill} 
+                      className="bg-white/5 text-white/30 border-none text-[9px] px-3 py-1 font-bold tracking-widest uppercase"
+                    >
+                      {skill}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Info Sections ── */}
+        <div className="space-y-10 px-6 sm:px-2 mb-10">
+          
+
+
+          {/* Details Grid (Personal + Identity) - Owner Only */}
+          {isOwnProfile && !isEditing && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Personal Details as Cards */}
+              <div className="p-5 rounded-2xl bg-white/[0.03] border border-white/5 space-y-4">
+                <label className="block text-[10px] font-bold tracking-[0.2em] uppercase text-white/30 flex items-center gap-2">
+                  <div className="w-1 h-3 bg-emerald-500 rounded-full" /> Personal Details
+                </label>
+                <div className="grid grid-cols-2 gap-y-4">
+                  {user.age && (
+                    <div>
+                      <span className="block text-[9px] text-white/20 uppercase tracking-wider mb-1">Age</span>
+                      <span className="text-sm text-white/70">{user.age} Years</span>
+                    </div>
+                  )}
+                  {user.gender && (
+                    <div>
+                      <span className="block text-[9px] text-white/20 uppercase tracking-wider mb-1">Gender</span>
+                      <span className="text-sm text-white/70">{user.gender}</span>
+                    </div>
+                  )}
+                  {user.city && (
+                    <div className="col-span-2">
+                      <span className="block text-[9px] text-white/20 uppercase tracking-wider mb-1">Location</span>
+                      <div className="flex items-center gap-1.5 text-sm text-white/70">
+                        <MapPin className="h-3.5 w-3.5 text-emerald-500/60" />
+                        <span>{user.city}{isOwnProfile && user.pincode ? ` (${user.pincode})` : ""}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Identity & Contact as Cards */}
               <div className="p-5 rounded-2xl bg-white/[0.03] border border-white/5 space-y-4">
                 <label className="block text-[10px] font-bold tracking-[0.2em] uppercase text-white/30 flex items-center gap-2">
                   <div className="w-1 h-3 bg-blue-500 rounded-full" /> Identity & Contact
@@ -605,7 +675,7 @@ const ProfilePage = () => {
                     <span className="block text-[9px] text-white/20 uppercase tracking-wider mb-1">Username</span>
                     <span className="text-sm text-white/70 tracking-tight">@{user.username}</span>
                   </div>
-                  {isOwnProfile && user.phoneNumber && (
+                  {user.phoneNumber && (
                     <div>
                       <span className="block text-[9px] text-white/20 uppercase tracking-wider mb-1 flex items-center gap-1">
                         Phone <Lock className="h-2 w-2" />
@@ -613,59 +683,11 @@ const ProfilePage = () => {
                       <span className="text-sm text-blue-400 font-medium">{user.phoneNumber}</span>
                     </div>
                   )}
-                  {user.socialLinks && user.socialLinks.length > 0 && (
-                    <div>
-                      <span className="block text-[9px] text-white/20 uppercase tracking-wider mb-2">Connect</span>
-                      <div className="flex flex-wrap gap-2">
-                        {user.socialLinks.map((link: any, i: number) => (
-                          <a
-                            key={i}
-                            href={link.url.startsWith("http") ? link.url : `https://${link.url}`}
-                            target="_blank" rel="noopener noreferrer"
-                            className="p-2 rounded-lg bg-white/5 border border-white/5 hover:border-blue-500/40 hover:bg-blue-500/10 text-white/40 hover:text-blue-400 transition-all"
-                            title={link.platform}
-                          >
-                            <SocialIcon platform={link.platform} className="h-4 w-4" />
-                          </a>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
           )}
 
-          {/* Skills Section */}
-          {!isEditing && (user.profession || (user.skills && user.skills.length > 0)) && (
-            <div className="p-5 rounded-2xl bg-white/[0.03] border border-white/5 space-y-4">
-              <label className="block text-[10px] font-bold tracking-[0.2em] uppercase text-white/30 flex items-center gap-2">
-                <div className="w-1 h-3 bg-purple-500 rounded-full" /> Expertise & Skills
-              </label>
-              <div className="space-y-4">
-                {user.profession && (
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-500/10 border border-blue-500/20 w-fit">
-                    <Briefcase className="h-3.5 w-3.5 text-blue-400" />
-                    <span className="text-xs text-blue-300 font-bold uppercase tracking-wider">
-                      {user.profession === 'None' ? 'Krovaa User' : user.profession}
-                    </span>
-                  </div>
-                )}
-                {user.skills && user.skills.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {user.skills.map(skill => (
-                      <Badge 
-                        key={skill} 
-                        className="bg-purple-500/5 text-purple-300 border-purple-500/10 hover:bg-purple-500/10 transition-colors text-[10px] px-3 py-1 font-bold tracking-wide uppercase"
-                      >
-                        {skill}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* ── Edit form ── */}
@@ -917,57 +939,14 @@ const ProfilePage = () => {
             </div>
           </div>
         )}
-
         {/* ── Action buttons ── */}
-        {!isEditing && (
-          <div className="space-y-2.5">
-            {isOwnProfile ? (
-              <>
-                <button
-                  onClick={() => setIsEditing(true)}
-                  className="w-full h-11 rounded-xl border border-white/8 bg-white/[0.03] hover:bg-blue-600/10 hover:border-blue-500/30 text-white/60 hover:text-white text-sm font-medium transition-all flex items-center justify-center gap-2"
-                >
-                  <Edit2 className="h-4 w-4" /> Edit profile
-                </button>
-                <button
-                  onClick={() => { logout(); navigate("/login"); }}
-                  className="w-full h-11 rounded-xl border border-white/5 hover:border-red-500/20 hover:bg-red-500/5 text-white/20 hover:text-red-400 text-sm transition-all flex items-center justify-center gap-2"
-                >
-                  <LogOut className="h-4 w-4" /> Sign out
-                </button>
-              </>
-            ) : currentUser ? (
-              <>
-                <Link to={`/chat?userId=${user.id}`}>
-                  <button className="w-full h-11 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-semibold transition-all hover:scale-[1.01] shadow-xl shadow-blue-900/30 flex items-center justify-center gap-2">
-                    <MessageSquare className="h-4 w-4" /> Send message
-                  </button>
-                </Link>
-                <button
-                  onClick={() => canRateUser && setIsRatingDialogOpen(true)}
-                  disabled={!canRateUser}
-                  className="w-full h-11 rounded-xl border border-white/8 bg-white/[0.03] hover:bg-yellow-500/5 hover:border-yellow-500/25 disabled:opacity-30 disabled:cursor-not-allowed text-white/50 hover:text-yellow-300 text-sm transition-all flex items-center justify-center gap-2"
-                >
-                  <Star className="h-4 w-4" /> Rate {user.displayName?.split(" ")[0]}
-                </button>
-                {!canRateUser && ratingEligibilityReason && (
-                  <p className="text-center text-[11px] text-white/20 px-4">{ratingEligibilityReason}</p>
-                )}
-              </>
-            ) : (
-              /* Unauthenticated visitor — show login CTA */
-              <Link to={`/login`}>
-                <button className="w-full h-11 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-semibold transition-all hover:scale-[1.01] shadow-xl shadow-blue-900/30 flex items-center justify-center gap-2">
-                  <MessageSquare className="h-4 w-4" /> Login to message
-                </button>
-              </Link>
-            )}
-
+        {!isEditing && isOwnProfile && (
+          <div className="mt-4 px-6 sm:px-2">
             <button
-              onClick={copyLink}
-              className="w-full h-11 rounded-xl border border-white/5 hover:border-blue-500/25 hover:bg-blue-500/5 text-white/20 hover:text-blue-400 text-sm transition-all flex items-center justify-center gap-2"
+              onClick={() => { logout(); navigate("/login"); }}
+              className="w-full h-11 rounded-full border border-white/5 hover:border-red-500/20 hover:bg-red-500/5 text-white/20 hover:text-red-400 text-sm transition-all flex items-center justify-center gap-2"
             >
-              <Share2 className="h-3.5 w-3.5" /> {isOwnProfile ? "Copy profile link" : "Share profile"}
+              <LogOut className="h-4 w-4" /> Sign out
             </button>
           </div>
         )}

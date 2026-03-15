@@ -15,7 +15,7 @@ if (typeof document !== "undefined" && !document.getElementById("krovaa-fonts"))
   link.id = "krovaa-fonts";
   link.rel = "stylesheet";
   link.href =
-    "https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap";
+    "https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800&family=Syne:wght@700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap";
   document.head.appendChild(link);
 }
 
@@ -421,7 +421,7 @@ const Landing = () => {
         <div className="w-full px-4 md:px-8">
           <div className="flex flex-col gap-6 mb-12 items-center text-center">
             <Link to="/" className="flex flex-col items-center group shrink-0">
-              <Logo size="lg" className="scale-125 origin-center" />
+              <Logo size="lg" variant="image" className="scale-125 origin-center" />
             </Link>
 
             <p className="text-sm text-white/25 leading-relaxed max-w-xs font-light">
