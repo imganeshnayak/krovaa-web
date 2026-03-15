@@ -1207,11 +1207,11 @@ const ChatView = ({
 
             {/* Watermark for tracing and security */}
             <div className="absolute inset-0 pointer-events-none select-none overflow-hidden origin-center flex items-center justify-center z-10">
-              <div className={`grid grid-cols-2 md:grid-cols-3 gap-24 -rotate-45 scale-125 transition-opacity duration-300 ${isPreviewViewOnce ? 'opacity-[0.08]' : 'opacity-[0.03]'}`}>
+              <div className={`grid grid-cols-2 md:grid-cols-3 gap-24 -rotate-45 scale-125 transition-opacity duration-300 ${isPreviewViewOnce ? 'opacity-20' : 'opacity-10'}`}>
                 {Array.from({ length: 12 }).map((_, i) => (
                   <div key={i} className="text-white text-xl md:text-3xl font-black tracking-widest uppercase whitespace-nowrap flex flex-col items-center">
                     <span>@{previewSenderUsername || user?.username}</span>
-                    {isPreviewViewOnce && <span className="text-[10px] font-bold tracking-[0.4em] opacity-40">CONFIDENTIAL</span>}
+                    {isPreviewViewOnce && <span className="text-[10px] font-bold tracking-[0.4em] opacity-70">CONFIDENTIAL</span>}
                   </div>
                 ))}
               </div>
