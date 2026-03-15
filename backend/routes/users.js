@@ -45,7 +45,6 @@ router.get('/search', auth, async (req, res) => {
                 AND: [
                     { id: { not: req.user.id } },
                     { status: 'active' },
-                    { role: { notIn: ['staff', 'admin'] } },
                     {
                         OR: [
                             { username: { contains: q, mode: 'insensitive' } },
