@@ -9,9 +9,10 @@ import { fileURLToPath } from 'url';
 // Resolve __dirname for ESM and load .env from the project root
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-dotenv.config(); // This will look in the current working directory (backend)
-// Also try loading from the current file's directory just in case CWD is different
-dotenv.config({ path: path.join(__dirname, '.env') });
+
+// Load .env from project root (one level up from backend/)
+// PM2 runs from backend/ directory, so we need to go up one level
+dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/users.js';

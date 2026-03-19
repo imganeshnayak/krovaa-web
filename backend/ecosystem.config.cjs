@@ -13,13 +13,26 @@ module.exports = {
             max_memory_restart: '500M',
             env: {
                 NODE_ENV: 'production',
-                // Database — PM2 runs outside Docker so must use the host-mapped port
-                DATABASE_URL: 'postgresql://postgres:admin123@localhost:5433/krovaa_chat?schema=public',
+                // All environment variables loaded from root .env via dotenv.config() above
+                PORT: process.env.PORT || 5000,
+                DATABASE_URL: process.env.DATABASE_URL,
+                JWT_SECRET: process.env.JWT_SECRET,
+                // Cloudinary
+                CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME,
+                CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY,
+                CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET,
+                // Telegram
+                TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN,
+                // Razorpay
+                RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID,
+                RAZORPAY_KEY_SECRET: process.env.RAZORPAY_KEY_SECRET,
                 // Email
-                EMAIL_HOST: process.env.EMAIL_HOST || 'smtp.zoho.in',
-                EMAIL_PORT: process.env.EMAIL_PORT || '465',
+                EMAIL_HOST: process.env.EMAIL_HOST,
+                EMAIL_PORT: process.env.EMAIL_PORT,
                 EMAIL_USER: process.env.EMAIL_USER,
                 EMAIL_PASS: process.env.EMAIL_PASS,
+                // Frontend
+                FRONTEND_URL: process.env.FRONTEND_URL,
             },
             // Auto-restart on crash, with exponential backoff
             restart_delay: 1000,

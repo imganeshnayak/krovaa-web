@@ -5,8 +5,8 @@ import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-// Load from backend/.env (one level up from config/)
-dotenv.config({ path: path.join(__dirname, '..', '.env') });
+// Load from project root (two levels up from config/)
+dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
 
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
