@@ -402,7 +402,7 @@ const EscrowPage = () => {
         <div className="flex items-center justify-between mb-6">
           <div className="flex flex-col">
             <h1 className="text-2xl font-bold text-foreground">
-              {searchParams.get("chatId") ? "Chat Escrow" : "Escrow Deals"}
+              {searchParams.get("chatId") ? "Deals" : "Escrow Deals"}
             </h1>
             {searchParams.get("chatId") && (
               <button
@@ -422,7 +422,7 @@ const EscrowPage = () => {
               </DialogTrigger>
               <DialogContent className="bg-card border-border sm:max-w-[425px] w-[95vw] max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                  <DialogTitle className="text-card-foreground">Create Escrow Deal</DialogTitle>
+                  <DialogTitle className="text-card-foreground">Create Deal</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4">
                   <div>

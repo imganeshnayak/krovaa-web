@@ -32,6 +32,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import Logo from "@/components/Logo";
 
 
 
@@ -281,6 +282,26 @@ const ProfilePage = () => {
   const isOwnProfile = !!currentUser && user.id === currentUser.id;
   const profileLink = `${window.location.origin}/${user.username}`;
 
+  const handleShare = async () => {
+    const shareData = {
+      title: `${user?.displayName || user?.username} on Krovaa`,
+      text: `Check out ${user?.displayName || user?.username}'s professional profile on Krovaa.`,
+      url: profileLink,
+    };
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch (err) {
+        if ((err as Error).name !== 'AbortError') {
+          copyLink();
+        }
+      }
+    } else {
+      copyLink();
+    }
+  };
+
   const copyLink = () => {
     navigator.clipboard.writeText(profileLink);
     toast({ title: "Copied!", description: "Profile link copied to clipboard." });
@@ -511,11 +532,11 @@ const ProfilePage = () => {
             <ArrowLeft className="h-4 w-4" />
             Back
           </Link>
-          <Link to="/" style={{ fontFamily: "'Outfit', sans-serif" }} className="text-base font-bold text-white/60 hover:text-white transition-colors">
-            Krovaa
+          <Link to="/" className="flex items-center">
+            <Logo size="sm" />
           </Link>
           <button 
-            onClick={copyLink}
+            onClick={handleShare}
             className="flex items-center justify-center p-2 rounded-xl text-white/30 hover:text-white hover:bg-white/5 transition-all"
             title="Share profile"
           >

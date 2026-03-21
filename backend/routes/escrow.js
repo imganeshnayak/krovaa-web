@@ -51,7 +51,7 @@ router.get('/', auth, async (req, res) => {
 
         res.json(deals);
     } catch (err) {
-        console.error('Get escrow deals error:', err);
+        console.error('Get deals error:', err);
         res.status(500).json({ error: 'Server error.' });
     }
 });
@@ -139,7 +139,7 @@ router.post('/', auth, async (req, res) => {
 
         // Prevent creating deal with yourself
         if (requestedVendorId === currentUserId) {
-            return res.status(400).json({ error: 'Cannot create escrow deal with yourself.' });
+            return res.status(400).json({ error: 'Cannot create deal with yourself.' });
         }
 
         // Prevent duplicate submissions (Check if an identical deal was created in the last 10 seconds)
@@ -249,7 +249,7 @@ router.post('/', auth, async (req, res) => {
             await tx.activityLog.create({
                 data: {
                     userId: req.user.id,
-                    action: 'Created escrow deal (Wallet)',
+                    action: 'Created deal (Wallet)',
                     details: `${title} - ₹${amountToDeduct}`
                 }
             });
@@ -260,7 +260,7 @@ router.post('/', auth, async (req, res) => {
                     senderId: currentUserId,
                     receiverId: requestedVendorId,
                     chatId,
-                    content: `📋 New Payment Deal: "${title}" for ₹${grossAmount.toLocaleString('en-IN')}. Funds deducted from client wallet and held in escrow. (Net available for release: ₹${netAmount.toLocaleString('en-IN')} after platform fee)`,
+                    content: `New Payment Deal: "${title}" for ₹${grossAmount.toLocaleString('en-IN')}. Funds deducted from client wallet. (Net available for release: ₹${netAmount.toLocaleString('en-IN')} after platform fee)`,
                     messageType: 'escrow_created'
                 },
                 include: {
@@ -417,7 +417,7 @@ router.post('/:id/release', auth, async (req, res) => {
                         amount: vendorNet,
                         balance: venUp.walletBalance,
                         reference: `deal_${dealId}`,
-                        description: `Escrow release: ${deal.title} (${userPercent}%).`,
+                        description: `Payment release: ${deal.title} (${userPercent}%).`,
                         metadata: {
                             dealId,
                             dealTitle: deal.title,
@@ -433,7 +433,7 @@ router.post('/:id/release', auth, async (req, res) => {
                 await tx.activityLog.create({
                     data: {
                         userId: req.user.id,
-                        action: 'Released escrow payment',
+                        action: 'Released Deal payment',
                         details: `${userPercent}% - ${deal.title}`
                     }
                 });
@@ -444,7 +444,7 @@ router.post('/:id/release', auth, async (req, res) => {
                         senderId: req.user.id,
                         receiverId: deal.vendorId,
                         chatId: deal.chatId,
-                        content: `💰 Funds Released: ₹${vendorNet.toLocaleString('en-IN')} (${userPercent}%) released to vendor for "${deal.title}".`,
+                        content: ` Funds Released: ₹${vendorNet.toLocaleString('en-IN')} (${userPercent}%) released to vendor for "${deal.title}".`,
                         messageType: 'escrow_released'
                     },
                     include: {
@@ -486,7 +486,7 @@ router.post('/:id/release', auth, async (req, res) => {
         sendUserNotification(
             io,
             deal.vendorId,
-            '💰 Payment Released',
+            ' Payment Released',
             `You received ₹${vendorNet.toLocaleString('en-IN')} from "${deal.title}".`,
             'success',
             { type: 'wallet', dealId, chatId: deal.chatId }
@@ -497,7 +497,7 @@ router.post('/:id/release', auth, async (req, res) => {
                 io,
                 deal.clientId,
                 '✅ Deal Completed',
-                `Your escrow deal "${deal.title}" is now fully completed. All payments have been released.`,
+                `Your deal "${deal.title}" is now fully completed. All payments have been released.`,
                 'success',
                 { type: 'escrow', dealId, chatId: deal.chatId }
             );
@@ -505,7 +505,7 @@ router.post('/:id/release', auth, async (req, res) => {
                 io,
                 deal.vendorId,
                 '✅ Deal Completed',
-                `The escrow deal "${deal.title}" is now fully completed. All payments have been received.`,
+                `The deal "${deal.title}" is now fully completed. All payments have been received.`,
                 'success',
                 { type: 'escrow', dealId, chatId: deal.chatId }
             );
@@ -657,7 +657,7 @@ router.delete('/:id', auth, async (req, res) => {
                     senderId: req.user.id,
                     receiverId: deal.vendorId,
                     chatId: deal.chatId,
-                    content: `❌ Deal Cancelled & Refunded: The deal "${deal.title}" was cancelled by the client. ₹${refundableAmount.toLocaleString('en-IN')} has been returned to the client's wallet.\n\nReason: ${String(reason).trim()}`,
+                    content: `Deal Cancelled & Refunded: The deal "${deal.title}" was cancelled by the client. ₹${refundableAmount.toLocaleString('en-IN')} has been returned to the client's wallet.\n\nReason: ${String(reason).trim()}`,
                     messageType: 'escrow_cancelled'
                 },
                 include: {
@@ -681,12 +681,12 @@ router.delete('/:id', auth, async (req, res) => {
         });
 
         // Notifications
-        sendUserNotification(io, deal.clientId, '💰 Refund Processed', `₹${refundableAmount.toLocaleString('en-IN')} has been returned to your wallet for the deal "${deal.title}".`, 'success', { type: 'wallet' });
-        sendUserNotification(io, deal.vendorId, '❌ Deal Cancelled', `The escrow deal "${deal.title}" was cancelled by the client. Any unreleased funds have been refunded.`, 'alert', { type: 'escrow', dealId, chatId: deal.chatId });
+        sendUserNotification(io, deal.clientId, 'Refund Processed', `₹${refundableAmount.toLocaleString('en-IN')} has been returned to your wallet for the deal "${deal.title}".`, 'success', { type: 'wallet' });
+        sendUserNotification(io, deal.vendorId, 'Deal Cancelled', `The deal "${deal.title}" was cancelled by the client. Any unreleased funds have been refunded.`, 'alert', { type: 'escrow', dealId, chatId: deal.chatId });
 
         res.json({ success: true, message: 'Deal cancelled and funds refunded successfully.' });
     } catch (err) {
-        console.error('Cancel escrow deal error:', err);
+        console.error('Cancel  deal error:', err);
         res.status(500).json({ error: 'Server error.' });
     }
 });
