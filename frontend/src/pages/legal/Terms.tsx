@@ -25,7 +25,7 @@ const Terms = () => {
 
       <h2>4. Payments and Wallet</h2>
       <p>
-        Krovaa may facilitate payments through its platform and may maintain a wallet or escrow system for transactions between users. Users may add funds to their wallet and use them for transactions on the platform.
+        Krovaa may facilitate payments through its platform and may maintain a wallet or payment system for transactions between users. Users may add funds to their wallet and use them for transactions on the platform.
       </p>
 
       <h2>5. Platform Fees</h2>

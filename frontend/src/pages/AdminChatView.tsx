@@ -240,7 +240,7 @@ const AdminChatView = () => {
                                                             <span className="text-lg">📎</span>
                                                         </div>
                                                         <div className="min-w-0 flex-1">
-                                                            <p className="text-xs font-bold truncate mb-1">{msg.attachmentName || 'Attachment'}</p>
+                                                            <p className="text-xs font-bold truncate mb-1">{msg.attachmentUrl?.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? 'Photo' : (msg.attachmentName || 'Attachment')}</p>
                                                             <a
                                                                 href={msg.attachmentUrl}
                                                                 target="_blank"

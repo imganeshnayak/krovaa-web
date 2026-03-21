@@ -76,7 +76,7 @@ router.get('/chats/list', auth, async (req, res) => {
                 }
                 chatMap.set(msg.chatId, {
                     chat_id: msg.chatId,
-                    last_message: msg.isViewOnce && !msg.isOpened ? (msg.messageType === 'image' || msg.messageType === 'file' ? "Photo" : "View Once Message") : msg.content,
+                    last_message: msg.isViewOnce && !msg.isOpened ? (msg.messageType === 'image' || msg.messageType === 'file' ? "Photo" : "View Once Message") : (msg.messageType === 'image' || (msg.attachmentUrl && msg.attachmentUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i)) ? ((msg.content?.startsWith('Sent a file:') || msg.content === 'File shared') ? "Photo" : msg.content) : msg.content),
                     last_message_time: msg.createdAt,
                     user_id: otherUser.id,
                     display_name: otherUser.displayName,
@@ -301,7 +301,7 @@ router.post('/upload', auth, upload.single('file'), async (req, res) => {
                 receiverId: parseInt(receiver_id),
                 chatId: chat_id,
                 content: content || 'File shared',
-                messageType: 'file',
+                messageType: req.file.mimetype.startsWith('image/') ? 'image' : 'file',
                 attachmentUrl: uploadResult.secure_url,
                 attachmentName: req.file.originalname,
                 isViewOnce: req.body.is_view_once === true || req.body.is_view_once === 'true'

@@ -2005,7 +2005,7 @@ const ChatPage = () => {
       chatId: selectedChat.chat_id,
       senderId: user.id,
       receiverId: selectedChat.user_id,
-      content: caption || `Sent a file: ${pendingFile.name}`,
+      content: caption || (pendingFile.type.startsWith('image/') ? "Sent a photo" : `Sent a file: ${pendingFile.name}`),
       messageType: pendingFile.type.startsWith('image/') ? 'image' : 'file',
       attachmentUrl: URL.createObjectURL(pendingFile), // Temporary local URL
       attachmentName: pendingFile.name,
@@ -2025,7 +2025,7 @@ const ChatPage = () => {
         receiver_id: selectedChat.user_id,
         chat_id: selectedChat.chat_id,
         file: pendingFile,
-        content: caption || `Sent a file: ${pendingFile.name}`,
+        content: caption || (pendingFile.type.startsWith('image/') ? "Sent a photo" : `Sent a file: ${pendingFile.name}`),
         is_view_once: viewOnce
       });
 

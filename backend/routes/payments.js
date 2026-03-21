@@ -21,7 +21,7 @@ router.post('/escrow/initiate', auth, async (req, res) => {
         });
 
         if (!deal) {
-            return res.status(404).json({ error: 'Escrow deal not found.' });
+            return res.status(404).json({ error: 'Deal not found.' });
         }
 
         // Verify user is the client
@@ -242,7 +242,7 @@ router.post('/verify', auth, async (req, res) => {
                 // 1. Fetch the relevant entity to get the amount
                 if (type === 'escrow') {
                     const deal = await tx.escrowDeal.findUnique({ where: { id: numericEntityId } });
-                    if (!deal) throw new Error('Escrow deal not found');
+                    if (!deal) throw new Error('Deal not found');
                     if (deal.clientId !== req.user.id) throw new Error('Unauthorized');
                     amount = deal.paidAmount > 0 ? deal.paidAmount : deal.totalAmount;
                 } else if (type === 'verification') {
@@ -320,7 +320,7 @@ router.post('/verify', auth, async (req, res) => {
                             senderId: req.user.id,
                             receiverId: deal.vendorId,
                             chatId: deal.chatId,
-                            content: `✅ Escrow Payment Confirmed: ₹${deal.totalAmount.toLocaleString('en-IN')} for "${deal.title}". The deal is now active.`,
+                            content: `Payment Confirmed: ₹${deal.totalAmount.toLocaleString('en-IN')} for "${deal.title}". The deal is now active.`,
                             messageType: 'escrow_payment'
                         },
                         include: { sender: { select: { displayName: true, avatarUrl: true, username: true } } }

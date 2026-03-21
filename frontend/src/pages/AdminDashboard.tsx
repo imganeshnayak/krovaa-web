@@ -809,10 +809,10 @@ const AdminDashboard = () => {
                               <div className="space-y-3">
                                 <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
                                   <Shield className="h-3 w-3" />
-                                  Escrow History
+                                  Payment History
                                 </h4>
                                 {userTransactions[user.id]?.escrowDeals?.length === 0 ? (
-                                  <p className="text-xs text-muted-foreground italic pl-5">No deals found</p>
+                                  <p className="text-xs text-muted-foreground italic pl-5">No Payment History found</p>
                                 ) : (
                                   <div className="space-y-2">
                                     {userTransactions[user.id]?.escrowDeals?.map((deal: any) => (

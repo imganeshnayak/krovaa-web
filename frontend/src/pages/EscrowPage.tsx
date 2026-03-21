@@ -121,7 +121,7 @@ const EscrowPage = () => {
     } catch (err) {
       toast({
         title: "Error",
-        description: err instanceof Error ? err.message : "Failed to load escrow deals",
+        description: err instanceof Error ? err.message : "Failed to load  deals",
         variant: "destructive"
       });
     } finally {
@@ -164,7 +164,7 @@ const EscrowPage = () => {
 
             toast({
               title: "Payment Successful!",
-              description: "Your escrow deal is now active.",
+              description: "Your deal is now active.",
             });
 
             loadDeals();
@@ -206,7 +206,7 @@ const EscrowPage = () => {
       toast({
         title: "Missing fields",
         description: !newDeal.chatId || !newDeal.vendorId
-          ? "Please create escrow deals from within a chat conversation."
+          ? "Please create deals from within a chat conversation."
           : "Please fill in all required fields",
         variant: "destructive"
       });
@@ -248,7 +248,7 @@ const EscrowPage = () => {
 
       toast({
         title: "Deal Active",
-        description: "Escrow deal has been created and funded successfully."
+        description: "Deal has been created and funded successfully."
       });
 
       setIsNewDealOpen(false);
@@ -511,26 +511,26 @@ const EscrowPage = () => {
                     </div>
                   )}
 
-                    <div className="flex items-start space-x-2 mt-2">
-                      <Checkbox 
-                        id="escrow-terms" 
-                        checked={agreeToEscrowTerms} 
-                        onCheckedChange={(checked) => setAgreeToEscrowTerms(checked === true)}
-                        className="mt-0.5"
-                      />
-                      <div className="grid gap-1.5 leading-none">
-                        <Label
-                          htmlFor="escrow-terms"
-                          className="text-xs text-muted-foreground cursor-pointer leading-normal"
-                        >
-                          I agree to the <Link to="/terms" target="_blank" className="text-primary hover:underline">Terms & Conditions</Link>, <Link to="/privacy" target="_blank" className="text-primary hover:underline">Privacy Policy</Link> and <Link to="/refund" target="_blank" className="text-primary hover:underline">Refund Policy</Link>
-                        </Label>
-                      </div>
+                  <div className="flex items-start space-x-2 mt-2">
+                    <Checkbox
+                      id="escrow-terms"
+                      checked={agreeToEscrowTerms}
+                      onCheckedChange={(checked) => setAgreeToEscrowTerms(checked === true)}
+                      className="mt-0.5"
+                    />
+                    <div className="grid gap-1.5 leading-none">
+                      <Label
+                        htmlFor="escrow-terms"
+                        className="text-xs text-muted-foreground cursor-pointer leading-normal"
+                      >
+                        I agree to the <Link to="/terms" target="_blank" className="text-primary hover:underline">Terms & Conditions</Link>, <Link to="/privacy" target="_blank" className="text-primary hover:underline">Privacy Policy</Link> and <Link to="/refund" target="_blank" className="text-primary hover:underline">Refund Policy</Link>
+                      </Label>
                     </div>
+                  </div>
 
-                    <Button className="w-full mt-2" onClick={handleCreateDeal} disabled={isCreating || !agreeToEscrowTerms}>
-                      {isCreating ? "Creating..." : "Create Deal"}
-                    </Button>
+                  <Button className="w-full mt-2" onClick={handleCreateDeal} disabled={isCreating || !agreeToEscrowTerms}>
+                    {isCreating ? "Creating..." : "Create Deal"}
+                  </Button>
                 </div>
               </DialogContent>
             </Dialog>
