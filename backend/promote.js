@@ -1,9 +1,20 @@
 import { PrismaClient } from '@prisma/client';
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// Resolve __dirname for ESM
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Load .env from project root (one level up from backend/)
+dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
 const prisma = new PrismaClient();
 
 async function promoteToAdmin() {
-    const email = process.argv[2];
+    // Join all arguments starting from index 2 to handle emails with unintentional spaces
+    const email = process.argv.slice(2).join('');
 
     if (!email) {
         console.error('Please provide an email address. Example: node promote.js user@example.com');
