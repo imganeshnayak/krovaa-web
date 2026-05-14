@@ -12,6 +12,8 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import ChatPage from "./pages/ChatPage";
 import ProfilePage from "./pages/ProfilePage";
+import ExplorePage from "./pages/ExplorePage";
+import PostJobPage from "./pages/PostJobPage";
 import EscrowPage from "./pages/EscrowPage";
 import WalletPage from "./pages/WalletPage";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -85,6 +87,8 @@ const MainContent = () => {
         <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
         <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
         <Route path="/chat" element={<ClientRoute><ChatPage /></ClientRoute>} />
+        <Route path="/explore" element={<ClientRoute><ExplorePage /></ClientRoute>} />
+        <Route path="/post-job" element={<ClientRoute><PostJobPage /></ClientRoute>} />
         {/* Own profile - requires login */}
         <Route path="/profile" element={<ClientRoute><ProfilePage /></ClientRoute>} />
         {/* Legacy /profile/:username -> redirect to /:username */}

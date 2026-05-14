@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { Home, User, Wallet, Settings, Shield } from 'lucide-react';
+import { Home, User, Wallet, Settings, Shield, Compass, PlusCircle } from 'lucide-react';
 
 const BottomNavbar = () => {
   const location = useLocation();
@@ -18,6 +18,12 @@ const BottomNavbar = () => {
       label: 'Profile',
       to: '/profile',
       icon: <User className="w-6 h-6" />,
+      show: user?.role !== 'staff'
+    },
+    {
+      label: 'Explore',
+      to: '/explore',
+      icon: <Compass className="w-6 h-6" />,
       show: user?.role !== 'staff'
     },
     {
