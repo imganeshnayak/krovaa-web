@@ -9,22 +9,22 @@ const statVariants = {
 
 export default function HeroLanding() {
   return (
-    <section className="relative overflow-hidden pt-20 pb-24 px-6 md:px-8">
+    <section className="relative overflow-hidden pt-16 pb-24 px-6 md:px-8">
       {/* Background Glow */}
       <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[700px] h-[400px] rounded-full bg-gradient-to-tr from-[#00A4EF] to-[#007BB5] opacity-5 blur-3xl pointer-events-none" />
 
       <div className="max-w-7xl mx-auto">
-        {/* Main Content - Flexbox Layout for Better Responsive Control */}
-        <div className="flex flex-col lg:flex-row lg:items-center lg:gap-12 xl:gap-16">
+        {/* Main Content - Grid Layout for Perfect Alignment */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-10 lg:gap-12 xl:gap-16 items-start md:items-center">
           {/* Left Section - Text Content */}
-          <div className="flex-1 min-w-0 mb-12 lg:mb-0">
+          <div className="flex flex-col justify-start pt-4 md:pt-0">
             <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
-              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold tracking-widest uppercase mb-6 bg-white/10 text-[#00A4EF] border border-white/10">
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold tracking-widest uppercase mb-6 bg-white/10 text-[#00A4EF] border border-white/10 w-fit">
                 <CheckCircle2 className="w-3 h-3" />
                 Built for freelance teams
               </div>
 
-              <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-7xl xl:text-8xl font-black tracking-tight leading-[1.1] text-[#0A0E27] mb-8 pr-0 lg:pr-4">
+              <h1 className="text-5xl sm:text-6xl md:text-6xl lg:text-7xl xl:text-8xl font-black tracking-tight leading-[1.1] text-[#0A0E27] mb-8">
                 Chat.
                 <span className="mx-2 bg-clip-text text-transparent bg-gradient-to-r from-[#00A4EF] via-[#0097db] to-[#007BB5]">Pay.</span>
                 Deliver.
