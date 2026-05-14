@@ -86,18 +86,18 @@ const SocialIcon = ({ platform, className }: { platform: string; className?: str
 /* ── Underline field ── */
 const Field = ({ label, icon: Icon, textarea, className = "", ...props }: any) => (
   <div className="group">
-    <label className="block text-[9px] font-bold tracking-[0.25em] uppercase text-white/25 mb-2 ml-0.5">{label}</label>
+    <label className="block text-[9px] font-bold tracking-[0.25em] uppercase text-[#1C1C1C]/40 mb-2 ml-0.5">{label}</label>
     <div className="relative">
-      {Icon && <Icon className="absolute left-0 top-3 w-3.5 h-3.5 text-white/20 group-focus-within:text-blue-400 transition-colors duration-200" />}
+      {Icon && <Icon className="absolute left-3 top-3 w-3.5 h-3.5 text-[#1C1C1C]/25 group-focus-within:text-[#00A4EF] transition-colors duration-200" />}
       {textarea ? (
         <textarea
-          className={`w-full bg-transparent border-0 border-b border-white/10 focus:border-blue-500/60 outline-none ${Icon ? "pl-6" : ""} pb-2.5 pt-1 text-sm text-white placeholder:text-white/15 transition-colors duration-200 resize-none ${className}`}
+          className={`w-full bg-[#F5F5F5] border border-[#E0E0E0] focus:border-[#00A4EF]/50 outline-none rounded-lg ${Icon ? "pl-10" : "px-3"} pb-2.5 pt-2 text-sm text-[#1C1C1C] placeholder:text-[#1C1C1C]/20 transition-colors duration-200 resize-none ${className}`}
           rows={3}
           {...props}
         />
       ) : (
         <input
-          className={`w-full bg-transparent border-0 border-b border-white/10 focus:border-blue-500/60 outline-none ${Icon ? "pl-6" : ""} pb-2.5 pt-1 text-sm text-white placeholder:text-white/15 transition-colors duration-200 ${className}`}
+          className={`w-full bg-[#F5F5F5] border border-[#E0E0E0] focus:border-[#00A4EF]/50 outline-none rounded-lg ${Icon ? "pl-10" : "px-3"} h-10 text-sm text-[#1C1C1C] placeholder:text-[#1C1C1C]/20 transition-colors duration-200 ${className}`}
           {...props}
         />
       )}
@@ -847,7 +847,7 @@ const ProfilePage = () => {
         {/* ── Edit form ── */}
         {isEditing && (
           <div
-            className="mb-6 p-6 rounded-lg border border-[#E0E0E0] bg-white space-y-6"
+            className="mb-6 p-6 rounded-2xl border border-[#E0E0E0] bg-[#FCFCFC] shadow-[0_8px_30px_rgba(0,0,0,0.04)] space-y-6"
             style={{ animation: "slideUp 0.35s cubic-bezier(0.16,1,0.3,1) both" }}
           >
             <div className="group">
