@@ -27,3 +27,4 @@ docker-compose up -d --build frontend
 ---
 
 &copy; 2026 Krovaa Project
+updated
