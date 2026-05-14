@@ -102,8 +102,8 @@ const BlockedUsersPage = () => {
               <div className="text-center py-12">
                 <p className="text-muted-foreground mb-4">You haven't blocked any users</p>
                 <Button
-                  variant="outline"
                   onClick={() => navigate("/chat")}
+                  className="bg-[#00A4EF] hover:bg-[#007BB5] text-white"
                 >
                   Back to Chat
                 </Button>

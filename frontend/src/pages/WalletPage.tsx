@@ -1,6 +1,7 @@
 
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { themeColors } from "@/lib/themeColors";
 import { useAuth } from "@/contexts/AuthContext";
 import { getWalletBalance, getWalletTransactions, getPayoutRequests, WalletTransaction, PayoutRequest } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -110,17 +111,17 @@ const WalletPage = () => {
     return (
         <div className="container max-w-4xl mx-auto p-4 md:p-6 space-y-6 pb-20 md:pb-6">
             <h1 className="text-3xl font-bold flex items-center gap-2">
-                <Wallet className="h-8 w-8 text-primary" />
+                <Wallet className="h-8 w-8 text-[#00A4EF]" />
                 My Wallet
             </h1>
 
             {/* Balance Card */}
-            <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
+            <Card className="bg-gradient-to-br from-[#00A4EF]/10 to-[#00A4EF]/5 border-[#00A4EF]/20">
                 <CardHeader>
-                    <CardTitle className="text-sm font-medium text-muted-foreground">Available Balance</CardTitle>
+                    <CardTitle className="text-sm font-medium text-[#1C1C1C]/60">Available Balance</CardTitle>
                     <div className="flex items-end justify-between">
                         <div className="space-y-1">
-                            <span className="text-4xl font-bold text-primary">
+                            <span className="text-4xl font-bold text-[#00A4EF]">
                                 {formatCurrency(balance)}
                             </span>
                             <p className="text-xs text-muted-foreground">
@@ -130,7 +131,7 @@ const WalletPage = () => {
                         <div className="flex flex-col gap-2 sm:flex-row">
                             <Button
                                 variant="outline"
-                                className="border-primary text-primary hover:bg-primary/10"
+                                className="border-[#00A4EF] text-[#00A4EF] hover:bg-[#00A4EF]/10"
                                 onClick={() => setIsAddMoneyOpen(true)}
                             >
                                 <Plus className="w-4 h-4 mr-1" /> Add Money
@@ -138,7 +139,7 @@ const WalletPage = () => {
                             <Button
                                 onClick={() => setIsPayoutOpen(true)}
                                 disabled={balance < 500}
-                                className="bg-primary hover:bg-primary/90"
+                                className="bg-[#00A4EF] hover:bg-[#00A4EF]/90 text-white"
                             >
                                 Request Payout
                             </Button>
@@ -173,7 +174,7 @@ const WalletPage = () => {
                                     variant="outline"
                                     size="sm"
                                     onClick={() => setAddAmount(amt)}
-                                    className={addAmount === amt ? "border-primary bg-primary/5" : ""}
+                                    className={addAmount === amt ? "border-[#00A4EF] bg-[#00A4EF]/5" : ""}
                                 >
                                     ₹{amt}
                                 </Button>
@@ -190,9 +191,9 @@ const WalletPage = () => {
                                     <span>GST on Fee (18%)</span>
                                     <span>{formatCurrency(parseFloat(addAmount) * 0.02 * 0.18)}</span>
                                 </div>
-                                <div className="flex justify-between text-sm font-semibold pt-1 border-t border-border/50">
-                                    <span className="text-foreground">Net Credited to Wallet</span>
-                                    <span className="text-primary">{formatCurrency(parseFloat(addAmount) * (1 - 0.02 * 1.18))}</span>
+                                <div className="flex justify-between text-sm font-semibold pt-1 border-t border-[#E0E0E0]/50">
+                                    <span className="text-[#1C1C1C]">Net Credited to Wallet</span>
+                                    <span className="text-[#00A4EF]">{formatCurrency(parseFloat(addAmount) * (1 - 0.02 * 1.18))}</span>
                                 </div>
                                 <p className="text-[10px] text-muted-foreground italic text-center pt-1">
                                     * Payment transaction charges are deducted from the top-up amount.
@@ -210,9 +211,9 @@ const WalletPage = () => {
                             <div className="grid gap-1.5 leading-none">
                                 <Label
                                     htmlFor="walletTerms"
-                                    className="text-xs text-muted-foreground cursor-pointer leading-normal"
+                                    className="text-xs text-[#1C1C1C]/60 cursor-pointer leading-normal"
                                 >
-                                    I agree to the <Link to="/terms" target="_blank" className="text-primary hover:underline">Terms & Conditions</Link>, <Link to="/privacy" target="_blank" className="text-primary hover:underline">Privacy Policy</Link> and <Link to="/refund" target="_blank" className="text-primary hover:underline">Refund Policy</Link>
+                                    I agree to the <Link to="/terms" target="_blank" className="text-[#00A4EF] hover:underline">Terms & Conditions</Link>, <Link to="/privacy" target="_blank" className="text-[#00A4EF] hover:underline">Privacy Policy</Link> and <Link to="/refund" target="_blank" className="text-[#00A4EF] hover:underline">Refund Policy</Link>
                                 </Label>
                             </div>
                         </div>
@@ -264,7 +265,7 @@ const WalletPage = () => {
                                             name: user?.displayName,
                                             email: user?.username + "@Krovaa.com", // Fallback email
                                         },
-                                        theme: { color: "#ec4899" }
+                                        theme: { color: themeColors.blue.primary }
                                     };
 
                                     const rzp = new window.Razorpay(options);

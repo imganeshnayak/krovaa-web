@@ -1,12 +1,10 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { themeColors } from "@/lib/themeColors";
 import {
   Mail, CheckCircle2, Loader2, Eye, EyeOff,
-  User, AtSign, ArrowRight, ChevronLeft, RotateCcw, Briefcase
+  User, AtSign, ArrowRight, ChevronLeft, RotateCcw
 } from "lucide-react";
-import TelegramLogin from "@/components/TelegramLogin";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiFetch } from "@/lib/api";
 import { validatePassword } from "@/lib/passwordValidation";
@@ -14,22 +12,23 @@ import PasswordStrength from "@/components/auth/PasswordStrength";
 import { toast } from "sonner";
 import Logo from "@/components/Logo";
 
-
-
 type Step = "form" | "otp";
 
 /* ── Minimal labelled input ── */
 const Field = ({
   label, icon: Icon, error: _e, className = "", ...props
-}: { label: string; icon: React.ElementType; error?: string;[k: string]: any }) => (
+}: { label: string; icon: React.ElementType; error?: string; [k: string]: any }) => (
   <div className="group">
-    <label className="block text-[9px] font-bold tracking-[0.25em] uppercase text-white/25 mb-2 ml-0.5">
+    <label className="block text-[9px] font-bold tracking-[0.25em] uppercase mb-2 ml-0.5" style={{ color: "#1C1C1C60" }}>
       {label}
     </label>
     <div className="relative">
-      <Icon className="absolute left-0 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/20 group-focus-within:text-blue-400 transition-colors duration-200" />
+      <Icon className="absolute left-0 top-1/2 -translate-y-1/2 w-3.5 h-3.5 transition-colors duration-200" style={{ color: "#1C1C1C30" }} />
       <input
-        className={`w-full bg-transparent border-0 border-b border-white/10 focus:border-blue-500/60 outline-none pl-6 pb-2.5 pt-1 text-sm text-white placeholder:text-white/15 transition-colors duration-200 ${className}`}
+        className={`w-full bg-transparent border-0 outline-none pl-6 pb-2.5 pt-1 text-sm text-[#1C1C1C] placeholder:text-[#1C1C1C40] transition-colors duration-200 ${className}`}
+        style={{ borderBottom: "1px solid #E0E0E0" }}
+        onFocus={e => (e.currentTarget.style.borderBottomColor = "#00A4EF")}
+        onBlur={e  => (e.currentTarget.style.borderBottomColor = "#E0E0E0")}
         {...props}
       />
     </div>
@@ -38,22 +37,25 @@ const Field = ({
 
 const SelectField = ({
   label, icon: Icon, options, value, onChange, className = "", ...props
-}: { label: string; icon: React.ElementType; options: string[]; value: string; onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void; className?: string;[k: string]: any }) => (
+}: { label: string; icon: React.ElementType; options: string[]; value: string; onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void; className?: string; [k: string]: any }) => (
   <div className="group">
-    <label className="block text-[9px] font-bold tracking-[0.25em] uppercase text-white/25 mb-2 ml-0.5">
+    <label className="block text-[9px] font-bold tracking-[0.25em] uppercase mb-2 ml-0.5" style={{ color: "#1C1C1C60" }}>
       {label}
     </label>
     <div className="relative">
-      <Icon className="absolute left-0 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/20 group-focus-within:text-blue-400 transition-colors duration-200" />
+      <Icon className="absolute left-0 top-1/2 -translate-y-1/2 w-3.5 h-3.5 transition-colors duration-200" style={{ color: "#1C1C1C30" }} />
       <select
-        className={`w-full bg-transparent border-0 border-b border-white/10 focus:border-blue-500/60 outline-none pl-6 pb-2.5 pt-1 text-sm text-white appearance-none cursor-pointer transition-colors duration-200 ${className}`}
+        className={`w-full bg-transparent border-0 outline-none pl-6 pb-2.5 pt-1 text-sm text-[#1C1C1C] appearance-none cursor-pointer transition-colors duration-200 ${className}`}
+        style={{ borderBottom: "1px solid #E0E0E0" }}
+        onFocus={e => (e.currentTarget.style.borderBottomColor = "#00A4EF")}
+        onBlur={e  => (e.currentTarget.style.borderBottomColor = "#E0E0E0")}
         value={value}
         onChange={onChange}
         {...props}
       >
-        <option value="" className="bg-[#0a0f1e] text-white/40">Select your {label.toLowerCase()}...</option>
+        <option value="" style={{ background: "#FFFFFF", color: "#1C1C1C60" }}>Select your {label.toLowerCase()}...</option>
         {options.map(p => (
-          <option key={p} value={p} className="bg-[#0a0f1e] text-white">{p}</option>
+          <option key={p} value={p} style={{ background: "#FFFFFF", color: "#1C1C1C" }}>{p}</option>
         ))}
       </select>
     </div>
@@ -63,10 +65,16 @@ const SelectField = ({
 /* ── Checkbox ── */
 const Check = ({ checked, onChange, children }: { checked: boolean; onChange: () => void; children: React.ReactNode }) => (
   <button type="button" onClick={onChange} className="flex items-start gap-3 text-left group">
-    <div className={`w-4 h-4 mt-0.5 rounded-sm border flex-shrink-0 flex items-center justify-center transition-all duration-200 ${checked ? "bg-blue-600 border-blue-600" : "border-white/15 bg-transparent group-hover:border-white/30"}`}>
+    <div
+      className="w-4 h-4 mt-0.5 rounded-sm border flex-shrink-0 flex items-center justify-center transition-all duration-200"
+      style={{
+        background: checked ? "#00A4EF" : "transparent",
+        borderColor: checked ? "#00A4EF" : "#E0E0E0",
+      }}
+    >
       {checked && <CheckCircle2 className="w-2.5 h-2.5 text-white" />}
     </div>
-    <span className="text-[11px] text-white/30 leading-relaxed">{children}</span>
+    <span className="text-[11px] leading-relaxed" style={{ color: "#1C1C1C60" }}>{children}</span>
   </button>
 );
 
@@ -125,71 +133,60 @@ const Register = () => {
 
   return (
     <div
-      style={{ fontFamily: "'Rubik', sans-serif" }}
-      className="min-h-screen bg-[#050810] text-white flex overflow-hidden"
+      style={{ fontFamily: "'Inter', sans-serif", background: "#F5F5F5" }}
+      className="min-h-screen text-[#1C1C1C] flex overflow-hidden"
     >
-      {/* ── LEFT PANEL — brand statement ── */}
+      {/* ── LEFT PANEL ── */}
       <div className="hidden lg:flex flex-col relative w-[42%] flex-shrink-0 overflow-hidden">
 
-        {/* Background layers */}
-        <div className="absolute inset-0 bg-gradient-to-br from-[#070d1f] via-[#050810] to-[#020408]" />
-        {/* Grid */}
-        <div className="absolute inset-0 opacity-[0.04]" style={{
-          backgroundImage: "linear-gradient(to right, #3b82f6 1px, transparent 1px), linear-gradient(to bottom, #3b82f6 1px, transparent 1px)",
+        {/* Gradient background */}
+        <div className="absolute inset-0" style={{ background: "linear-gradient(135deg, #00A4EF, #007BB5)" }} />
+        {/* Grid overlay */}
+        <div className="absolute inset-0 opacity-[0.05]" style={{
+          backgroundImage: `linear-gradient(to right, #FFFFFF 1px, transparent 1px), linear-gradient(to bottom, #FFFFFF 1px, transparent 1px)`,
           backgroundSize: "48px 48px"
         }} />
         {/* Glow orbs */}
-        <div className="absolute top-[-10%] left-[-20%] w-[500px] h-[500px] rounded-full bg-blue-700/10 blur-[120px]" />
-        <div className="absolute bottom-[-10%] right-[-20%] w-[400px] h-[400px] rounded-full bg-blue-900/20 blur-[100px]" />
-        {/* Vertical accent line */}
-        <div className="absolute right-0 top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-blue-500/20 to-transparent" />
-
-        {/* Decorative rotated text */}
-        <div
-          className="absolute bottom-32 -left-16 text-[200px] font-extrabold tracking-tighter select-none pointer-events-none opacity-[0.025]"
-          style={{ fontFamily: "'Rubik', sans-serif", transform: "rotate(-90deg) translateX(20%)", transformOrigin: "left bottom", color: "#3b82f6", lineHeight: 1 }}
-        >
-          KROVAA
-        </div>
+        <div className="absolute top-[-10%] left-[-20%] w-[500px] h-[500px] rounded-full blur-[120px]" style={{ background: "#FFFFFF15" }} />
+        <div className="absolute bottom-[-10%] right-[-20%] w-[400px] h-[400px] rounded-full blur-[100px]" style={{ background: "#FFFFFF20" }} />
 
         {/* Content */}
-        <div className="relative z-10 flex flex-col h-full p-14">
-          {/* Logo */}
+        <div className="relative z-10 flex flex-col h-full p-14 text-white">
           <Link to="/" className="flex items-center group w-fit">
             <Logo size="lg" className="scale-125 origin-left" />
           </Link>
 
-          {/* Main statement */}
           <div className="mt-auto mb-auto">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-blue-500/25 bg-blue-500/8 text-[10px] font-bold text-blue-400 tracking-[0.2em] uppercase mb-8">
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
+            <div
+              className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-bold tracking-[0.2em] uppercase mb-8"
+              style={{ border: "1px solid #FFFFFF40", background: "#FFFFFF12", color: "#FFFFFF" }}
+            >
+              <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "#FFFFFF" }} />
               {step === "form" ? "Step 1 of 2" : "Step 2 of 2"}
             </div>
 
-            <h2 style={{ fontFamily: "'Rubik', sans-serif" }} className="text-5xl font-extrabold leading-[1.05] tracking-tight mb-6">
+            <h2 style={{ fontFamily: "'Inter', sans-serif" }} className="text-5xl font-extrabold leading-[1.05] tracking-tight mb-6">
               {step === "form" ? (
-                <>Your work,<br /><span className="text-blue-400">your rules.</span></>
+                <>Your work,<br /><span style={{ color: "#E6F6FE" }}>your rules.</span></>
               ) : (
-                <>Almost<br /><span className="text-blue-400">there.</span></>
+                <>Almost<br /><span style={{ color: "#E6F6FE" }}>there.</span></>
               )}
             </h2>
-            <p className="text-white/30 text-sm leading-relaxed max-w-xs font-light">
+            <p className="text-sm leading-relaxed max-w-xs font-light" style={{ color: "#FFFFFFCC" }}>
               {step === "form"
                 ? "Set up your account and start closing deals in minutes. No friction, no nonsense."
                 : "Enter the 6-digit code we sent to your inbox to complete your registration."}
             </p>
           </div>
-
-
         </div>
       </div>
 
       {/* ── RIGHT PANEL — form ── */}
       <div className="flex-1 flex flex-col relative overflow-y-auto">
 
-        {/* Subtle ambient */}
+        {/* Ambient glow */}
         <div className="fixed inset-0 pointer-events-none lg:left-[42%]">
-          <div className="absolute top-0 right-0 w-[400px] h-[400px] rounded-full bg-blue-900/8 blur-[120px]" />
+          <div className="absolute top-0 right-0 w-[400px] h-[400px] rounded-full blur-[120px]" style={{ background: "#00A4EF05" }} />
         </div>
 
         {/* Mobile logo */}
@@ -197,13 +194,14 @@ const Register = () => {
           <Link to="/" className="flex items-center">
             <Logo size="md" />
           </Link>
-          <div className="text-xs text-white/30">
+          <div className="text-xs" style={{ color: "#1C1C1C40" }}>
             Step {step === "form" ? "1" : "2"} of 2
           </div>
         </div>
 
         <div className="flex-1 flex items-center justify-center px-8 py-12 relative z-10">
-          <div className="w-full max-w-md">
+          <div className="w-full max-w-md bg-white p-10 rounded-lg shadow-sm border border-[#E0E0E0]"
+               style={{ animation: mounted ? "slideUp 0.5s cubic-bezier(0.16,1,0.3,1) both" : "none" }}>
 
             {/* ── FORM STEP ── */}
             {step === "form" && (
@@ -211,35 +209,30 @@ const Register = () => {
                 key="form"
                 style={{ animation: mounted ? "slideUp 0.5s cubic-bezier(0.16,1,0.3,1) both" : "none" }}
               >
-                {/* Header */}
-                <div className="flex items-start justify-between mb-10">
-                  <div>
-                    <h1 style={{ fontFamily: "'Rubik', sans-serif" }} className="text-3xl font-extrabold tracking-tight text-white mb-1.5">
-                      Create account
-                    </h1>
-                    <p className="text-white/30 text-sm font-light">
-                      Already a member?{" "}
-                      <Link to="/login" className="text-blue-400 hover:text-blue-300 font-medium transition-colors">
-                        Sign in
-                      </Link>
-                    </p>
-                  </div>
-                  <div className="scale-90 origin-top-right -mt-1">
-                    <TelegramLogin />
-                  </div>
+                <div className="mb-10">
+                  <h1 style={{ fontFamily: "'Inter', sans-serif" }} className="text-3xl font-extrabold tracking-tight text-[#1C1C1C] mb-1.5">
+                    Create account
+                  </h1>
+                  <p className="text-sm font-light" style={{ color: "#1C1C1C60" }}>
+                    Already a member?{" "}
+                    <Link
+                      to="/login"
+                      className="font-medium transition-colors"
+                      style={{ color: "#00A4EF" }}
+                      onMouseEnter={e => (e.currentTarget.style.color = "#007BB5")}
+                      onMouseLeave={e => (e.currentTarget.style.color = "#00A4EF")}
+                    >
+                      Sign in
+                    </Link>
+                  </p>
                 </div>
 
-                {/* Divider */}
-                <div className="flex items-center gap-4 mb-8">
-                  <div className="flex-1 h-px bg-white/5" />
-                  <span className="text-[10px] text-white/15 tracking-widest uppercase">or with email</span>
-                  <div className="flex-1 h-px bg-white/5" />
-                </div>
 
                 {/* Error */}
                 {error && (
-                  <div className="mb-6 px-4 py-3 rounded-xl bg-red-500/8 border border-red-500/20 text-red-400 text-xs flex items-center gap-2">
-                    <div className="w-1 h-1 rounded-full bg-red-400 flex-shrink-0" />
+                  <div className="mb-6 px-4 py-3 rounded-lg text-xs flex items-center gap-2"
+                    style={{ background: "#E74C3C12", border: "1px solid #E74C3C30", color: "#E74C3C" }}>
+                    <div className="w-1 h-1 rounded-full flex-shrink-0" style={{ background: "#E74C3C" }} />
                     {error}
                   </div>
                 )}
@@ -275,20 +268,21 @@ const Register = () => {
                     required
                   />
 
-
-
                   <div>
                     <div className="group">
-                      <label className="block text-[9px] font-bold tracking-[0.25em] uppercase text-white/25 mb-2 ml-0.5">
+                      <label className="block text-[9px] font-bold tracking-[0.25em] uppercase mb-2 ml-0.5" style={{ color: "#1C1C1C60" }}>
                         Password
                       </label>
                       <div className="relative">
-                        <svg viewBox="0 0 16 16" className="absolute left-0 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/20 group-focus-within:text-blue-400 transition-colors fill-current">
+                        <svg viewBox="0 0 16 16" className="absolute left-0 top-1/2 -translate-y-1/2 w-3.5 h-3.5 fill-current transition-colors" style={{ color: "#1C1C1C30" }}>
                           <path d="M8 1a3 3 0 0 0-3 3v1H3a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1h-2V4a3 3 0 0 0-3-3zm0 1.5A1.5 1.5 0 0 1 9.5 4v1h-3V4A1.5 1.5 0 0 1 8 2.5z" />
                         </svg>
                         <input
                           type={showPassword ? "text" : "password"}
-                          className="w-full bg-transparent border-0 border-b border-white/10 focus:border-blue-500/60 outline-none pl-6 pr-8 pb-2.5 pt-1 text-sm text-white placeholder:text-white/15 transition-colors duration-200"
+                          className="w-full bg-transparent border-0 outline-none pl-6 pr-8 pb-2.5 pt-1 text-sm text-[#1C1C1C] placeholder:text-[#1C1C1C40] transition-colors duration-200"
+                          style={{ borderBottom: "1px solid #E0E0E0" }}
+                          onFocus={e => (e.currentTarget.style.borderBottomColor = "#00A4EF")}
+                          onBlur={e  => (e.currentTarget.style.borderBottomColor = "#E0E0E0")}
                           placeholder="Min. 8 characters"
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
@@ -297,7 +291,10 @@ const Register = () => {
                         <button
                           type="button"
                           onClick={() => setShowPassword(s => !s)}
-                          className="absolute right-0 top-1/2 -translate-y-1/2 text-white/15 hover:text-white/50 transition-colors pb-2"
+                          className="absolute right-0 top-1/2 -translate-y-1/2 transition-colors pb-2"
+                          style={{ color: "#1C1C1C40" }}
+                          onMouseEnter={e => (e.currentTarget.style.color = "#1C1C1C80")}
+                          onMouseLeave={e => (e.currentTarget.style.color = "#1C1C1C40")}
                         >
                           {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                         </button>
@@ -312,13 +309,13 @@ const Register = () => {
                   <div className="space-y-3 pt-1">
                     <Check checked={agreeToTerms} onChange={() => setAgreeToTerms(s => !s)}>
                       I agree to the{" "}
-                      <Link to="/terms" target="_blank" className="text-blue-400 hover:text-blue-300 transition-colors">
+                      <Link to="/terms" target="_blank" className="transition-colors" style={{ color: "#00A4EF" }}>
                         Terms of Service
                       </Link>
                     </Check>
                     <Check checked={agreeToPrivacy} onChange={() => setAgreeToPrivacy(s => !s)}>
                       I accept the{" "}
-                      <Link to="/privacy" target="_blank" className="text-blue-400 hover:text-blue-300 transition-colors">
+                      <Link to="/privacy" target="_blank" className="transition-colors" style={{ color: "#00A4EF" }}>
                         Privacy Policy
                       </Link>
                     </Check>
@@ -327,7 +324,13 @@ const Register = () => {
                   <button
                     type="submit"
                     disabled={isSendingOtp || !agreeToTerms || !agreeToPrivacy}
-                    className="w-full h-12 bg-blue-600 hover:bg-blue-500 disabled:bg-white/5 disabled:text-white/20 disabled:cursor-not-allowed text-white rounded-xl text-sm font-semibold transition-all duration-200 hover:scale-[1.01] active:scale-[0.99] shadow-xl shadow-blue-900/30 hover:shadow-blue-700/40 flex items-center justify-center gap-2 mt-2"
+                    className="w-full h-12 rounded-lg text-sm font-semibold transition-all duration-200 hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center gap-2 mt-2"
+                    style={{
+                      background: (isSendingOtp || !agreeToTerms || !agreeToPrivacy) ? "#E0E0E0" : "#00A4EF",
+                      color: (isSendingOtp || !agreeToTerms || !agreeToPrivacy) ? "#9E9E9E" : "#FFFFFF",
+                      boxShadow: (isSendingOtp || !agreeToTerms || !agreeToPrivacy) ? "none" : "0 4px 12px rgba(0, 164, 239, 0.2)",
+                      cursor: (isSendingOtp || !agreeToTerms || !agreeToPrivacy) ? "not-allowed" : "pointer",
+                    }}
                   >
                     {isSendingOtp ? (
                       <><Loader2 className="w-4 h-4 animate-spin" /> Sending code...</>
@@ -348,7 +351,10 @@ const Register = () => {
                 {/* Back */}
                 <button
                   onClick={() => { setStep("form"); setOtp(""); setError(""); }}
-                  className="flex items-center gap-1.5 text-xs text-white/25 hover:text-white/60 transition-colors mb-10 group"
+                  className="flex items-center gap-1.5 text-xs transition-colors mb-10 group"
+                  style={{ color: "#1C1C1C40" }}
+                  onMouseEnter={e => (e.currentTarget.style.color = "#1C1C1C80")}
+                  onMouseLeave={e => (e.currentTarget.style.color = "#1C1C1C40")}
                 >
                   <ChevronLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
                   Back
@@ -356,43 +362,52 @@ const Register = () => {
 
                 {/* Icon */}
                 <div className="mb-8">
-                  <div className="w-16 h-16 rounded-2xl bg-blue-600/10 border border-blue-500/20 flex items-center justify-center mb-6 relative">
-                    <Mail className="w-7 h-7 text-blue-400" strokeWidth={1.5} />
-                    <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-blue-600 rounded-full text-[10px] font-bold flex items-center justify-center shadow-lg shadow-blue-900/50">
+                  <div
+                    className="w-16 h-16 rounded-lg flex items-center justify-center mb-6 relative"
+                    style={{ background: "#E6F6FE", border: "1px solid #00A4EF30" }}
+                  >
+                    <Mail className="w-7 h-7" strokeWidth={1.5} style={{ color: "#00A4EF" }} />
+                    <span
+                      className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center"
+                      style={{ background: "#00A4EF", color: "#FFFFFF", boxShadow: "0 2px 6px rgba(0, 164, 239, 0.3)" }}
+                    >
                       1
                     </span>
                   </div>
-                  <h1 style={{ fontFamily: "'Rubik', sans-serif" }} className="text-3xl font-extrabold tracking-tight mb-2">
+                  <h1 style={{ fontFamily: "'Inter', sans-serif" }} className="text-3xl font-extrabold tracking-tight mb-2 text-[#1C1C1C]">
                     Check your inbox
                   </h1>
-                  <p className="text-sm text-white/30 font-light leading-relaxed">
+                  <p className="text-sm font-light leading-relaxed" style={{ color: "#1C1C1C60" }}>
                     We sent a 6-digit code to{" "}
-                    <span className="text-white/60 font-medium">{email}</span>
+                    <span className="font-medium" style={{ color: "#1C1C1C" }}>{email}</span>
                   </p>
                 </div>
 
                 {error && (
-                  <div className="mb-6 px-4 py-3 rounded-xl bg-red-500/8 border border-red-500/20 text-red-400 text-xs flex items-center gap-2">
-                    <div className="w-1 h-1 rounded-full bg-red-400 flex-shrink-0" />
+                  <div className="mb-6 px-4 py-3 rounded-lg text-xs flex items-center gap-2"
+                    style={{ background: "#E74C3C12", border: "1px solid #E74C3C30", color: "#E74C3C" }}>
+                    <div className="w-1 h-1 rounded-full flex-shrink-0" style={{ background: "#E74C3C" }} />
                     {error}
                   </div>
                 )}
 
                 <form onSubmit={handleRegister} className="space-y-8">
-                  {/* Big OTP input */}
+                  {/* OTP input */}
                   <div>
-                    <label className="block text-[9px] font-bold tracking-[0.25em] uppercase text-white/25 mb-4">
+                    <label className="block text-[9px] font-bold tracking-[0.25em] uppercase mb-4" style={{ color: "#1C1C1C60" }}>
                       Verification Code
                     </label>
                     <input
-                      className="w-full h-20 bg-white/[0.03] border border-white/8 hover:border-white/12 focus:border-blue-500/50 outline-none rounded-2xl text-center text-4xl font-bold tracking-[0.6em] text-white transition-colors duration-200 placeholder:text-white/10 placeholder:tracking-[0.3em]"
+                      className="w-full h-20 bg-transparent rounded-lg text-center text-4xl font-bold tracking-[0.6em] text-[#1C1C1C] transition-colors duration-200 placeholder:text-[#1C1C1C15] placeholder:tracking-[0.3em] outline-none"
+                      style={{ border: "1px solid #E0E0E0" }}
+                      onFocus={e => (e.currentTarget.style.borderColor = "#00A4EF")}
+                      onBlur={e  => (e.currentTarget.style.borderColor = "#E0E0E0")}
                       placeholder="······"
                       value={otp}
                       onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
                       maxLength={6}
                       autoFocus
                       required
-                      style={{ fontFamily: "'Rubik', sans-serif" }}
                     />
                     {/* Progress dots */}
                     <div className="flex gap-2 justify-center mt-4">
@@ -400,7 +415,7 @@ const Register = () => {
                         <div
                           key={i}
                           className="w-1.5 h-1.5 rounded-full transition-all duration-200"
-                          style={{ background: i < otp.length ? "#3b82f6" : "rgba(255,255,255,0.08)" }}
+                          style={{ background: i < otp.length ? "#00A4EF" : "#E0E0E0" }}
                         />
                       ))}
                     </div>
@@ -409,12 +424,18 @@ const Register = () => {
                   <button
                     type="submit"
                     disabled={otp.length !== 6 || isLoading}
-                    className="w-full h-12 bg-blue-600 hover:bg-blue-500 disabled:bg-white/5 disabled:text-white/20 disabled:cursor-not-allowed text-white rounded-xl text-sm font-semibold transition-all duration-200 hover:scale-[1.01] active:scale-[0.99] shadow-xl shadow-blue-900/30 hover:shadow-blue-700/40 flex items-center justify-center gap-2"
+                    className="w-full h-12 rounded-lg text-sm font-semibold transition-all duration-200 hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center gap-2"
+                    style={{
+                      background: (otp.length !== 6 || isLoading) ? "#E0E0E0" : "#00A4EF",
+                      color: (otp.length !== 6 || isLoading) ? "#9E9E9E" : "#FFFFFF",
+                      boxShadow: (otp.length !== 6 || isLoading) ? "none" : "0 4px 12px rgba(0, 164, 239, 0.2)",
+                      cursor: (otp.length !== 6 || isLoading) ? "not-allowed" : "pointer",
+                    }}
                   >
                     {isLoading ? (
                       <><Loader2 className="w-4 h-4 animate-spin" /> Creating account...</>
                     ) : (
-                      <><CheckCircle2 className="w-4 h-4" /> Verify & Join</>
+                      <><CheckCircle2 className="w-4 h-4" /> Verify &amp; Join</>
                     )}
                   </button>
 
@@ -423,7 +444,10 @@ const Register = () => {
                       type="button"
                       onClick={handleResendOtp}
                       disabled={isSendingOtp}
-                      className="text-xs text-white/25 hover:text-blue-400 transition-colors flex items-center gap-1.5 disabled:opacity-30"
+                      className="text-xs transition-colors flex items-center gap-1.5 disabled:opacity-30"
+                      style={{ color: "#1C1C1C40" }}
+                      onMouseEnter={e => (e.currentTarget.style.color = "#00A4EF")}
+                      onMouseLeave={e => (e.currentTarget.style.color = "#1C1C1C40")}
                     >
                       <RotateCcw className="w-3 h-3" />
                       {isSendingOtp ? "Sending..." : "Resend code"}
@@ -436,8 +460,17 @@ const Register = () => {
         </div>
 
         {/* Footer */}
-        <div className="text-center pb-8 text-[10px] text-white/10 tracking-widest uppercase">
-          © 2026 Krovaa &nbsp;·&nbsp; <a href="mailto:support@krovaa.com" className="hover:text-blue-400 transition-colors">support@krovaa.com</a>
+        <div className="text-center pb-8 text-[10px] tracking-widest uppercase" style={{ color: "#1C1C1C40" }}>
+          © 2026 Krovaa &nbsp;·&nbsp;{" "}
+          <a
+            href="mailto:support@krovaa.com"
+            className="transition-colors"
+            style={{ color: "#1C1C1C40" }}
+            onMouseEnter={e => (e.currentTarget.style.color = "#00A4EF")}
+            onMouseLeave={e => (e.currentTarget.style.color = "#1C1C1C40")}
+          >
+            support@krovaa.com
+          </a>
         </div>
       </div>
 

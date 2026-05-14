@@ -31,6 +31,11 @@ import setupSocket from './socket/chat.js';
 const app = express();
 const server = createServer(app);
 
+const envAllowedOrigins = (process.env.CORS_ALLOWED_ORIGINS || '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+
 // Global Logger (Move to top)
 app.use((req, res, next) => {
     if (req.url !== '/api/health') { // Skip health checks to reduce noise
@@ -44,11 +49,13 @@ const allowedOrigins = [
     'http://localhost:8080',
     'http://127.0.0.1:5173',
     'http://127.0.0.1:8080',
+    'http://192.168.56.1:8080',
     'https://krovaa.com',
     'https://www.krovaa.com',
     'http://krovaa.com',
     process.env.FRONTEND_URL,
-    process.env.FRONTEND_URL?.toLowerCase()
+    process.env.FRONTEND_URL?.toLowerCase(),
+    ...envAllowedOrigins
 ].filter(Boolean);
 
 // Middleware

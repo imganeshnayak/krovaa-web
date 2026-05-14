@@ -4,46 +4,84 @@
 
 @layer base {
   :root {
-    /* Krovaa Midnight Theme */
-    --background: 235 50% 5%;
-    --foreground: 210 40% 98%;
+    /* Krovaa Brand Colors - Centralized Theme */
+    --brand-blue: #0066FF;
+    --brand-blue-light: #4D94FF;
+    --brand-blue-lighter: #99C2FF;
+    --brand-blue-dark: #0052CC;
+    --brand-blue-darker: #003D99;
 
-    --card: 235 45% 8%;
-    --card-foreground: 210 40% 98%;
+    --brand-green: #00B341;
+    --brand-green-light: #33D366;
+    --brand-green-lighter: #66FF99;
+    --brand-green-dark: #00802B;
+    --brand-green-darker: #005C1F;
 
-    --popover: 235 45% 8%;
-    --popover-foreground: 210 40% 98%;
+    --brand-orange: #FF6B35;
+    --brand-orange-light: #FF8F60;
+    --brand-orange-lighter: #FFAB85;
+    --brand-orange-dark: #E55A28;
+    --brand-orange-darker: #CC491F;
 
-    /* Krovaa Electric Blue */
-    --primary: 221 83% 53%;
-    --primary-foreground: 210 40% 98%;
+    --status-success: #00B341;
+    --status-warning: #FFA500;
+    --status-error: #E63946;
+    --status-info: #0066FF;
 
-    --secondary: 235 30% 12%;
-    --secondary-foreground: 210 40% 90%;
+    /* Neutral Grays */
+    --neutral-50: #F8F9FA;
+    --neutral-100: #F1F3F5;
+    --neutral-200: #E9ECEF;
+    --neutral-300: #DEE2E6;
+    --neutral-400: #CED4DA;
+    --neutral-500: #ADB5BD;
+    --neutral-600: #868E96;
+    --neutral-700: #495057;
+    --neutral-800: #343A40;
+    --neutral-900: #212529;
+    --neutral-white: #FFFFFF;
+    --neutral-black: #000000;
 
-    --muted: 235 25% 15%;
-    --muted-foreground: 215 20% 65%;
+    /* Krovaa Paytm Theme Variables */
+    --background: 0 0% 96%;
+    --foreground: 0 0% 11%;
 
-    --accent: 217 91% 60%;
-    --accent-foreground: 210 40% 98%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 11%;
 
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 11%;
 
-    --border: 235 20% 18%;
-    --input: 235 20% 18%;
-    --ring: 221 83% 53%;
+    /* Krovaa Paytm Blue */
+    --primary: 199 100% 47%;
+    --primary-foreground: 0 0% 100%;
 
-    --radius: 1rem;
+    --secondary: 0 0% 92%;
+    --secondary-foreground: 0 0% 11%;
 
-    --sidebar-background: 235 45% 6%;
-    --sidebar-foreground: 210 40% 90%;
-    --sidebar-primary: 221 83% 53%;
+    --muted: 0 0% 90%;
+    --muted-foreground: 0 0% 45%;
+
+    --accent: 199 100% 95%;
+    --accent-foreground: 199 100% 47%;
+
+    --destructive: 6 78% 57%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 0 0% 88%;
+    --input: 0 0% 88%;
+    --ring: 199 100% 47%;
+
+    --radius: 0.5rem;
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 0 0% 11%;
+    --sidebar-primary: 199 100% 47%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 235 30% 15%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 235 20% 18%;
-    --sidebar-ring: 221 83% 53%;
+    --sidebar-accent: 0 0% 96%;
+    --sidebar-accent-foreground: 0 0% 11%;
+    --sidebar-border: 0 0% 88%;
+    --sidebar-ring: 199 100% 47%;
   }
 
 }

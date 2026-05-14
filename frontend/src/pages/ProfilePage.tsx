@@ -1,5 +1,6 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useEffect, useState, useRef } from "react";
+import { themeColors } from "@/lib/themeColors";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -511,23 +512,23 @@ const ProfilePage = () => {
   return (
     <div
       style={{ fontFamily: "'DM Sans', sans-serif" }}
-      className="min-h-screen bg-[#050810] text-white"
+      className="min-h-screen bg-[#F5F5F5] text-[#1C1C1C]"
     >
       {/* Ambient */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] rounded-full bg-blue-700/8 blur-[120px]" />
-        <div className="absolute inset-0 opacity-[0.025]" style={{
-          backgroundImage: "linear-gradient(to right, #3b82f6 1px, transparent 1px), linear-gradient(to bottom, #3b82f6 1px, transparent 1px)",
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] rounded-full bg-[#00A4EF]/5 blur-[120px]" />
+        <div className="absolute inset-0 opacity-[0.05]" style={{
+          backgroundImage: `linear-gradient(to right, #E0E0E0 1px, transparent 1px), linear-gradient(to bottom, #E0E0E0 1px, transparent 1px)`,
           backgroundSize: "64px 64px"
         }} />
       </div>
 
       {/* ── Top bar ── */}
-      <div className="sticky top-0 z-50 border-b border-white/5 backdrop-blur-xl bg-[#050810]/80">
+      <div className="sticky top-0 z-50 border-b border-[#E0E0E0] backdrop-blur-xl bg-white/80">
         <div className="max-w-2xl mx-auto px-4 py-3.5 flex items-center justify-between">
           <Link
             to={currentUser ? "/chat" : "/"}
-            className="flex items-center gap-2 text-white/30 hover:text-white transition-colors text-sm"
+            className="flex items-center gap-2 text-[#1C1C1C]/60 hover:text-[#1C1C1C] transition-colors text-sm"
           >
             <ArrowLeft className="h-4 w-4" />
             Back
@@ -537,7 +538,7 @@ const ProfilePage = () => {
           </Link>
           <button 
             onClick={handleShare}
-            className="flex items-center justify-center p-2 rounded-xl text-white/30 hover:text-white hover:bg-white/5 transition-all"
+            className="flex items-center justify-center p-2 rounded-lg text-[#1C1C1C]/60 hover:text-[#1C1C1C] hover:bg-black/5 transition-all"
             title="Share profile"
           >
             <Share2 className="h-4.5 w-4.5" />
@@ -547,7 +548,7 @@ const ProfilePage = () => {
 
       <div className="max-w-2xl mx-auto px-4 pb-24 relative z-10">
         {/* ── Cover ── */}
-        <div className="relative h-44 rounded-b-3xl overflow-hidden -mx-4 group/cover">
+        <div className="relative h-44 rounded-b-lg overflow-hidden -mx-4 group/cover">
           {currentCoverUrl ? (
             <>
               <img 
@@ -556,19 +557,19 @@ const ProfilePage = () => {
                 alt="Cover" 
                 className="w-full h-full object-cover" 
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent pointer-events-none" />
             </>
           ) : (
-            <div className="w-full h-full bg-gradient-to-br from-blue-900/40 via-[#050810] to-[#070d1f]">
-              <div className="absolute inset-0 opacity-[0.06]" style={{
-                backgroundImage: "linear-gradient(to right, #3b82f6 1px, transparent 1px), linear-gradient(to bottom, #3b82f6 1px, transparent 1px)",
+            <div className="w-full h-full" style={{ background: `linear-gradient(to bottom right, #00A4EF, #005580)` }}>
+              <div className="absolute inset-0 opacity-[0.1]" style={{
+                backgroundImage: `linear-gradient(to right, #FFFFFF 1px, transparent 1px), linear-gradient(to bottom, #FFFFFF 1px, transparent 1px)`,
                 backgroundSize: "32px 32px"
               }} />
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 rounded-full bg-blue-600/10 blur-[60px]" />
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 rounded-full blur-[60px]" style={{ background: `#FFFFFF19` }} />
             </div>
           )}
           {isUploadingCoverPhoto && (
-            <div className="absolute inset-0 bg-black/50 rounded-b-3xl flex items-center justify-center backdrop-blur-sm">
+            <div className="absolute inset-0 bg-black/30 rounded-b-lg flex items-center justify-center backdrop-blur-sm">
               <Loader2 className="h-8 w-8 text-white animate-spin" />
             </div>
           )}
@@ -580,21 +581,21 @@ const ProfilePage = () => {
             <div className="absolute -top-12 right-4">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className="p-2.5 rounded-full border border-blue-500/30 bg-blue-500/10 backdrop-blur-md hover:bg-blue-500/20 text-blue-400 transition-all shadow-xl">
+                  <button className="p-2.5 rounded-lg border border-[#00A4EF]/30 bg-white/90 backdrop-blur-md hover:bg-white text-[#00A4EF] transition-all shadow-xl">
                     <MoreHorizontal className="h-4.5 w-4.5" />
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="bg-[#0a0f1e] border-white/10 text-white min-w-[180px] p-1.5 shadow-2xl">
-                  <DropdownMenuItem onClick={() => setIsEditing(true)} className="cursor-pointer py-2.5 rounded-lg focus:bg-white/5">
-                    <Edit2 className="h-3.5 w-3.5 mr-2.5 text-blue-400" /> 
+                <DropdownMenuContent align="end" className="bg-white border-[#E0E0E0] text-[#1C1C1C] min-w-[180px] p-1.5 shadow-2xl">
+                  <DropdownMenuItem onClick={() => setIsEditing(true)} className="cursor-pointer py-2.5 rounded-lg focus:bg-[#F5F5F5]">
+                    <Edit2 className="h-3.5 w-3.5 mr-2.5 text-[#00A4EF]" /> 
                     <span className="text-xs font-semibold">Edit Details</span>
                   </DropdownMenuItem>
                   
-                  <div className="h-px bg-white/5 my-1.5" />
+                  <div className="h-px bg-[#E0E0E0] my-1.5" />
                   
                   <DropdownMenuItem 
                     onClick={() => coverPhotoInputRef.current?.click()} 
-                    className="focus:bg-blue-600/20 focus:text-blue-400 cursor-pointer py-2.5 rounded-lg" 
+                    className="focus:bg-[#F5F5F5] cursor-pointer py-2.5 rounded-lg" 
                     disabled={isUploadingCoverPhoto}
                   >
                     <div className={`flex items-center gap-2.5 w-full ${isUploadingCoverPhoto ? 'opacity-50' : ''}`}>
@@ -604,7 +605,7 @@ const ProfilePage = () => {
                   </DropdownMenuItem>
                   
                   {user.coverPhotoUrl && (
-                    <DropdownMenuItem onClick={handleDeleteCoverPhoto} className="focus:bg-red-500/10 text-red-400 cursor-pointer py-2.5 rounded-lg">
+                    <DropdownMenuItem onClick={handleDeleteCoverPhoto} className="focus:bg-red-50/10 text-red-400 cursor-pointer py-2.5 rounded-lg">
                       <div className="flex items-center gap-2.5 w-full text-xs font-semibold">
                         <Trash className="h-3.5 w-3.5" /> Remove Cover
                       </div>
@@ -617,11 +618,10 @@ const ProfilePage = () => {
         )}
 
         {/* ── Avatar + header ── */}
-        {/* ── Avatar + header ── */}
         <div className="relative z-20 px-6 -mt-16 sm:-mt-20 flex flex-col items-center text-center">
           {/* Centered Square Avatar */}
           <div className="relative group/avatar mb-6">
-            <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-white p-1 shadow-2xl overflow-hidden border-4 border-[#050810] relative">
+            <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-white p-1 shadow-2xl overflow-hidden border-4 border-[#F5F5F5] relative">
               {currentAvatarUrl ? (
                 <img 
                   key={`avatar-${imageVersion}`}
@@ -630,14 +630,14 @@ const ProfilePage = () => {
                   className="w-full h-full object-cover rounded-xl" 
                 />
               ) : (
-                <div className="w-full h-full bg-blue-600/20 flex items-center justify-center rounded-xl">
-                  <span style={{ fontFamily: "'Outfit', sans-serif" }} className="text-3xl font-extrabold text-blue-300">
+                <div className="w-full h-full bg-[#00A4EF]/10 flex items-center justify-center rounded-xl">
+                  <span style={{ fontFamily: "'Outfit', sans-serif" }} className="text-3xl font-extrabold text-[#00A4EF]">
                     {initials}
                   </span>
                 </div>
               )}
               {isUploadingAvatar && (
-                <div className="absolute inset-0 bg-black/50 rounded-xl flex items-center justify-center backdrop-blur-sm">
+                <div className="absolute inset-0 bg-black/30 rounded-xl flex items-center justify-center backdrop-blur-sm">
                   <Loader2 className="h-6 w-6 text-white animate-spin" />
                 </div>
               )}
@@ -646,14 +646,14 @@ const ProfilePage = () => {
               <div className="absolute -bottom-2 -right-2 z-30">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <button className="p-2.5 rounded-full bg-blue-600 text-white border-2 border-[#050810] hover:bg-blue-500 transition-all active:scale-95 shadow-lg group-hover:scale-110">
+                    <button className="p-2.5 rounded-full bg-[#00A4EF] text-white border-2 border-[#F5F5F5] hover:bg-[#007BB5] transition-all active:scale-95 shadow-lg group-hover:scale-110">
                       <Camera className="h-4 w-4" />
                     </button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="center" className="bg-[#0a0f1e] border-white/10 text-white min-w-[140px]">
+                  <DropdownMenuContent align="center" className="bg-white border-[#E0E0E0] text-[#1C1C1C] min-w-[140px]">
                     <DropdownMenuItem 
                       onClick={() => avatarInputRef.current?.click()} 
-                      className="focus:bg-blue-600/20 focus:text-blue-400 cursor-pointer py-2" 
+                      className="focus:bg-[#F5F5F5] cursor-pointer py-2" 
                       disabled={isUploadingAvatar}
                     >
                       <div className={`flex items-center gap-2 w-full ${isUploadingAvatar ? 'opacity-50' : ''}`}>
@@ -662,7 +662,7 @@ const ProfilePage = () => {
                       </div>
                     </DropdownMenuItem>
                     {user.avatarUrl && (
-                      <DropdownMenuItem onClick={handleDeleteAvatar} className="focus:bg-red-500/10 text-red-400 cursor-pointer py-2">
+                      <DropdownMenuItem onClick={handleDeleteAvatar} className="focus:bg-red-50/10 text-red-400 cursor-pointer py-2">
                         <div className="flex items-center gap-2 w-full text-xs font-semibold">
                           <Trash className="h-3.5 w-3.5" /> Remove Photo
                         </div>
@@ -677,19 +677,19 @@ const ProfilePage = () => {
           {/* Centered Info Container */}
           <div className="flex flex-col items-center gap-4 mb-10 w-full">
             {/* Username */}
-            <span className="text-sm font-bold text-white/40 tracking-tight">@{user.username}</span>
+            <span className="text-sm font-bold text-[#1C1C1C]/60 tracking-tight">@{user.username}</span>
             
             {/* Profession Badge */}
             {user.profession && user.profession !== 'None' && (
-              <div className="px-3 py-1.5 rounded-full bg-blue-600/10 border border-blue-500/20 text-[9px] font-bold text-blue-400 uppercase tracking-[0.2em] flex items-center gap-2">
+              <div className="px-3 py-1.5 rounded-full bg-[#00A4EF]/10 border border-[#00A4EF]/20 text-[9px] font-bold text-[#00A4EF] uppercase tracking-[0.2em] flex items-center gap-2">
                 <Briefcase className="h-3 w-3" /> {user.profession}
               </div>
             )}
             
             {/* Status & Location Row */}
-            <div className="flex items-center justify-center gap-5 text-[10px] font-bold uppercase tracking-[0.15em] text-white/20">
+            <div className="flex items-center justify-center gap-5 text-[10px] font-bold uppercase tracking-[0.15em] text-[#1C1C1C]/40">
               <div className="flex items-center gap-2">
-                <span className={`w-1.5 h-1.5 rounded-full ${user.status === "active" ? "bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.5)]" : "bg-white/10"}`} />
+                <span className={`w-1.5 h-1.5 rounded-full ${user.status === "active" ? "bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.5)]" : "bg-black/10"}`} />
                 <span>{user.status === "active" ? "Available" : "Away"}</span>
               </div>
               {user.city && (
@@ -704,7 +704,7 @@ const ProfilePage = () => {
           {/* Bio Section - Centered Clean Typography */}
           {!isEditing && user.bio && (
             <div className="mb-10 max-w-lg">
-              <p className="text-sm text-white/40 leading-relaxed font-medium italic">
+              <p className="text-sm text-[#1C1C1C]/60 leading-relaxed font-medium italic">
                 "{user.bio}"
               </p>
             </div>
@@ -722,10 +722,10 @@ const ProfilePage = () => {
                     key={i}
                     href={link.url.startsWith("http") ? link.url : `https://${link.url}`}
                     target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-[#0a101f] border border-white/5 hover:bg-white/[0.05] hover:border-white/10 transition-all active:scale-95 group min-w-[120px] justify-center"
+                    className="flex items-center gap-2.5 px-4 py-2.5 rounded-lg bg-white border border-[#E0E0E0] hover:bg-[#F5F5F5] transition-all active:scale-95 group min-w-[120px] justify-center"
                   >
-                    <SocialIcon platform={link.platform} className="h-4 w-4 text-white/30 group-hover:text-blue-400 transition-colors" />
-                    <span className="text-[11px] font-bold text-white/30 group-hover:text-white transition-colors capitalize tracking-wide">
+                    <SocialIcon platform={link.platform} className="h-4 w-4 text-[#1C1C1C]/40 group-hover:text-[#00A4EF] transition-colors" />
+                    <span className="text-[11px] font-bold text-[#1C1C1C]/60 group-hover:text-[#1C1C1C] transition-colors capitalize tracking-wide">
                       {link.platform}
                     </span>
                   </a>
@@ -738,41 +738,39 @@ const ProfilePage = () => {
               {isOwnProfile ? (
                 <button
                   onClick={() => setIsEditing(true)}
-                  className="w-full h-14 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-500 transition-all flex items-center justify-center gap-2 shadow-2xl shadow-blue-600/20 active:scale-[0.98]"
+                  className="w-full h-14 bg-[#00A4EF] text-white font-bold rounded-lg hover:bg-[#007BB5] transition-all flex items-center justify-center gap-2 shadow-2xl shadow-[#00A4EF]/20 active:scale-[0.98]"
                 >
                   <Edit2 className="h-4 w-4" /> Edit Profile
                 </button>
               ) : currentUser ? (
                 <Link to={`/chat?userId=${user.id}`} className="w-full block">
-                  <button className="w-full h-14 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-500 transition-all flex items-center justify-center gap-2 shadow-2xl shadow-blue-600/20 active:scale-[0.98]">
+                  <button className="w-full h-14 bg-[#00A4EF] text-white font-bold rounded-lg hover:bg-[#007BB5] transition-all flex items-center justify-center gap-2 shadow-2xl shadow-[#00A4EF]/20 active:scale-[0.98]">
                     <MessageSquare className="h-5 w-5" /> Message
                   </button>
                 </Link>
               ) : (
                 <Link to={`/login`} className="w-full block">
-                  <button className="w-full h-14 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-500 transition-all flex items-center justify-center gap-2 shadow-2xl shadow-blue-600/20 active:scale-[0.98]">
+                  <button className="w-full h-14 bg-[#00A4EF] text-white font-bold rounded-lg hover:bg-[#007BB5] transition-all flex items-center justify-center gap-2 shadow-2xl shadow-[#00A4EF]/20 active:scale-[0.98]">
                     <MessageSquare className="h-5 w-5" /> Login to message
                   </button>
                 </Link>
               )}
-
-              {/* Redundant share button removed */}
             </div>
 
             {/* Skills Section - Centered Minimal badges */}
             {!isEditing && (user.profession || (user.skills && user.skills.length > 0)) && (
-              <div className="space-y-4 pt-6 border-t border-white/5 text-center">
-                <label className="block text-[10px] font-bold tracking-[0.2em] uppercase text-white/10">Expertise & Skills</label>
+              <div className="space-y-4 pt-6 border-t border-[#E0E0E0] text-center">
+                <label className="block text-[10px] font-bold tracking-[0.2em] uppercase text-[#1C1C1C]/40">Expertise & Skills</label>
                 <div className="flex flex-wrap justify-center gap-2 max-w-2xl mx-auto">
                   {user.profession && user.profession !== 'None' && (
-                    <Badge className="bg-blue-600/10 text-blue-400 border-none text-[9px] px-3 py-1 font-bold tracking-widest uppercase">
+                    <Badge className="bg-[#00A4EF]/10 text-[#00A4EF] border-none text-[9px] px-3 py-1 font-bold tracking-widest uppercase">
                       {user.profession}
                     </Badge>
                   )}
                   {user.skills && user.skills.length > 0 && user.skills.map(skill => (
                     <Badge 
                       key={skill} 
-                      className="bg-white/5 text-white/30 border-none text-[9px] px-3 py-1 font-bold tracking-widest uppercase"
+                      className="bg-[#1C1C1C]/5 text-[#1C1C1C]/60 border-none text-[9px] px-3 py-1 font-bold tracking-widest uppercase"
                     >
                       {skill}
                     </Badge>
@@ -792,27 +790,27 @@ const ProfilePage = () => {
           {isOwnProfile && !isEditing && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Personal Details as Cards */}
-              <div className="p-5 rounded-2xl bg-white/[0.03] border border-white/5 space-y-4">
-                <label className="block text-[10px] font-bold tracking-[0.2em] uppercase text-white/30 flex items-center gap-2">
+              <div className="p-5 rounded-lg bg-white border border-[#E0E0E0] space-y-4">
+                <label className="block text-[10px] font-bold tracking-[0.2em] uppercase text-[#1C1C1C]/40 flex items-center gap-2">
                   <div className="w-1 h-3 bg-emerald-500 rounded-full" /> Personal Details
                 </label>
                 <div className="grid grid-cols-2 gap-y-4">
                   {user.age && (
                     <div>
-                      <span className="block text-[9px] text-white/20 uppercase tracking-wider mb-1">Age</span>
-                      <span className="text-sm text-white/70">{user.age} Years</span>
+                      <span className="block text-[9px] text-[#1C1C1C]/40 uppercase tracking-wider mb-1">Age</span>
+                      <span className="text-sm text-[#1C1C1C]/80">{user.age} Years</span>
                     </div>
                   )}
                   {user.gender && (
                     <div>
-                      <span className="block text-[9px] text-white/20 uppercase tracking-wider mb-1">Gender</span>
-                      <span className="text-sm text-white/70">{user.gender}</span>
+                      <span className="block text-[9px] text-[#1C1C1C]/40 uppercase tracking-wider mb-1">Gender</span>
+                      <span className="text-sm text-[#1C1C1C]/80">{user.gender}</span>
                     </div>
                   )}
                   {user.city && (
                     <div className="col-span-2">
-                      <span className="block text-[9px] text-white/20 uppercase tracking-wider mb-1">Location</span>
-                      <div className="flex items-center gap-1.5 text-sm text-white/70">
+                      <span className="block text-[9px] text-[#1C1C1C]/40 uppercase tracking-wider mb-1">Location</span>
+                      <div className="flex items-center gap-1.5 text-sm text-[#1C1C1C]/80">
                         <MapPin className="h-3.5 w-3.5 text-emerald-500/60" />
                         <span>{user.city}{isOwnProfile && user.pincode ? ` (${user.pincode})` : ""}</span>
                       </div>
@@ -822,21 +820,21 @@ const ProfilePage = () => {
               </div>
 
               {/* Identity & Contact as Cards */}
-              <div className="p-5 rounded-2xl bg-white/[0.03] border border-white/5 space-y-4">
-                <label className="block text-[10px] font-bold tracking-[0.2em] uppercase text-white/30 flex items-center gap-2">
-                  <div className="w-1 h-3 bg-blue-500 rounded-full" /> Identity & Contact
+              <div className="p-5 rounded-lg bg-white border border-[#E0E0E0] space-y-4">
+                <label className="block text-[10px] font-bold tracking-[0.2em] uppercase text-[#1C1C1C]/40 flex items-center gap-2">
+                  <div className="w-1 h-3 bg-[#00A4EF] rounded-full" /> Identity & Contact
                 </label>
                 <div className="space-y-4">
                   <div>
-                    <span className="block text-[9px] text-white/20 uppercase tracking-wider mb-1">Username</span>
-                    <span className="text-sm text-white/70 tracking-tight">@{user.username}</span>
+                    <span className="block text-[9px] text-[#1C1C1C]/40 uppercase tracking-wider mb-1">Username</span>
+                    <span className="text-sm text-[#1C1C1C]/80 tracking-tight">@{user.username}</span>
                   </div>
                   {user.phoneNumber && (
                     <div>
-                      <span className="block text-[9px] text-white/20 uppercase tracking-wider mb-1 flex items-center gap-1">
+                      <span className="block text-[9px] text-[#1C1C1C]/40 uppercase tracking-wider mb-1 flex items-center gap-1">
                         Phone <Lock className="h-2 w-2" />
                       </span>
-                      <span className="text-sm text-blue-400 font-medium">{user.phoneNumber}</span>
+                      <span className="text-sm text-[#00A4EF] font-medium">{user.phoneNumber}</span>
                     </div>
                   )}
                 </div>
@@ -849,19 +847,19 @@ const ProfilePage = () => {
         {/* ── Edit form ── */}
         {isEditing && (
           <div
-            className="mb-6 p-6 rounded-2xl border border-white/8 bg-white/[0.02] space-y-6"
+            className="mb-6 p-6 rounded-lg border border-[#E0E0E0] bg-white space-y-6"
             style={{ animation: "slideUp 0.35s cubic-bezier(0.16,1,0.3,1) both" }}
           >
             <div className="group">
-              <label className="block text-[9px] font-bold tracking-[0.25em] uppercase text-white/25 mb-2 ml-0.5">I am here to...</label>
+              <label className="block text-[9px] font-bold tracking-[0.25em] uppercase text-[#1C1C1C]/40 mb-2 ml-0.5">I am here to...</label>
               <select
-                className="w-full bg-transparent border-b border-white/10 focus:border-blue-500/60 outline-none pb-2.5 pt-1 text-sm text-white appearance-none cursor-pointer"
+                className="w-full bg-transparent border-b border-[#E0E0E0] focus:border-[#00A4EF] outline-none pb-2.5 pt-1 text-sm text-[#1C1C1C] appearance-none cursor-pointer"
                 value={editForm.userGoal}
                 onChange={(e) => setEditForm({ ...editForm, userGoal: e.target.value })}
               >
-                <option value="" className="bg-[#0a0f1e] text-white/40">Select goal...</option>
-                <option value="OFFER_SERVICE" className="bg-[#0a0f1e] text-white">Offer my services</option>
-                <option value="HIRE_PROFESSIONALS" className="bg-[#0a0f1e] text-white">Hire professionals</option>
+                <option value="" className="bg-white text-[#1C1C1C]/40">Select goal...</option>
+                <option value="OFFER_SERVICE" className="bg-white text-[#1C1C1C]">Offer my services</option>
+                <option value="HIRE_PROFESSIONALS" className="bg-white text-[#1C1C1C]">Hire professionals</option>
               </select>
             </div>
 
@@ -895,16 +893,16 @@ const ProfilePage = () => {
 
             <div className="grid grid-cols-2 gap-5">
               <div className="group">
-                <label className="block text-[9px] font-bold tracking-[0.25em] uppercase text-white/25 mb-2 ml-0.5">Gender</label>
+                <label className="block text-[9px] font-bold tracking-[0.25em] uppercase text-[#1C1C1C]/40 mb-2 ml-0.5">Gender</label>
                 <select
-                  className="w-full bg-transparent border-b border-white/10 focus:border-blue-500/60 outline-none pb-2.5 pt-1 text-sm text-white appearance-none cursor-pointer"
+                  className="w-full bg-transparent border-b border-[#E0E0E0] focus:border-[#00A4EF] outline-none pb-2.5 pt-1 text-sm text-[#1C1C1C] appearance-none cursor-pointer"
                   value={editForm.gender}
                   onChange={(e) => setEditForm({ ...editForm, gender: e.target.value })}
                 >
-                  <option value="" className="bg-[#0a0f1e] text-white/40">Select Gender</option>
-                  <option value="Male" className="bg-[#0a0f1e] text-white">Male</option>
-                  <option value="Female" className="bg-[#0a0f1e] text-white">Female</option>
-                  <option value="Other" className="bg-[#0a0f1e] text-white">Other</option>
+                  <option value="" className="bg-white text-[#1C1C1C]/40">Select Gender</option>
+                  <option value="Male" className="bg-white text-[#1C1C1C]">Male</option>
+                  <option value="Female" className="bg-white text-[#1C1C1C]">Female</option>
+                  <option value="Other" className="bg-white text-[#1C1C1C]">Other</option>
                 </select>
               </div>
               <Field label="Age" icon={null} type="number"
@@ -916,7 +914,7 @@ const ProfilePage = () => {
 
             {/* Profession — Category/Subcategory Structure */}
             <div className="space-y-4 pt-2">
-              <label className="block text-[9px] font-bold tracking-[0.25em] uppercase text-white/25 ml-0.5">Profession / My Category</label>
+              <label className="block text-[9px] font-bold tracking-[0.25em] uppercase text-[#1C1C1C]/40 ml-0.5">Profession / My Category</label>
               
               {/* Category Grid */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -930,16 +928,16 @@ const ProfilePage = () => {
                       setCustomProfession("");
                     }}
                     className={cn(
-                      "flex flex-col items-center justify-center gap-2 p-3 rounded-xl border transition-all duration-200 text-center",
+                      "flex flex-col items-center justify-center gap-2 p-3 rounded-lg border transition-all duration-200 text-center",
                       selectedCategory === cat.id
-                        ? `${cat.bg} ${cat.border} ring-1 ring-blue-500/20`
-                        : "bg-white/[0.02] border-white/5 hover:bg-white/[0.05] hover:border-white/10"
+                        ? `${cat.bg} ${cat.border} ring-1 ring-[#00A4EF]/20`
+                        : "bg-[#F5F5F5] border-[#E0E0E0] hover:bg-[#EFEFEF]"
                     )}
                   >
                     <div className={cn("p-2 rounded-lg", cat.bg, cat.color)}>
                       <cat.icon className="w-4 h-4" />
                     </div>
-                    <span className={cn("text-[10px] font-bold uppercase tracking-wider", selectedCategory === cat.id ? "text-white" : "text-white/40")}>
+                    <span className={cn("text-[10px] font-bold uppercase tracking-wider", selectedCategory === cat.id ? "text-[#1C1C1C]" : "text-[#1C1C1C]/40")}>
                       {cat.label}
                     </span>
                   </button>
@@ -949,7 +947,7 @@ const ProfilePage = () => {
               {/* Sub-Professions Display */}
               {selectedCategory && SUB_PROFESSIONS[selectedCategory] && (
                 <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
-                  <label className="block text-[9px] font-bold tracking-[0.15em] uppercase text-blue-400/60 ml-0.5 flex items-center gap-1.5">
+                  <label className="block text-[9px] font-bold tracking-[0.15em] uppercase text-[#00A4EF]/60 ml-0.5 flex items-center gap-1.5">
                     <ChevronRight className="w-3 h-3" /> Select Expertise
                   </label>
                   <div className="flex flex-wrap gap-2">
@@ -959,10 +957,10 @@ const ProfilePage = () => {
                         type="button"
                         onClick={() => setEditForm({ ...editForm, profession: prof })}
                         className={cn(
-                          "px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all border uppercase tracking-wider",
+                          "px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all border uppercase tracking-wider",
                           editForm.profession === prof
-                            ? "bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-900/20"
-                            : "bg-white/5 border-white/5 text-white/30 hover:border-white/10"
+                            ? "bg-[#00A4EF] border-[#00A4EF] text-white shadow-lg shadow-[#00A4EF]/20"
+                            : "bg-[#F5F5F5] border-[#E0E0E0] text-[#1C1C1C]/60 hover:border-[#E0E0E0]"
                         )}
                       >
                         {prof}
@@ -972,10 +970,10 @@ const ProfilePage = () => {
                       type="button"
                       onClick={() => setEditForm({ ...editForm, profession: "Other" })}
                       className={cn(
-                        "px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all border uppercase tracking-wider",
+                        "px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all border uppercase tracking-wider",
                         editForm.profession === "Other"
-                          ? "bg-blue-600 border-blue-500 text-white"
-                          : "bg-white/5 border-white/5 text-white/30 hover:border-white/10"
+                          ? "bg-[#00A4EF] border-[#00A4EF] text-white"
+                          : "bg-[#F5F5F5] border-[#E0E0E0] text-[#1C1C1C]/60 hover:border-[#E0E0E0]"
                       )}
                     >
                       Other...
@@ -987,13 +985,13 @@ const ProfilePage = () => {
               {/* Specify Custom Profession */}
               {(selectedCategory === "other" || editForm.profession === "Other") && (
                 <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
-                  <label className="block text-[9px] font-bold tracking-[0.15em] uppercase text-blue-400/60 ml-0.5 flex items-center gap-1.5">
+                  <label className="block text-[9px] font-bold tracking-[0.15em] uppercase text-[#00A4EF]/60 ml-0.5 flex items-center gap-1.5">
                     <ChevronRight className="w-3 h-3" /> Specify Profession
                   </label>
                   <Input
                     value={customProfession}
                     onChange={e => setCustomProfession(e.target.value)}
-                    className="bg-white/5 border-white/10 text-white h-10 focus:ring-blue-500/50 placeholder:text-white/10 text-sm"
+                    className="bg-[#F5F5F5] border-[#E0E0E0] text-[#1C1C1C] h-10 focus:ring-[#00A4EF]/50 placeholder:text-[#1C1C1C]/20 text-sm"
                     placeholder="E.g. Full Stack Engineer, UX Specialist..."
                     autoFocus
                   />
@@ -1003,7 +1001,7 @@ const ProfilePage = () => {
 
             {/* Skills Multi-Select */}
             <div className="group">
-              <label className="block text-[9px] font-bold tracking-[0.25em] uppercase text-white/25 mb-2 ml-0.5">Skills (Press Enter to add)</label>
+              <label className="block text-[9px] font-bold tracking-[0.25em] uppercase text-[#1C1C1C]/40 mb-2 ml-0.5">Skills (Press Enter to add)</label>
               <div className="space-y-3">
                 <Input 
                   placeholder="Coding, Design, Marketing..."
@@ -1018,19 +1016,19 @@ const ProfilePage = () => {
                       setSkillInput("");
                     }
                   }}
-                  className="bg-white/5 border-white/10 text-white h-10 focus:ring-blue-500/50"
+                  className="bg-[#F5F5F5] border-[#E0E0E0] text-[#1C1C1C] h-10 focus:ring-[#00A4EF]/50"
                 />
                 <div className="flex flex-wrap gap-2">
                   {editForm.skills.map(skill => (
                     <div 
                       key={skill} 
-                      className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-blue-500/10 border border-blue-500/20 group/skill animate-in fade-in zoom-in duration-200"
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#00A4EF]/10 border border-[#00A4EF]/20 group/skill animate-in fade-in zoom-in duration-200"
                     >
-                      <span className="text-[11px] text-blue-300 font-bold uppercase tracking-wider">{skill}</span>
+                      <span className="text-[11px] text-[#00A4EF] font-bold uppercase tracking-wider">{skill}</span>
                       <button 
                         type="button"
                         onClick={() => setEditForm({ ...editForm, skills: editForm.skills.filter(s => s !== skill) })}
-                        className="hover:text-red-400 text-blue-400/50 transition-colors"
+                        className="hover:text-red-400 text-[#00A4EF]/50 transition-colors"
                       >
                         <X className="h-3 w-3" />
                       </button>
@@ -1043,34 +1041,34 @@ const ProfilePage = () => {
             {/* Social links */}
             <div>
               <div className="flex items-center justify-between mb-3">
-                <label className="text-[9px] font-bold tracking-[0.25em] uppercase text-white/25">Social Links</label>
+                <label className="text-[9px] font-bold tracking-[0.25em] uppercase text-[#1C1C1C]/40">Social Links</label>
                 <button
                   type="button" onClick={addSocialLink}
-                  className="flex items-center gap-1.5 text-[11px] text-blue-400 hover:text-blue-300 transition-colors"
+                  className="flex items-center gap-1.5 text-[11px] text-[#00A4EF] hover:text-[#007BB5] transition-colors"
                 >
                   <Plus className="h-3 w-3" /> Add link
                 </button>
               </div>
               <div className="space-y-2">
                 {editForm.socialLinks.map((link, i) => (
-                  <div key={i} className="flex gap-2 items-center p-3 rounded-xl border border-white/5 bg-white/[0.02]">
+                  <div key={i} className="flex gap-2 items-center p-3 rounded-lg border border-[#E0E0E0] bg-[#F5F5F5]">
                     <Select value={link.platform} onValueChange={(v) => updateSocialLink(i, "platform", v)}>
-                      <SelectTrigger className="w-28 h-8 bg-white/5 border-white/10 text-xs text-white rounded-lg">
+                      <SelectTrigger className="w-28 h-8 bg-white border-[#E0E0E0] text-xs text-[#1C1C1C] rounded-lg">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent className="bg-[#0a0f1e] border-white/10">
+                      <SelectContent className="bg-white border-[#E0E0E0]">
                         {PLATFORMS.map(p => (
-                          <SelectItem key={p.id} value={p.id} className="text-white/70 text-xs focus:bg-blue-600/20 focus:text-white">{p.name}</SelectItem>
+                          <SelectItem key={p.id} value={p.id} className="text-[#1C1C1C]/70 text-xs focus:bg-[#F5F5F5] focus:text-[#1C1C1C]">{p.name}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                     <input
-                      className="flex-1 bg-transparent border-b border-white/10 focus:border-blue-500/60 outline-none text-xs text-white placeholder:text-white/15 pb-1.5 transition-colors"
+                      className="flex-1 bg-transparent border-b border-[#E0E0E0] focus:border-[#00A4EF] outline-none text-xs text-[#1C1C1C] placeholder:text-[#1C1C1C]/20 pb-1.5 transition-colors"
                       placeholder="https://..."
                       value={link.url}
                       onChange={(e) => updateSocialLink(i, "url", e.target.value)}
                     />
-                    <button onClick={() => removeSocialLink(i)} className="text-white/20 hover:text-red-400 transition-colors">
+                    <button onClick={() => removeSocialLink(i)} className="text-[#1C1C1C]/20 hover:text-red-400 transition-colors">
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   </div>
@@ -1082,13 +1080,13 @@ const ProfilePage = () => {
             <div className="flex gap-3 pt-2">
               <button
                 onClick={handleSave} disabled={isSaving}
-                className="flex-1 h-10 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white rounded-xl text-sm font-medium transition-all hover:scale-[1.01] flex items-center justify-center gap-2"
+                className="flex-1 h-10 bg-[#00A4EF] hover:bg-[#007BB5] disabled:opacity-40 text-white rounded-lg text-sm font-medium transition-all hover:scale-[1.01] flex items-center justify-center gap-2"
               >
                 {isSaving ? <><RotateCcw className="h-3.5 w-3.5 animate-spin" /> Saving...</> : <><Save className="h-3.5 w-3.5" /> Save changes</>}
               </button>
               <button
                 onClick={() => setIsEditing(false)}
-                className="px-5 h-10 border border-white/8 hover:border-white/20 text-white/40 hover:text-white rounded-xl text-sm transition-all flex items-center gap-2"
+                className="px-5 h-10 border border-[#E0E0E0] hover:border-[#1C1C1C]/20 text-[#1C1C1C]/40 hover:text-[#1C1C1C] rounded-lg text-sm transition-all flex items-center gap-2"
               >
                 <X className="h-3.5 w-3.5" /> Cancel
               </button>
@@ -1100,7 +1098,7 @@ const ProfilePage = () => {
           <div className="mt-4 px-6 sm:px-2">
             <button
               onClick={() => { logout(); navigate("/login"); }}
-              className="w-full h-11 rounded-full border border-white/5 hover:border-red-500/20 hover:bg-red-500/5 text-white/20 hover:text-red-400 text-sm transition-all flex items-center justify-center gap-2"
+              className="w-full h-11 rounded-lg border border-[#E0E0E0] hover:border-red-500/20 hover:bg-red-500/5 text-[#1C1C1C]/40 hover:text-red-400 text-sm transition-all flex items-center justify-center gap-2"
             >
               <LogOut className="h-4 w-4" /> Sign out
             </button>
@@ -1108,8 +1106,8 @@ const ProfilePage = () => {
         )}
 
         {/* ── Page Footer ── */}
-        <div className="mt-16 pt-8 border-t border-white/5 text-center">
-          <Link to="/" className="text-[10px] text-white/10 hover:text-blue-400 tracking-[0.2em] uppercase font-bold transition-colors">
+        <div className="mt-16 pt-8 border-t border-[#E0E0E0] text-center">
+          <Link to="/" className="text-[10px] text-[#1C1C1C]/20 hover:text-[#00A4EF] tracking-[0.2em] uppercase font-bold transition-colors">
             krovaa.com
           </Link>
         </div>
@@ -1118,26 +1116,26 @@ const ProfilePage = () => {
       {/* ── Rating Dialog ── */}
       <Dialog open={isRatingDialogOpen} onOpenChange={setIsRatingDialogOpen}>
         <DialogContent
-          className="border-white/8 sm:max-w-sm"
-          style={{ background: "#080c17", fontFamily: "'DM Sans', sans-serif" }}
+          className="border-[#E0E0E0] sm:max-w-sm bg-white"
+          style={{ fontFamily: "'DM Sans', sans-serif" }}
         >
-          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-blue-500/40 to-transparent" />
+          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#00A4EF]/40 to-transparent" />
           <DialogHeader>
-            <DialogTitle style={{ fontFamily: "'Syne', sans-serif" }} className="text-white">
+            <DialogTitle style={{ fontFamily: "'Syne', sans-serif" }} className="text-[#1C1C1C]">
               Rate {user?.displayName?.split(" ")[0]}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-6 py-4">
             <div className="flex flex-col items-center gap-3">
               <Stars value={rating} size="h-8 w-8" interactive onChange={setRating} />
-              <span className="text-xs text-white/25">{["", "Poor", "Fair", "Good", "Great", "Excellent"][rating]}</span>
+              <span className="text-xs text-[#1C1C1C]/40">{["", "Poor", "Fair", "Good", "Great", "Excellent"][rating]}</span>
             </div>
             <div>
-              <label className="block text-[9px] font-bold tracking-[0.25em] uppercase text-white/25 mb-2">
+              <label className="block text-[9px] font-bold tracking-[0.25em] uppercase text-[#1C1C1C]/40 mb-2">
                 Your review
               </label>
               <textarea
-                className="w-full bg-white/[0.03] border border-white/8 focus:border-blue-500/50 outline-none rounded-xl p-3 text-sm text-white placeholder:text-white/15 resize-none transition-colors"
+                className="w-full bg-[#F5F5F5] border border-[#E0E0E0] focus:border-[#00A4EF]/50 outline-none rounded-lg p-3 text-sm text-[#1C1C1C] placeholder:text-[#1C1C1C]/20 resize-none transition-colors"
                 rows={3}
                 placeholder="Share your experience..."
                 value={ratingComment}
@@ -1147,7 +1145,7 @@ const ProfilePage = () => {
             <button
               onClick={handleRateUser}
               disabled={!canRateUser || ratingComment.trim().length === 0}
-              className="w-full h-11 bg-blue-600 hover:bg-blue-500 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2"
+              className="w-full h-11 bg-[#00A4EF] hover:bg-[#007BB5] disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2"
             >
               <CheckCircle2 className="h-4 w-4" /> Submit rating
             </button>
@@ -1158,32 +1156,32 @@ const ProfilePage = () => {
       {/* ── View All Ratings Dialog ── */}
       <Dialog open={isViewAllRatingsOpen} onOpenChange={setIsViewAllRatingsOpen}>
         <DialogContent
-          className="border-white/8 sm:max-w-md max-h-[80vh] overflow-y-auto"
-          style={{ background: "#080c17", fontFamily: "'DM Sans', sans-serif" }}
+          className="border-[#E0E0E0] sm:max-w-md max-h-[80vh] overflow-y-auto bg-white"
+          style={{ fontFamily: "'DM Sans', sans-serif" }}
         >
-          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-blue-500/40 to-transparent" />
+          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#00A4EF]/40 to-transparent" />
           <DialogHeader>
-            <DialogTitle style={{ fontFamily: "'Syne', sans-serif" }} className="text-white">
+            <DialogTitle style={{ fontFamily: "'Syne', sans-serif" }} className="text-[#1C1C1C]">
               Reviews for {user?.displayName?.split(" ")[0]}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-4">
             {allRatings.length > 0 ? allRatings.map((r, i) => (
-              <div key={i} className="p-4 rounded-xl border border-white/5 bg-white/[0.02] space-y-2">
+              <div key={i} className="p-4 rounded-lg border border-[#E0E0E0] bg-[#F5F5F5] space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-7 h-7 rounded-lg bg-blue-600/20 flex items-center justify-center text-blue-300 text-[11px] font-bold">
+                    <div className="w-7 h-7 rounded-lg bg-[#00A4EF]/20 flex items-center justify-center text-[#00A4EF] text-[11px] font-bold">
                       {r.reviewerDisplayName[0].toUpperCase()}
                     </div>
-                    <span className="text-sm font-medium text-white/70">{r.reviewerDisplayName}</span>
+                    <span className="text-sm font-medium text-[#1C1C1C]/80">{r.reviewerDisplayName}</span>
                   </div>
                   <Stars value={r.rating} size="h-3.5 w-3.5" />
                 </div>
-                {r.comment && <p className="text-sm text-white/35 leading-relaxed font-light">{r.comment}</p>}
-                <p className="text-[10px] text-white/15">{new Date(r.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</p>
+                {r.comment && <p className="text-sm text-[#1C1C1C]/60 leading-relaxed font-light">{r.comment}</p>}
+                <p className="text-[10px] text-[#1C1C1C]/40">{new Date(r.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</p>
               </div>
             )) : (
-              <p className="text-center text-white/20 py-10 text-sm">No reviews yet</p>
+              <p className="text-center text-[#1C1C1C]/40 py-10 text-sm">No reviews yet</p>
             )}
           </div>
         </DialogContent>

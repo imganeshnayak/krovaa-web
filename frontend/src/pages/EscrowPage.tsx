@@ -671,7 +671,7 @@ const EscrowPage = () => {
                           </div>
                           <div>
                             <p className="text-[10px] text-muted-foreground">Net Remaining</p>
-                            <p className="text-lg font-bold text-coral">{formatCurrency(remainingNet)}</p>
+                            <p className="text-lg font-bold text-[#FF9800]">{formatCurrency(remainingNet)}</p>
                           </div>
                         </div>
 
@@ -791,7 +791,7 @@ const EscrowPage = () => {
                             <Button className="flex-1 bg-primary" onClick={() => handlePayForDeal(deal)} disabled={isCreating}>
                               {isCreating ? "Processing..." : "Complete Payment"}
                             </Button>
-                            <Button variant="outline" className="border-coral text-coral hover:bg-coral/10" onClick={() => handleDeleteDeal(deal.id, false)} disabled={isCreating}>
+                            <Button variant="outline" className="border-[#E74C3C] text-[#E74C3C] hover:bg-[#E74C3C]/10" onClick={() => handleDeleteDeal(deal.id, false)} disabled={isCreating}>
                               Delete
                             </Button>
                           </div>

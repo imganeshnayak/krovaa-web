@@ -7,14 +7,22 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
 
+const smtpPort = Number.parseInt(process.env.EMAIL_PORT || '465', 10);
+const smtpSecure = process.env.EMAIL_SECURE
+  ? process.env.EMAIL_SECURE.toLowerCase() === 'true'
+  : smtpPort === 465;
+
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST || 'smtppro.zoho.in',
-  port: parseInt(process.env.EMAIL_PORT) || 465,
-  secure: (process.env.EMAIL_PORT === '465' || !process.env.EMAIL_PORT), // Default to secure if port is 465 or empty
+  port: smtpPort,
+  secure: smtpSecure,
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
+  connectionTimeout: Number.parseInt(process.env.EMAIL_CONNECTION_TIMEOUT || '20000', 10),
+  greetingTimeout: Number.parseInt(process.env.EMAIL_GREETING_TIMEOUT || '20000', 10),
+  socketTimeout: Number.parseInt(process.env.EMAIL_SOCKET_TIMEOUT || '30000', 10),
   tls: {
     rejectUnauthorized: false // Helps with some VPS networking issues
   }

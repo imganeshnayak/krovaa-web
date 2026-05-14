@@ -124,10 +124,10 @@ const SettingsPage = () => {
         if (!verificationRequest) return null;
 
         const statusConfig = {
-            pending_payment: { icon: Clock, text: "Awaiting Payment", className: "bg-orange-500/10 text-orange-500" },
-            pending: { icon: Clock, text: "Pending Review", className: "bg-yellow-500/10 text-yellow-500" },
-            approved: { icon: CheckCircle2, text: "Approved", className: "bg-green-500/10 text-green-500" },
-            rejected: { icon: XCircle, text: "Rejected", className: "bg-red-500/10 text-red-500" }
+            pending_payment: { icon: Clock, text: "Awaiting Payment", className: "bg-[#FF9800]/10 text-[#FF9800]" },
+            pending: { icon: Clock, text: "Pending Review", className: "bg-[#FF9800]/10 text-[#FF9800]" },
+            approved: { icon: CheckCircle2, text: "Approved", className: "bg-[#0FB881]/10 text-[#0FB881]" },
+            rejected: { icon: XCircle, text: "Rejected", className: "bg-[#E74C3C]/10 text-[#E74C3C]" }
         };
 
         const config = statusConfig[verificationRequest.status as keyof typeof statusConfig];
@@ -143,7 +143,7 @@ const SettingsPage = () => {
     };
 
     return (
-        <div className="min-h-screen bg-background pb-20">
+        <div className="min-h-screen bg-[#F5F5F5] pb-20 text-[#1C1C1C]">
             <div className="max-w-2xl mx-auto px-4 py-6">
                 {/* Header */}
                 <div className="flex items-center gap-4 mb-6">
@@ -168,10 +168,10 @@ const SettingsPage = () => {
                     </CardHeader>
                     <CardContent className="space-y-4">
                         {user?.verified ? (
-                            <div className="flex items-center gap-2 p-4 bg-green-500/10 rounded-lg">
-                                <CheckCircle2 className="h-5 w-5 text-green-500" />
+                            <div className="flex items-center gap-2 p-4 bg-[#0FB881]/10 rounded-lg">
+                                <CheckCircle2 className="h-5 w-5 text-[#0FB881]" />
                                 <div>
-                                    <p className="font-medium text-green-500">Account Verified</p>
+                                    <p className="font-medium text-[#0FB881]">Account Verified</p>
                                     <p className="text-sm text-muted-foreground">Your account has a verified badge</p>
                                 </div>
                             </div>
@@ -184,15 +184,15 @@ const SettingsPage = () => {
                                             {getVerificationStatusBadge()}
                                         </div>
                                         {verificationRequest.status === 'rejected' && verificationRequest.adminNote && (
-                                            <div className="p-3 bg-red-500/10 rounded-lg">
-                                                <p className="text-sm text-red-500 font-medium">Admin Note:</p>
+                                            <div className="p-3 bg-[#E74C3C]/10 rounded-lg">
+                                                <p className="text-sm text-[#E74C3C] font-medium">Admin Note:</p>
                                                 <p className="text-sm text-muted-foreground mt-1">{verificationRequest.adminNote}</p>
                                             </div>
                                         )}
                                         {verificationRequest.status === 'rejected' && (
                                             <Button
                                                 onClick={() => setIsVerificationDialogOpen(true)}
-                                                className="w-full"
+                                                className="w-full bg-[#00A4EF] hover:bg-[#007BB5] text-white"
                                             >
                                                 Apply Again
                                             </Button>
@@ -200,7 +200,7 @@ const SettingsPage = () => {
                                     </div>
                                 ) : (
                                     <div className="space-y-3">
-                                        <div className="p-4 bg-primary/10 rounded-lg">
+                                        <div className="p-4 bg-[#00A4EF]/10 rounded-lg">
                                             <p className="font-medium">Get Verified</p>
                                             <p className="text-sm text-muted-foreground mt-1">
                                                 Stand out with a verified badge next to your name
@@ -211,7 +211,7 @@ const SettingsPage = () => {
                                         </div>
                                         <Button
                                             onClick={() => setIsVerificationDialogOpen(true)}
-                                            className="w-full"
+                                            className="w-full bg-[#00A4EF] hover:bg-[#007BB5] text-white"
                                         >
                                             Apply for Verification
                                         </Button>
@@ -285,11 +285,11 @@ const SettingsPage = () => {
                                         <p className="text-sm text-muted-foreground">1.0.0</p>
                                     </div>
                                     <div className="flex flex-col gap-2.5">
-                                        <Link to="/terms" target="_blank" rel="noopener noreferrer" className="text-sm text-blue-500 hover:underline relative z-10" onClick={(e) => e.stopPropagation()}>Terms of Service</Link>
-                                        <Link to="/privacy" target="_blank" rel="noopener noreferrer" className="text-sm text-blue-500 hover:underline relative z-10" onClick={(e) => e.stopPropagation()}>Privacy Policy</Link>
-                                        <Link to="/refund" target="_blank" rel="noopener noreferrer" className="text-sm text-blue-500 hover:underline relative z-10" onClick={(e) => e.stopPropagation()}>Refund Policy</Link>
-                                        <Link to="/cookie-policy" target="_blank" rel="noopener noreferrer" className="text-sm text-blue-500 hover:underline relative z-10" onClick={(e) => e.stopPropagation()}>Cookie Policy</Link>
-                                        <a href="mailto:support@krovaa.com" className="text-sm text-blue-500 hover:underline relative z-10" onClick={(e) => e.stopPropagation()}>Contact Us</a>
+                                        <Link to="/terms" target="_blank" rel="noopener noreferrer" className="text-sm text-[#00A4EF] hover:underline relative z-10" onClick={(e) => e.stopPropagation()}>Terms of Service</Link>
+                                        <Link to="/privacy" target="_blank" rel="noopener noreferrer" className="text-sm text-[#00A4EF] hover:underline relative z-10" onClick={(e) => e.stopPropagation()}>Privacy Policy</Link>
+                                        <Link to="/refund" target="_blank" rel="noopener noreferrer" className="text-sm text-[#00A4EF] hover:underline relative z-10" onClick={(e) => e.stopPropagation()}>Refund Policy</Link>
+                                        <Link to="/cookie-policy" target="_blank" rel="noopener noreferrer" className="text-sm text-[#00A4EF] hover:underline relative z-10" onClick={(e) => e.stopPropagation()}>Cookie Policy</Link>
+                                        <a href="mailto:support@krovaa.com" className="text-sm text-[#00A4EF] hover:underline relative z-10" onClick={(e) => e.stopPropagation()}>Contact Us</a>
                                     </div>
                                 </AccordionContent>
                             </AccordionItem>
@@ -307,7 +307,7 @@ const SettingsPage = () => {
                             </DialogDescription>
                         </DialogHeader>
                         <div className="space-y-4">
-                            <div className="p-4 bg-primary/10 rounded-lg">
+                            <div className="p-4 bg-[#00A4EF]/10 rounded-lg">
                                 <h4 className="font-medium mb-2">Benefits of Verification</h4>
                                 <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
                                     <li>Verified badge displayed on your profile</li>
@@ -318,7 +318,7 @@ const SettingsPage = () => {
                             </div>
                             <div className="p-4 bg-muted rounded-lg">
                                 <p className="text-sm font-medium">One-time verification fee</p>
-                                <p className="text-2xl font-bold text-primary mt-1">₹{verificationFee}</p>
+                                <p className="text-2xl font-bold text-[#00A4EF] mt-1">₹{verificationFee}</p>
                             </div>
 
                             <div className="flex items-start space-x-2 mt-4">
@@ -330,11 +330,11 @@ const SettingsPage = () => {
                                 <div className="grid gap-1.5 leading-none">
                                     <div className="text-sm font-medium leading-none text-muted-foreground">
                                         <Label htmlFor="payment-terms" className="cursor-pointer">I agree to the </Label>
-                                        <Link to="/terms" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline relative z-10" onClick={(e) => e.stopPropagation()}>Terms & Conditions</Link>
+                                        <Link to="/terms" target="_blank" rel="noopener noreferrer" className="text-[#00A4EF] hover:underline relative z-10" onClick={(e) => e.stopPropagation()}>Terms & Conditions</Link>
                                         {", "}
-                                        <Link to="/privacy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline relative z-10" onClick={(e) => e.stopPropagation()}>Privacy Policy</Link>
+                                        <Link to="/privacy" target="_blank" rel="noopener noreferrer" className="text-[#00A4EF] hover:underline relative z-10" onClick={(e) => e.stopPropagation()}>Privacy Policy</Link>
                                         {" and "}
-                                        <Link to="/refund" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline relative z-10" onClick={(e) => e.stopPropagation()}>Refund Policy</Link>
+                                        <Link to="/refund" target="_blank" rel="noopener noreferrer" className="text-[#00A4EF] hover:underline relative z-10" onClick={(e) => e.stopPropagation()}>Refund Policy</Link>
                                     </div>
                                 </div>
                             </div>
@@ -343,7 +343,7 @@ const SettingsPage = () => {
                                 <Button
                                     onClick={handleApplyForVerification}
                                     disabled={isApplying || !agreeToTerms}
-                                    className="flex-1"
+                                    className="flex-1 bg-[#00A4EF] hover:bg-[#007BB5] text-white"
                                 >
                                     {isApplying ? "Submitting..." : "Submit Application"}
                                 </Button>

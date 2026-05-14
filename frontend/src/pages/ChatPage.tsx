@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { themeColors } from "@/lib/themeColors";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -156,16 +157,16 @@ const ConversationList = ({
   }, [showWelcomeBanner, isMobile, searchQuery, filteredChats.length]);
 
   return (
-    <div className="flex flex-col h-full min-h-0 bg-background/50 overflow-hidden font-dm-sans">
+    <div className="flex flex-col h-full min-h-0 bg-white overflow-hidden font-dm-sans">
 
       {/* Header */}
-      <div className="p-4 border-b border-white/5 sticky top-0 z-10 bg-background/40 backdrop-blur-xl">
+      <div className="p-4 border-b border-[#E0E0E0] sticky top-0 z-10 bg-white/80 backdrop-blur-xl">
 
         <div className="flex items-center justify-between">
           {!isSearchVisible ? (
             <div className="flex flex-col">
-              <h1 style={{ fontFamily: "'Syne', sans-serif" }} className="text-xl font-bold text-white tracking-tight leading-none">Chats</h1>
-              <span className="text-[10px] text-muted-foreground/60 font-medium tracking-wide mt-1 uppercase">Messages</span>
+              <h1 style={{ fontFamily: "'Inter', sans-serif" }} className="text-xl font-bold text-[#1C1C1C] tracking-tight leading-none">Chats</h1>
+              <span className="text-[10px] text-[#1C1C1C60] font-medium tracking-wide mt-1 uppercase">Messages</span>
             </div>
           ) : (
 
@@ -256,31 +257,31 @@ const ConversationList = ({
 
       {/* Welcome Banner for Mobile (New Users) */}
       {isMobile && !searchQuery.trim() && filteredChats.length <= 1 && showWelcomeBanner && (
-        <div className="mx-4 mt-2 mb-4 p-5 rounded-2xl bg-gradient-to-br from-blue-600/10 to-blue-900/5 border border-blue-500/20 relative overflow-hidden group shadow-lg shadow-blue-950/20 animate-in slide-in-from-top-4 duration-500">
+        <div className="mx-4 mt-2 mb-4 p-5 rounded-2xl bg-gradient-to-br from-[#00A4EF]/10 to-[#007BB5]/5 border border-[#00A4EF]/20 relative overflow-hidden group shadow-lg shadow-[#00A4EF]/10 animate-in slide-in-from-top-4 duration-500">
           <div className="absolute top-0 right-0 p-3 opacity-[0.05] group-hover:scale-110 transition-transform duration-500">
-            <Shield className="w-14 h-14 text-blue-500" />
+            <Shield className="w-14 h-14 text-[#00A4EF]" />
           </div>
           <button
             onClick={() => {
               localStorage.removeItem("show_welcome_banner");
               setShowWelcomeBanner(false);
             }}
-            className="absolute top-2 right-2 p-1.5 rounded-full hover:bg-white/10 text-white/40 hover:text-white transition-colors z-20"
+            className="absolute top-2 right-2 p-1.5 rounded-full hover:bg-black/5 text-[#1C1C1C40] hover:text-[#1C1C1C] transition-colors z-20"
           >
             <X className="h-4 w-4" />
           </button>
           <div className="relative z-10">
-            <h2 style={{ fontFamily: "'Syne', sans-serif" }} className="text-xl font-extrabold text-white tracking-tight mb-1.5 flex items-center gap-2">
+            <h2 style={{ fontFamily: "'Inter', sans-serif" }} className="text-xl font-extrabold text-[#1C1C1C] tracking-tight mb-1.5 flex items-center gap-2">
 
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+              <span className="w-1.5 h-1.5 rounded-full bg-[#00A4EF] animate-pulse" />
               Welcome to Krovaa
             </h2>
-            <p className="text-[11px] text-white/40 leading-relaxed max-w-[85%] font-light">
+            <p className="text-[11px] text-[#1C1C1C60] leading-relaxed max-w-[85%] font-light">
               Your secure end-to-end encrypted workspace is active. Search for users or contact support to start chatting.
             </p>
           </div>
           {/* Decorative line */}
-          <div className="absolute bottom-0 left-0 h-0.5 bg-gradient-to-r from-blue-500/40 via-blue-500/10 to-transparent w-full" />
+          <div className="absolute bottom-0 left-0 h-0.5 bg-gradient-to-r from-[#00A4EF]/40 via-[#00A4EF]/10 to-transparent w-full" />
         </div>
       )}
 
@@ -561,16 +562,16 @@ const ChatView = ({
   };
   if (!selectedChat) {
     return (
-      <div className={`flex flex-col h-full min-h-0 items-center ${isMobile ? 'justify-start pt-20' : 'justify-center'} bg-[#050810] relative overflow-hidden`}>
+      <div className={`flex flex-col h-full min-h-0 items-center ${isMobile ? 'justify-start pt-20' : 'justify-center'} bg-white relative overflow-hidden`}>
         {/* Decorative background for empty state */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-blue-600/5 rounded-full blur-[120px] pointer-events-none" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-[#00A4EF]/5 rounded-full blur-[120px] pointer-events-none" />
 
         <div className="text-center relative z-10 p-8">
-          <div className="bg-blue-600/10 h-24 w-24 rounded-3xl flex items-center justify-center mx-auto mb-8 border border-blue-500/20 shadow-2xl shadow-blue-600/10 -rotate-6 animate-float">
-            <Send className="h-10 w-10 text-blue-500 opacity-80" />
+          <div className="bg-[#00A4EF]/10 h-24 w-24 rounded-3xl flex items-center justify-center mx-auto mb-8 border border-[#00A4EF]/20 shadow-2xl shadow-[#00A4EF]/10 -rotate-6 animate-float">
+            <Send className="h-10 w-10 text-[#00A4EF] opacity-80" />
           </div>
-          <h2 style={{ fontFamily: "'Syne', sans-serif" }} className="text-3xl font-bold text-white mb-4 tracking-tight">Welcome to Krovaa</h2>
-          <p className="max-w-[280px] mx-auto text-sm text-white/40 leading-relaxed font-light">
+          <h2 style={{ fontFamily: "'Inter', sans-serif" }} className="text-3xl font-bold text-[#1C1C1C] mb-4 tracking-tight">Welcome to Krovaa</h2>
+          <p className="max-w-[280px] mx-auto text-sm text-[#1C1C1C60] leading-relaxed font-light">
             Select a conversation from the list to start chatting. <br />
             Your privacy is our priority.
           </p>
@@ -581,7 +582,7 @@ const ChatView = ({
   }
 
   return (
-    <div className={`flex flex-col h-full min-h-0 bg-background relative overflow-hidden ${isBlurred ? 'blur-privacy' : ''}`} data-nocontext>
+    <div className={`flex flex-col h-full min-h-0 bg-white relative overflow-hidden ${isBlurred ? 'blur-privacy' : ''}`} data-nocontext>
       {/* Privacy Screen Overlay - Only show when blurred and selected chat exists */}
       {isBlurred && selectedChat && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-xl animate-in fade-in duration-200 pointer-events-auto">
@@ -822,22 +823,24 @@ const ChatView = ({
                       )}
                       <div
                         className={`max-w-[85%] rounded-2xl px-4 py-3 relative privacy-protected ${isMine
-                          ? (isEscrowOrNotify ? "" : "bg-primary text-primary-foreground rounded-br-md")
-                          : (isEscrowOrNotify ? "" : "bg-secondary text-secondary-foreground rounded-bl-md")
+                          ? (isEscrowOrNotify ? "" : "bg-[#00A4EF] text-white rounded-br-md")
+                          : (isEscrowOrNotify ? "" : "bg-[#F5F5F5] text-[#1C1C1C] rounded-bl-md")
                           } ${msg.isDeleted ? "opacity-60 italic" : ""} ${isEscrowOrNotify ? (
                             (msg.messageType === 'escrow_released' || msg.message_type === 'escrow_released')
-                              ? "bg-gradient-to-br from-emerald-600 to-teal-700 text-white shadow-lg border border-white/20 rounded-2xl"
+                              ? "bg-[#E7F8F2] text-[#0B8C62] shadow-sm border border-[#0FB881]/20 rounded-2xl"
                               : (msg.messageType === 'notification' || msg.message_type === 'notification' || isAdminMsg)
-                                ? (isAdminMsg ? (msg.color ? "" : "bg-[#0d1117] text-white shadow-xl border border-white/10 rounded-2xl") : "bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-lg border border-white/20 rounded-2xl")
-                                : "bg-gradient-to-br from-indigo-600 to-purple-700 text-white shadow-lg border border-white/20 rounded-2xl"
+                                ? (isAdminMsg ? (msg.color ? "" : "bg-[#E6F6FE] text-[#007BB5] shadow-sm border border-[#00A4EF]/20 rounded-2xl") : "bg-[#FFF0EB] text-[#C43E00] shadow-sm border border-[#FF9800]/20 rounded-2xl")
+                                : "bg-[#E6F6FE] text-[#007BB5] shadow-sm border border-[#00A4EF]/20 rounded-2xl"
                           ) : ""}`}
                         style={isEscrowOrNotify && isAdminMsg && msg.color ? {
-                          background: '#0d1117',
-                          boxShadow: `0 0 0 1px rgba(255,255,255,0.07), 0 8px 24px -4px ${msg.color}30`,
+                          background: "#FFFFFF",
+                          boxShadow: `0 0 0 1px #E0E0E0, 0 4px 12px ${msg.color}15`,
                           borderLeft: `3px solid ${msg.color}`,
                           borderRadius: '14px'
                         } : isEscrowOrNotify && isAdminMsg && !msg.color ? {
-                          borderLeft: '3px solid #3b82f6',
+                          background: "#FFFFFF",
+                          boxShadow: `0 0 0 1px #E0E0E0`,
+                          borderLeft: `3px solid #00A4EF`,
                           borderRadius: '14px'
                         } : {}}
                       >
@@ -856,7 +859,7 @@ const ChatView = ({
                               }
                             }}
                           >
-                            <div className={`h-8 w-8 rounded-full flex items-center justify-center ${isMine ? 'bg-white/20' : 'bg-primary/10 text-primary'}`}>
+                            <div className={`h-8 w-8 rounded-full flex items-center justify-center ${isMine ? 'bg-white/20' : 'bg-[#00A4EF]/10 text-[#00A4EF]'}`}>
                               {msg.isOpened ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                             </div>
                             <div className="flex flex-col">
@@ -871,20 +874,20 @@ const ChatView = ({
                             {/* Header row */}
                             <div className="flex items-center gap-2.5">
                               <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${isAdminMsg
-                                ? 'bg-blue-500/15 border border-blue-500/20'
+                                ? 'bg-[#00A4EF]/10 border border-[#00A4EF]/20'
                                 : (msg.messageType === 'escrow_released' || msg.message_type === 'escrow_released')
-                                  ? 'bg-emerald-500/20 border border-emerald-500/20'
-                                  : 'bg-white/10 border border-white/10'
+                                  ? 'bg-[#0FB881]/10 border border-[#0FB881]/20'
+                                  : 'bg-[#00A4EF]/10 border border-[#00A4EF]/20'
                                 }`}>
                                 {msg.messageType === 'escrow_created' || msg.message_type === 'escrow_created'
-                                  ? <Plus className="h-4 w-4 text-indigo-300" />
+                                  ? <Plus className="h-4 w-4 text-[#00A4EF]" />
                                   : (msg.messageType === 'escrow_released' || msg.message_type === 'escrow_released')
-                                    ? <IndianRupee className="h-4 w-4 text-emerald-300" />
-                                    : <ShieldCheck className="h-4 w-4 text-blue-400" />
+                                    ? <IndianRupee className="h-4 w-4 text-[#0FB881]" />
+                                    : <ShieldCheck className="h-4 w-4 text-[#00A4EF]" />
                                 }
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className="font-semibold text-[13px] text-white leading-none tracking-tight">
+                                <p className={`font-semibold text-[13px] leading-none tracking-tight ${(msg.messageType === 'escrow_released' || msg.message_type === 'escrow_released') ? 'text-[#0B8C62]' : (msg.messageType === 'notification' || msg.message_type === 'notification' || isAdminMsg) ? 'text-[#007BB5]' : 'text-[#C43E00]'}`}>
                                   {isAdminMsg
                                     ? "Krovaa"
                                     : msg.messageType === 'escrow_created' || msg.message_type === 'escrow_created'
@@ -896,29 +899,29 @@ const ChatView = ({
                                           : "Payment Confirmed"
                                   }
                                 </p>
-                                <p className="text-[10px] text-white/40 mt-0.5 uppercase tracking-widest font-medium">
+                                <p className={`text-[10px] mt-0.5 uppercase tracking-widest font-medium opacity-60 ${(msg.messageType === 'escrow_released' || msg.message_type === 'escrow_released') ? 'text-[#0B8C62]' : 'text-[#1C1C1C]'}`}>
                                   {isAdminMsg ? "Krovaa · Official" : (msg.messageType === 'notification' || msg.message_type === 'notification') ? "Krovaa · Notification" : "Krovaa"}
                                 </p>
                               </div>
                               {isAdminMsg && (
-                                <div className="flex items-center gap-1 bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded-full shrink-0">
-                                  <span className="h-1.5 w-1.5 rounded-full bg-blue-400 animate-pulse" />
-                                  <span className="text-[9px] text-blue-400 font-bold tracking-widest uppercase">Live</span>
+                                <div className="flex items-center gap-1 bg-[#00A4EF]/10 border border-[#00A4EF]/20 px-2 py-0.5 rounded-full shrink-0">
+                                  <span className="h-1.5 w-1.5 rounded-full bg-[#00A4EF] animate-pulse" />
+                                  <span className="text-[9px] text-[#00A4EF] font-bold tracking-widest uppercase">Live</span>
                                 </div>
                               )}
                             </div>
 
                             {/* Divider */}
-                            <div className="h-px bg-white/5" />
+                            <div className="h-px bg-[#E0E0E0]" />
 
                             {/* Message body */}
-                            <div className="text-[13px] text-white/80 leading-relaxed font-normal">
+                            <div className={`text-[13px] leading-relaxed font-normal ${(msg.messageType === 'escrow_released' || msg.message_type === 'escrow_released') ? 'text-[#0B8C62]/80' : 'text-[#1C1C1C]'}`}>
                               {isAdminMsg ? (
                                 msg.content.split('\n').map((line, i) => (
                                   <React.Fragment key={i}>
                                     {line.split(/(\*\*.*?\*\*)/).map((part, j) => {
                                       if (part.startsWith('**') && part.endsWith('**')) {
-                                        return <span key={j} className="font-semibold text-white">{part.slice(2, -2)}</span>;
+                                        return <span key={j} className="font-semibold text-[#1C1C1C]">{part.slice(2, -2)}</span>;
                                       }
                                       return part;
                                     })}

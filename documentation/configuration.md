@@ -2,44 +2,131 @@
 
 The project uses environment variables (`.env` files) to manage sensitive information and service endpoints. These files are excluded from version control for security.
 
-## Global `.env` (Project Root)
-This file is used by Docker Compose and high-level scripts.
-- `DATABASE_URL`: Connection string for PostgreSQL.
-- `JWT_SECRET`: Secret key for signing JSON Web Tokens.
-- `EMAIL_HOST`: SMTP host (e.g., `smtp.zoho.in`).
-- `EMAIL_PORT`: SMTP port (e.g., `465`).
-- `EMAIL_USER`: Sender email address.
-- `EMAIL_PASS`: SMTP password or app-specific password.
+---
 
-## Backend `.env` (`/backend/.env`)
-The backend requires several integration-specific variables.
-- `PORT`: Port on which the API server runs (default: `5000`).
-- `CLOUDINARY_CLOUD_NAME`: Cloudinary cloud name.
-- `CLOUDINARY_API_KEY`: Cloudinary API key.
-- `CLOUDINARY_API_SECRET`: Cloudinary API secret.
-- `TELEGRAM_BOT_TOKEN`: Token for the Telegram notification/login bot.
-- `RAZORPAY_KEY_ID`: Razorpay public key ID.
-- `RAZORPAY_KEY_SECRET`: Razorpay secret key.
+## ⚙️ Quick Setup
 
-## Frontend `.env` (`/frontend/.env`)
-Frontend variables are prefixed with `VITE_` for exposure to the build process.
-- `VITE_API_URL`: Base URL for the backend API (e.g., `https://krovaa.com/api`).
-- `VITE_TELEGRAM_BOT_NAME`: Username of the Telegram bot used for login.
+### Step 1: Create Root `.env` File
+Copy the example file and fill in your credentials:
+```bash
+cp .env.example .env
+# Edit .env with your actual values
+```
+
+### Step 2: Environment Files Location
+- **Root `.env`** - Served to backend via PM2 and Docker Compose
+- **Backend** - Reads from root `.env` (configured in `backend/server.js`)
+- **Frontend** - Uses `VITE_` prefixed variables from Docker build args and `.env` file
 
 ---
 
-## Important Usage Notes
+## 📋 Root `.env` (Project Root)
 
-### PM2 Environment Variables
-When running the backend via PM2, environment variables from `.env` are passed through the `ecosystem.config.cjs` file. If you add a new variable to `.env`, you may need to explicitly add it to the `env` section of the PM2 config:
+This is the **primary configuration file** used by both:
+- PM2 process manager (via `backend/ecosystem.config.cjs`)
+- Docker Compose services
+- Backend application server
+
+### Backend-Related Variables:
+```env
+# Server
+NODE_ENV=production
+PORT=5000
+
+# Database
+DATABASE_URL=postgresql://postgres:password@localhost:5433/krovaa_chat
+
+# Authentication
+JWT_SECRET=your_jwt_secret_key_here_min_32_chars
+
+# Email Service
+EMAIL_HOST=smtp.zoho.in
+EMAIL_PORT=465
+EMAIL_USER=your_email@zoho.com
+EMAIL_PASS=your_app_specific_password
+
+# Image Upload
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
+
+# Bot & Notifications
+TELEGRAM_BOT_TOKEN=your_telegram_bot_token
+
+# Payments
+RAZORPAY_KEY_ID=your_razorpay_key_id
+RAZORPAY_KEY_SECRET=your_razorpay_key_secret
+```
+
+### Docker & Frontend Variables:
+```env
+# Frontend URLs
+FRONTEND_URL=https://krovaa.com
+VITE_API_URL=https://krovaa.com/api
+VITE_TELEGRAM_BOT_NAME=your_bot_username
+
+# Database Initialization
+POSTGRES_PASSWORD=postgres
+POSTGRES_USER=postgres
+POSTGRES_DB=krovaa_chat
+
+# PGAdmin (optional)
+PGADMIN_DEFAULT_EMAIL=admin@krovaa.com
+PGADMIN_DEFAULT_PASSWORD=secure_password
+```
+
+---
+
+## 🔍 How Backend Accesses Environment Variables
+
+The backend server (`backend/server.js`) loads environment variables from the **root `.env`** file:
+
+```javascript
+// backend/server.js
+dotenv.config({ path: path.join(__dirname, '..', '.env') });
+// Loads from: project-root/.env (not backend/.env)
+```
+
+**Key Point:** The backend does NOT use a separate `backend/.env`. All variables are served from the root `.env` file.
+
+---
+
+## ⚡ PM2 Environment Variables
+
+When running the backend via PM2, the `backend/ecosystem.config.cjs` file passes environment variables from root `.env` to the application:
 
 ```javascript
 // backend/ecosystem.config.cjs
 env: {
-    NODE_ENV: 'production',
-    NEW_VAR: process.env.NEW_VAR,
+    NODE_ENV: process.env.NODE_ENV,
+    PORT: process.env.PORT || 5000,
+    DATABASE_URL: process.env.DATABASE_URL,
+    JWT_SECRET: process.env.JWT_SECRET,
+    // ... other variables
 }
 ```
 
-### Docker Networking
-If the backend is running on the host machine (via PM2) while PostgreSQL is in a Docker container, use `localhost:5433` (or your mapped host port) in the `DATABASE_URL` rather than the Docker internal IP.
+**To add a new variable:**
+1. Add it to root `.env`
+2. Add it to the `env` section in `backend/ecosystem.config.cjs`
+3. Restart PM2: `pm2 restart all`
+
+---
+
+## 🐳 Docker Networking
+
+If the backend is running on the host machine (via PM2) while PostgreSQL is in a Docker container:
+- Use `localhost:5433` in `DATABASE_URL`
+- This maps to the host port in `docker-compose.yml` (5433:5432)
+
+For containerized backend (Docker Compose):
+- Use `database:5432` (internal Docker network)
+- Container name resolves automatically within the network
+
+---
+
+## 📁 Example Files
+
+- **`.env.example`** - Production configuration template
+- **`.env.local.example`** - Development configuration template
+- **`.gitignore`** - Ensures `.env` is never committed

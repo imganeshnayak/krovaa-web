@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { Link, useNavigate } from "react-router-dom";
+import { themeColors } from "@/lib/themeColors";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -97,7 +98,7 @@ const AdminDashboard = () => {
   const [broadcastMessage, setBroadcastMessage] = useState("");
   const [broadcastType, setBroadcastType] = useState<"info" | "warning" | "success" | "alert">("info");
   const [isBroadcasting, setIsBroadcasting] = useState(false);
-  const [broadcastColor, setBroadcastColor] = useState("#4f46e5");
+  const [broadcastColor, setBroadcastColor] = useState(themeColors.blue.primary);
   const [sentNotifications, setSentNotifications] = useState<Notification[]>([]);
   const [systemSettings, setSystemSettings] = useState<Record<string, string>>({
     verification_fee: "109",
@@ -1475,13 +1476,13 @@ const AdminDashboard = () => {
                           <label className="text-sm font-medium mb-2 block">Theme Color</label>
                           <div className="flex gap-2 flex-wrap">
                             {[
-                              { name: "Indigo", hex: "#4f46e5" },
-                              { name: "Emerald", hex: "#10b981" },
-                              { name: "Amber", hex: "#f59e0b" },
-                              { name: "Rose", hex: "#f43f5e" },
-                              { name: "Violet", hex: "#8b5cf6" },
-                              { name: "Cyan", hex: "#06b6d4" },
-                              { name: "Slate", hex: "#475569" },
+                              { name: "Primary Blue", hex: themeColors.blue.primary },
+                              { name: "Success Green", hex: themeColors.success },
+                              { name: "Warning Amber", hex: themeColors.warning },
+                              { name: "Error Red", hex: themeColors.error },
+                              { name: "Orange", hex: themeColors.orange.primary },
+                              { name: "Blue Light", hex: themeColors.blue.light },
+                              { name: "Neutral Dark", hex: themeColors.neutral[800] },
                             ].map(c => (
                               <button
                                 key={c.hex}
@@ -1576,7 +1577,7 @@ const AdminDashboard = () => {
                               <div className="flex items-start gap-3">
                                 <span
                                   className="h-6 w-6 rounded-full shrink-0 mt-0.5 border border-white/20 shadow-sm"
-                                  style={{ backgroundColor: n.color || (n.type === 'info' ? '#3b82f6' : n.type === 'warning' ? '#f59e0b' : n.type === 'success' ? '#10b981' : '#ef4444') }}
+                                  style={{ backgroundColor: n.color || (n.type === 'info' ? themeColors.blue.primary : n.type === 'warning' ? themeColors.warning : n.type === 'success' ? themeColors.success : themeColors.error) }}
                                 />
                                 <div className="flex-1 min-w-0">
                                   <div className="flex justify-between items-start">

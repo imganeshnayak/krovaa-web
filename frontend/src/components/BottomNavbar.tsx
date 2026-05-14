@@ -35,18 +35,18 @@ const BottomNavbar = () => {
     {
       label: 'Admin',
       to: '/admin',
-      icon: <Shield className="w-6 h-6 text-primary" />,
+      icon: <Shield className="w-6 h-6 text-[#00A4EF]" />,
       show: (user?.role === 'admin' || user?.role === 'staff') // Only show for admins and staff
     }
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-background border-t border-border flex justify-around items-center h-16 z-50 shadow-md bottom-navbar">
+    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-[#E0E0E0] flex justify-around items-center h-16 z-50 shadow-md bottom-navbar">
       {navItems.filter(item => item.show).map((item) => (
         <Link
           key={item.to}
           to={item.to}
-          className={`flex flex-col items-center text-[10px] sm:text-xs transition-colors duration-200 ${location.pathname === item.to ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+          className={`flex flex-col items-center text-[10px] sm:text-xs transition-colors duration-200 ${location.pathname === item.to ? 'text-[#00A4EF]' : 'text-[#1C1C1C]/40 hover:text-[#1C1C1C]'}`}
         >
           {item.icon}
           <span className="mt-1 font-medium">{item.label}</span>

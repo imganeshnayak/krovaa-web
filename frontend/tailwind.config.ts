@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import { themeColors } from "./src/lib/themeColors";
 
 export default {
   darkMode: ["class"],
@@ -60,6 +61,44 @@ export default {
           "accent-foreground": "hsl(var(--sidebar-accent-foreground))",
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
+        },
+        // Brand Colors
+        brand: {
+          blue: themeColors.blue.primary,
+          "blue-light": themeColors.blue.light,
+          "blue-lighter": themeColors.blue.lighter,
+          "blue-dark": themeColors.blue.dark,
+          "blue-darker": themeColors.blue.darker,
+          green: themeColors.green.primary,
+          "green-light": themeColors.green.light,
+          "green-lighter": themeColors.green.lighter,
+          "green-dark": themeColors.green.dark,
+          "green-darker": themeColors.green.darker,
+          orange: themeColors.orange.primary,
+          "orange-light": themeColors.orange.light,
+          "orange-lighter": themeColors.orange.lighter,
+          "orange-dark": themeColors.orange.dark,
+          "orange-darker": themeColors.orange.darker,
+        },
+        // Status Colors
+        success: themeColors.success,
+        warning: themeColors.warning,
+        error: themeColors.error,
+        info: themeColors.info,
+        // Neutral Grays
+        neutral: {
+          white: themeColors.neutral.white,
+          black: themeColors.neutral.black,
+          50: themeColors.neutral[50],
+          100: themeColors.neutral[100],
+          200: themeColors.neutral[200],
+          300: themeColors.neutral[300],
+          400: themeColors.neutral[400],
+          500: themeColors.neutral[500],
+          600: themeColors.neutral[600],
+          700: themeColors.neutral[700],
+          800: themeColors.neutral[800],
+          900: themeColors.neutral[900],
         },
       },
       borderRadius: {
