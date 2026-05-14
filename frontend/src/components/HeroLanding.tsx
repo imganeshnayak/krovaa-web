@@ -64,13 +64,13 @@ export default function HeroLanding() {
             </motion.div>
           </div>
 
-          {/* Right Section - Card Content - Responsive Sizing */}
-          <div className="flex-1 min-w-0 flex justify-center lg:justify-end w-full">
+          {/* Right Section - Card Content - Perfectly Aligned */}
+          <div className="flex justify-center md:justify-end w-full">
             <motion.div 
-              initial={{ opacity: 0, scale: 0.98, y: 8 }} 
+              initial={{ opacity: 0, scale: 0.95, y: 12 }} 
               animate={{ opacity: 1, scale: 1, y: 0 }} 
-              transition={{ type: 'spring', stiffness: 120, damping: 18 }} 
-              className="relative w-full max-w-sm lg:max-w-md"
+              transition={{ type: 'spring', stiffness: 100, damping: 20, delay: 0.1 }} 
+              className="relative w-full max-w-sm"
             >
               {/* Glassmorphic Card */}
               <div className="rounded-2xl bg-white/60 backdrop-blur-md border border-white/20 shadow-2xl p-4 sm:p-6">
