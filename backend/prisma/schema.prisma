@@ -53,6 +53,7 @@ model User {
   walletTransactions   WalletTransaction[]
   adClicks             AdClick[]
   adsCreated           Ad[]
+  postedJobs           Job[]
 
   @@map("users")
 }
@@ -317,4 +318,19 @@ model AdClick {
   user      User?    @relation(fields: [userId], references: [id])
 
   @@map("ad_clicks")
+}
+
+model Job {
+  id          Int      @id @default(autoincrement())
+  title       String
+  company     String
+  location    String
+  budget      String
+  mode        String   @default("Remote")
+  description String
+  postedById  Int      @map("posted_by_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  postedBy    User     @relation(fields: [postedById], references: [id])
+
+  @@map("jobs")
 }

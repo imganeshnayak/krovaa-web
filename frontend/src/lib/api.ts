@@ -992,6 +992,56 @@ export function broadcastNotification(data: {
   });
 }
 
+// ============ Jobs API ============
+
+export interface JobPoster {
+  id: number;
+  username: string;
+  displayName?: string;
+  avatarUrl?: string;
+  profession?: string;
+  bio?: string;
+  city?: string;
+  createdAt: string;
+}
+
+export interface Job {
+  id: number;
+  title: string;
+  company: string;
+  location: string;
+  budget: string;
+  mode: string;
+  description: string;
+  createdAt: string;
+}
+
+export interface JobDetails extends Job {
+  postedBy: JobPoster;
+}
+
+export function getJobs(): Promise<Job[]> {
+  return apiFetch<Job[]>('/api/jobs');
+}
+
+export function getJob(id: number): Promise<JobDetails> {
+  return apiFetch<JobDetails>(`/api/jobs/${id}`);
+}
+
+export function postJob(data: {
+  title: string;
+  company: string;
+  location: string;
+  budget: string;
+  mode: string;
+  description: string;
+}): Promise<Job> {
+  return apiFetch<Job>('/api/jobs', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
 // ============ Ads API ============
 
 export interface Ad {
