@@ -14,6 +14,7 @@ import ChatPage from "./pages/ChatPage";
 import ProfilePage from "./pages/ProfilePage";
 import ExplorePage from "./pages/ExplorePage";
 import PostJobPage from "./pages/PostJobPage";
+import JobDetailsPage from "./pages/JobDetailsPage";
 import EscrowPage from "./pages/EscrowPage";
 import WalletPage from "./pages/WalletPage";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -89,6 +90,7 @@ const MainContent = () => {
         <Route path="/chat" element={<ClientRoute><ChatPage /></ClientRoute>} />
         <Route path="/explore" element={<ClientRoute><ExplorePage /></ClientRoute>} />
         <Route path="/post-job" element={<ClientRoute><PostJobPage /></ClientRoute>} />
+        <Route path="/jobs/:jobId" element={<ClientRoute><JobDetailsPage /></ClientRoute>} />
         {/* Own profile - requires login */}
         <Route path="/profile" element={<ClientRoute><ProfilePage /></ClientRoute>} />
         {/* Legacy /profile/:username -> redirect to /:username */}
