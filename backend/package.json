@@ -17,6 +17,7 @@
         "seed": "node prisma/seed.js"
     },
     "dependencies": {
+        "streamifier": "^0.1.1",
         "@prisma/client": "^6.6.0",
         "axios": "^1.13.5",
         "bcryptjs": "^2.4.3",

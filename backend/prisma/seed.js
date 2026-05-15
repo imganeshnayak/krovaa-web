@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 
 const prisma = new PrismaClient();
 
@@ -10,27 +11,27 @@ async function seed() {
     const admin = await prisma.user.upsert({
         where: { email: 'admin@krovaa.com' },
         update: {},
-        create: { username: 'krovaa', email: 'admin@krovaa.com', password: hashedPassword, displayName: 'Krovaa', role: 'admin' },
+        create: { username: 'krovaa', email: 'admin@krovaa.com', password: hashedPassword, displayName: 'Krovaa', role: 'admin', shareId: crypto.randomBytes(8).toString('hex') },
     });
     const alice = await prisma.user.upsert({
         where: { email: 'alice@example.com' },
         update: {},
-        create: { username: 'alice', email: 'alice@example.com', password: hashedPassword, displayName: 'Alice Murray', role: 'client' },
+        create: { username: 'alice', email: 'alice@example.com', password: hashedPassword, displayName: 'Alice Murray', role: 'client', shareId: crypto.randomBytes(8).toString('hex') },
     });
     const mark = await prisma.user.upsert({
         where: { email: 'mark@example.com' },
         update: {},
-        create: { username: 'mark', email: 'mark@example.com', password: hashedPassword, displayName: 'Mark Solomons', role: 'client' },
+        create: { username: 'mark', email: 'mark@example.com', password: hashedPassword, displayName: 'Mark Solomons', role: 'client', shareId: crypto.randomBytes(8).toString('hex') },
     });
     const sara = await prisma.user.upsert({
         where: { email: 'sara@example.com' },
         update: {},
-        create: { username: 'sara', email: 'sara@example.com', password: hashedPassword, displayName: 'Sara Lee', role: 'client' },
+        create: { username: 'sara', email: 'sara@example.com', password: hashedPassword, displayName: 'Sara Lee', role: 'client', shareId: crypto.randomBytes(8).toString('hex') },
     });
     const dev = await prisma.user.upsert({
         where: { email: 'dev@example.com' },
         update: {},
-        create: { username: 'devteam', email: 'dev@example.com', password: hashedPassword, displayName: 'Dev Team', role: 'vendor' },
+        create: { username: 'devteam', email: 'dev@example.com', password: hashedPassword, displayName: 'Dev Team', role: 'vendor', shareId: crypto.randomBytes(8).toString('hex') },
     });
 
     // Seed messages
@@ -65,6 +66,16 @@ async function seed() {
 
     console.log('✅ Database seeded with demo data');
 }
+
+// Optional: create a few sample posts for seeded users
+async function seedPosts() {
+    const users = await prisma.user.findMany({ where: { email: { in: ['alice@example.com','mark@example.com','sara@example.com'] } } });
+    for (const u of users) {
+        await prisma.post.create({ data: { userId: u.id, text: `Welcome post for ${u.displayName || u.username}`, media: [] } });
+    }
+}
+
+seedPosts().catch(()=>{});
 
 seed()
     .catch((e) => { console.error('❌ Seed failed:', e); process.exit(1); })

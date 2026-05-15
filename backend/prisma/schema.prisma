@@ -11,6 +11,7 @@ model User {
   id                   Int                   @id @default(autoincrement())
   username             String                @unique
   email                String                @unique
+  shareId              String                @unique @map("share_id")
   password             String
   displayName          String?               @map("display_name")
   bio                  String?
@@ -54,29 +55,32 @@ model User {
   adClicks             AdClick[]
   adsCreated           Ad[]
   postedJobs           Job[]
+  posts                Post[]
+  postLikes            Post_Like[]
+  postComments         Post_Comment[]
 
   @@map("users")
 }
 
 model Message {
-  id             Int      @id @default(autoincrement())
-  senderId       Int      @map("sender_id")
-  receiverId     Int      @map("receiver_id")
-  chatId         String   @map("chat_id")
-  content        String
-  messageType    String   @default("text") @map("message_type")
-  attachmentUrl  String?  @map("attachment_url")
-  attachmentName String?  @map("attachment_name")
-  read           Boolean  @default(false)
-  createdAt      DateTime @default(now()) @map("created_at")
-  isDeleted      Boolean  @default(false) @map("is_deleted")
-  isOpened       Boolean  @default(false) @map("is_opened")
-  isViewOnce     Boolean  @default(false) @map("is_view_once")
-  color          String?
+  id                Int      @id @default(autoincrement())
+  senderId          Int      @map("sender_id")
+  receiverId        Int      @map("receiver_id")
+  chatId            String   @map("chat_id")
+  content           String
+  messageType       String   @default("text") @map("message_type")
+  attachmentUrl     String?  @map("attachment_url")
+  attachmentName    String?  @map("attachment_name")
+  read              Boolean  @default(false)
+  createdAt         DateTime @default(now()) @map("created_at")
+  isDeleted         Boolean  @default(false) @map("is_deleted")
+  isOpened          Boolean  @default(false) @map("is_opened")
+  isViewOnce        Boolean  @default(false) @map("is_view_once")
+  color             String?
   deletedBySender   Boolean  @default(false) @map("deleted_by_sender")
   deletedByReceiver Boolean  @default(false) @map("deleted_by_receiver")
-  receiver       User     @relation("ReceivedMessages", fields: [receiverId], references: [id])
-  sender         User     @relation("SentMessages", fields: [senderId], references: [id])
+  receiver          User     @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  sender            User     @relation("SentMessages", fields: [senderId], references: [id])
 
   @@map("messages")
 }
@@ -289,22 +293,22 @@ model SystemSetting {
 }
 
 model Ad {
-  id                 Int       @id @default(autoincrement())
-  title              String
-  description        String?
-  imageUrl           String?   @map("image_url")
-  videoUrl           String?   @map("video_url")
-  externalUrl        String?   @map("external_url")
-  ctaText            String?   @map("cta_text")
-  type               String    @default("text") // text | image | video
-  targetProfessions  Json?     @default("[]") @map("target_professions")
-  status             String    @default("active") // active | paused
-  impressions        Int       @default(0)
-  sentBy             Int?      @map("sent_by")
-  createdAt          DateTime  @default(now()) @map("created_at")
-  updatedAt          DateTime  @updatedAt @map("updated_at")
-  admin              User?     @relation(fields: [sentBy], references: [id])
-  clicks             AdClick[]
+  id                Int       @id @default(autoincrement())
+  title             String
+  description       String?
+  imageUrl          String?   @map("image_url")
+  videoUrl          String?   @map("video_url")
+  externalUrl       String?   @map("external_url")
+  ctaText           String?   @map("cta_text")
+  type              String    @default("text") // text | image | video
+  targetProfessions Json?     @default("[]") @map("target_professions")
+  status            String    @default("active") // active | paused
+  impressions       Int       @default(0)
+  sentBy            Int?      @map("sent_by")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  admin             User?     @relation(fields: [sentBy], references: [id])
+  clicks            AdClick[]
 
   @@map("ads")
 }
@@ -333,4 +337,43 @@ model Job {
   postedBy    User     @relation(fields: [postedById], references: [id])
 
   @@map("jobs")
+}
+
+model Post {
+  id        Int          @id @default(autoincrement())
+  userId    Int          @map("user_id")
+  text      String?
+  media     Json?        @default("[]")
+  createdAt DateTime     @default(now()) @map("created_at")
+  updatedAt DateTime     @updatedAt @map("updated_at")
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  likes     Post_Like[]
+  comments  Post_Comment[]
+
+  @@map("posts")
+}
+
+model Post_Like {
+  id        Int      @id @default(autoincrement())
+  postId    Int      @map("post_id")
+  userId    Int      @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@map("post_likes")
+}
+
+model Post_Comment {
+  id        Int      @id @default(autoincrement())
+  postId    Int      @map("post_id")
+  userId    Int      @map("user_id")
+  text      String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("post_comments")
 }
