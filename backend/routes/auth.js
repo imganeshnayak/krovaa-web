@@ -122,9 +122,10 @@ router.post('/register', async (req, res) => {
         }
 
         const hashedPassword = await bcrypt.hash(password, 10);
+        const shareId = crypto.randomBytes(8).toString('hex');
         const user = await prisma.user.create({
-            data: { username, email, password: hashedPassword, displayName: display_name || username, profession },
-            select: { id: true, username: true, email: true, displayName: true, role: true, profession: true },
+            data: { username, email, password: hashedPassword, displayName: display_name || username, profession, shareId },
+            select: { id: true, username: true, email: true, displayName: true, role: true, profession: true, shareId: true },
         });
 
         const token = jwt.sign(
@@ -192,7 +193,7 @@ router.get('/me', auth, async (req, res) => {
                 avatarUrl: true, role: true, status: true, city: true, 
                 pincode: true, profession: true, bio: true, phoneNumber: true,
                 gender: true, age: true, userGoal: true, skills: true,
-                createdAt: true 
+                shareId: true, createdAt: true 
             },
         });
 
@@ -393,6 +394,7 @@ router.post('/telegram', async (req, res) => {
                     displayName: `${data.first_name} ${data.last_name || ''}`.trim(),
                     avatarUrl: data.photo_url,
                     telegramId: data.id.toString(),
+                    shareId: crypto.randomBytes(8).toString('hex'),
                     role: 'client'
                 }
             });

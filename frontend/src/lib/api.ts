@@ -54,6 +54,7 @@ export interface AuthUser {
   id: number;
   username: string;
   email: string;
+  shareId?: string;
   displayName: string;
   bio?: string;
   avatarUrl?: string;
@@ -125,6 +126,10 @@ export function getUser(id: number): Promise<AuthUser> {
 
 export function getUserByUsername(username: string): Promise<AuthUser> {
   return apiFetch<AuthUser>(`/api/users/username/${encodeURIComponent(username)}`);
+}
+
+export function getUserByShareId(shareId: string): Promise<AuthUser> {
+  return apiFetch<AuthUser>(`/api/users/share-id/${encodeURIComponent(shareId)}`);
 }
 
 export function searchUsers(query: string): Promise<AuthUser[]> {
@@ -1114,4 +1119,86 @@ export function updateAd(id: number, formData: FormData): Promise<Ad> {
 
 export function pushAdNotification(id: number): Promise<{ success: boolean; notifiedCount: number }> {
   return apiFetch<{ success: boolean; notifiedCount: number }>(`/api/ads/${id}/push`, { method: "POST" });
+}
+
+export interface PostMedia {
+  url: string;
+  resource_type: string;
+}
+
+export interface PostUser {
+  id: number;
+  username: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+}
+
+export interface PostComment {
+  id: number;
+  text: string;
+  createdAt: string;
+  user: PostUser;
+}
+
+export interface Post {
+  id: number;
+  userId: number;
+  text: string | null;
+  media: PostMedia[] | null;
+  createdAt: string;
+  user?: PostUser;
+  likes?: Array<{ userId: number }>;
+  comments?: PostComment[];
+}
+
+export function createPost(text: string, files: File[]): Promise<Post> {
+  const token = localStorage.getItem("authToken");
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+  const formData = new FormData();
+  if (text) formData.append("text", text);
+  files.forEach((file) => formData.append("files", file));
+
+  return fetch(`${API_URL}/api/posts`, {
+    method: "POST",
+    headers: { ...(token && { Authorization: `Bearer ${token}` }) },
+    body: formData,
+    credentials: "include",
+  }).then(async (res) => {
+    if (!res.ok) {
+      const e = await res.json().catch(() => ({ error: "Failed" }));
+      throw new Error(e.error || "Failed to create post");
+    }
+    return res.json();
+  });
+}
+
+export function getUserPosts(userId: number): Promise<Post[]> {
+  return apiFetch<Post[]>(`/api/posts/${userId}`);
+}
+
+export function likePost(postId: number): Promise<{ liked: boolean }> {
+  return apiFetch<{ liked: boolean }>(`/api/posts/${postId}/like`, { method: "POST" });
+}
+
+export function getPostDetails(postId: number): Promise<Post> {
+  return apiFetch<Post>(`/api/posts/${postId}/details`);
+}
+
+export function addPostComment(postId: number, text: string): Promise<PostComment> {
+  return apiFetch<PostComment>(`/api/posts/${postId}/comments`, {
+    method: "POST",
+    body: JSON.stringify({ text }),
+  });
+}
+
+export function deletePostComment(postId: number, commentId: number): Promise<{ success: boolean }> {
+  return apiFetch<{ success: boolean }>(`/api/posts/${postId}/comments/${commentId}`, {
+    method: "DELETE",
+  });
+}
+
+export function deletePost(postId: number): Promise<{ success: boolean }> {
+  return apiFetch<{ success: boolean }>(`/api/posts/${postId}`, {
+    method: "DELETE",
+  });
 }

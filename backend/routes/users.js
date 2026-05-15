@@ -128,6 +128,62 @@ router.get('/username/:username', async (req, res) => {
     }
 });
 
+// GET /api/users/share-id/:shareId - Get user profile by share ID
+router.get('/share-id/:shareId', async (req, res) => {
+    try {
+        const { shareId } = req.params;
+
+        const user = await prisma.user.findUnique({
+            where: { shareId },
+            select: {
+                id: true,
+                username: true,
+                displayName: true,
+                bio: true,
+                avatarUrl: true,
+                coverPhotoUrl: true,
+                socialLinks: true,
+                role: true,
+                status: true,
+                verified: true,
+                city: true,
+                profession: true,
+                skills: true,
+                userGoal: true,
+                shareId: true,
+                createdAt: true,
+                ratingsReceived: {
+                    select: { rating: true }
+                }
+            },
+        });
+
+        if (!user) {
+            return res.status(404).json({ error: 'User not found.' });
+        }
+
+        if (user.role === 'staff' || user.role === 'admin') {
+            return res.status(404).json({ error: 'User not found.' });
+        }
+
+        const userRatings = await prisma.rating.findMany({
+            where: { reviewedId: user.id },
+            select: { rating: true }
+        });
+        const ratings = userRatings.map(r => r.rating);
+        const avgRating = ratings.length > 0 ? (ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(1) : "0.0";
+
+        res.json({
+            ...user,
+            averageRating: parseFloat(avgRating),
+            ratingCount: ratings.length
+        });
+    } catch (err) {
+        console.error('Get user by share ID error:', err);
+        res.status(500).json({ error: 'Server error.' });
+    }
+});
+
 // GET /api/users/:id/rating-eligibility - Check if user can rate another user
 router.get('/:id/rating-eligibility', auth, async (req, res) => {
     try {
