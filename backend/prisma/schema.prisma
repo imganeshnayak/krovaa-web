@@ -8,32 +8,45 @@ datasource db {
 }
 
 model User {
-  id                Int      @id @default(autoincrement())
-  username          String   @unique
-  email             String   @unique
-  password          String
-  displayName       String?  @map("display_name")
-  bio               String?
-  avatarUrl         String?  @map("avatar_url")
-  coverPhotoUrl     String?  @map("cover_photo_url")
-  role              String   @default("client")
-  status            String   @default("active")
-  telegramId        String?  @map("telegram_id")
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
-  socialLinks       Json?    @default("[]") @map("social_links")
-  permissions       Json?    @default("[]")
-  profession        String?
-  verified          Boolean  @default(false)
-  walletBalance     Float    @default(0) @map("wallet_balance")
-  razorpayContactId String?  @map("razorpay_contact_id")
-  phoneNumber       String?  @map("phone_number")
-  city              String?
-  pincode           String?
-  gender            String?
-  age               Int?
-  userGoal          String?  @map("user_goal")
-  skills            Json?    @default("[]")
+  id                   Int                   @id @default(autoincrement())
+  username             String                @unique
+  email                String                @unique
+  password             String
+  displayName          String?               @map("display_name")
+  bio                  String?
+  avatarUrl            String?               @map("avatar_url")
+  coverPhotoUrl        String?               @map("cover_photo_url")
+  role                 String                @default("client")
+  status               String                @default("active")
+  telegramId           String?               @map("telegram_id")
+  createdAt            DateTime              @default(now()) @map("created_at")
+  updatedAt            DateTime              @updatedAt @map("updated_at")
+  socialLinks          Json?                 @default("[]") @map("social_links")
+  permissions          Json?                 @default("[]")
+  profession           String?
+  verified             Boolean               @default(false)
+  walletBalance        Float                 @default(0) @map("wallet_balance")
+  razorpayContactId    String?               @map("razorpay_contact_id")
+  phoneNumber          String?               @map("phone_number")
+  city                 String?
+  pincode              String?
+  gender               String?
+  age                  Int?
+  userGoal             String?               @map("user_goal")
+  skills               Json?                 @default("[]")
+  sentMessages         Message[]             @relation("UserSentMessages")
+  receivedMessages     Message[]             @relation("UserReceivedMessages")
+  clientDeals          EscrowDeal[]          @relation("UserClientDeals")
+  vendorDeals          EscrowDeal[]          @relation("UserVendorDeals")
+  verificationRequests VerificationRequest[]
+  payoutRequests       PayoutRequest[]
+  walletTransactions   WalletTransaction[]
+  ratingReviews        Rating[]              @relation("Reviewer")
+  ratingReceived       Rating[]              @relation("Reviewed")
+  reportSent           Report[]              @relation("Reporter")
+  reportReceived       Report[]              @relation("Reported")
+  blockedUsers         BlockedUser[]         @relation("Blocker")
+  blockedBy            BlockedUser[]         @relation("Blocked")
 
   @@map("users")
 }
@@ -42,6 +55,8 @@ model Message {
   id                Int      @id @default(autoincrement())
   senderId          Int      @map("sender_id")
   receiverId        Int      @map("receiver_id")
+  sender            User     @relation("UserSentMessages", fields: [senderId], references: [id])
+  receiver          User     @relation("UserReceivedMessages", fields: [receiverId], references: [id])
   chatId            String   @map("chat_id")
   content           String
   messageType       String   @default("text") @map("message_type")
@@ -63,6 +78,8 @@ model Rating {
   id         Int      @id @default(autoincrement())
   reviewerId Int      @map("reviewer_id")
   reviewedId Int      @map("reviewed_id")
+  reviewer   User     @relation("Reviewer", fields: [reviewerId], references: [id])
+  reviewed   User     @relation("Reviewed", fields: [reviewedId], references: [id])
   rating     Int
   comment    String?
   createdAt  DateTime @default(now()) @map("created_at")
@@ -75,6 +92,8 @@ model Report {
   id         Int      @id @default(autoincrement())
   reporterId Int      @map("reporter_id")
   reportedId Int      @map("reported_id")
+  reporter   User     @relation("Reporter", fields: [reporterId], references: [id])
+  reported   User     @relation("Reported", fields: [reportedId], references: [id])
   reason     String
   status     String   @default("pending")
   createdAt  DateTime @default(now()) @map("created_at")
@@ -86,6 +105,8 @@ model BlockedUser {
   id        Int      @id @default(autoincrement())
   blockerId Int      @map("blocker_id")
   blockedId Int      @map("blocked_id")
+  blocker   User     @relation("Blocker", fields: [blockerId], references: [id])
+  blocked   User     @relation("Blocked", fields: [blockedId], references: [id])
   createdAt DateTime @default(now()) @map("created_at")
 
   @@unique([blockerId, blockedId])
@@ -108,6 +129,8 @@ model EscrowDeal {
   chatId            String              @map("chat_id")
   clientId          Int                 @map("client_id")
   vendorId          Int                 @map("vendor_id")
+  client            User                @relation("UserClientDeals", fields: [clientId], references: [id])
+  vendor            User                @relation("UserVendorDeals", fields: [vendorId], references: [id])
   title             String
   description       String?
   totalAmount       Float               @map("total_amount")
@@ -140,6 +163,7 @@ model EscrowTransaction {
 model VerificationRequest {
   id                Int       @id @default(autoincrement())
   userId            Int       @map("user_id")
+  user              User      @relation(fields: [userId], references: [id])
   status            String    @default("pending_payment")
   paymentAmount     Float     @map("payment_amount")
   paymentProof      String?   @map("payment_proof")
@@ -179,6 +203,7 @@ model WalletTransaction {
   description String
   createdAt   DateTime @default(now()) @map("created_at")
   metadata    Json?
+  user        User     @relation(fields: [userId], references: [id])
 
   @@map("wallet_transactions")
 }
@@ -186,6 +211,7 @@ model WalletTransaction {
 model PayoutRequest {
   id                    Int       @id @default(autoincrement())
   userId                Int       @map("user_id")
+  user                  User      @relation(fields: [userId], references: [id])
   amount                Float
   status                String    @default("pending")
   bankAccount           String?   @map("bank_account")
