@@ -48,8 +48,11 @@ app.use((req, res, next) => {
 const allowedOrigins = [
     'http://localhost:5173',
     'http://localhost:8080',
+    'http://localhost:8081',
     'http://127.0.0.1:5173',
     'http://127.0.0.1:8080',
+    'http://127.0.0.1:8081',
+    'http://172.29.224.1:8081',
     'http://192.168.56.1:8080',
     'https://krovaa.com',
     'https://www.krovaa.com',

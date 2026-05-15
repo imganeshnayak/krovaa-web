@@ -1018,6 +1018,9 @@ export interface Job {
 
 export interface JobDetails extends Job {
   postedBy: JobPoster;
+  hasApplied?: boolean;
+  isOwner?: boolean;
+  applications?: any[];
 }
 
 export function getJobs(): Promise<Job[]> {
@@ -1039,6 +1042,12 @@ export function postJob(data: {
   return apiFetch<Job>('/api/jobs', {
     method: 'POST',
     body: JSON.stringify(data),
+  });
+}
+
+export function applyJob(jobId: number): Promise<{ message: string; application: any }> {
+  return apiFetch<{ message: string; application: any }>(`/api/jobs/${jobId}/apply`, {
+    method: 'POST',
   });
 }
 

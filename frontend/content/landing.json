@@ -56,8 +56,14 @@
   "footer": {
     "tagline": "Chat-first deal management for the modern gig economy.",
     "email": "support@krovaa.com",
-    "company": ["About Us"],
-    "legal": ["Privacy Policy", "Terms of Service", "Cookie Policy"],
+    "company": [
+      "About Us"
+    ],
+    "legal": [
+      "Privacy Policy",
+      "Terms of Service",
+      "Cookie Policy"
+    ],
     "copyright": "2026 Krovaa. All rights reserved."
   }
 }

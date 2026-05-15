@@ -54,6 +54,7 @@ model User {
   adClicks             AdClick[]
   adsCreated           Ad[]
   postedJobs           Job[]
+  applications         Application[]
 
   @@map("users")
 }
@@ -331,6 +332,20 @@ model Job {
   postedById  Int      @map("posted_by_id")
   createdAt   DateTime @default(now()) @map("created_at")
   postedBy    User     @relation(fields: [postedById], references: [id])
+  applications Application[]
 
   @@map("jobs")
+}
+
+model Application {
+  id        Int      @id @default(autoincrement())
+  jobId     Int      @map("job_id")
+  userId    Int      @map("user_id")
+  status    String   @default("pending") // pending | accepted | rejected
+  createdAt DateTime @default(now()) @map("created_at")
+  job       Job      @relation(fields: [jobId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([jobId, userId])
+  @@map("applications")
 }

@@ -12,29 +12,46 @@ const smtpSecure = process.env.EMAIL_SECURE
   ? process.env.EMAIL_SECURE.toLowerCase() === 'true'
   : smtpPort === 465;
 
-const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST || 'smtppro.zoho.in',
-  port: smtpPort,
-  secure: smtpSecure,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-  connectionTimeout: Number.parseInt(process.env.EMAIL_CONNECTION_TIMEOUT || '20000', 10),
-  greetingTimeout: Number.parseInt(process.env.EMAIL_GREETING_TIMEOUT || '20000', 10),
-  socketTimeout: Number.parseInt(process.env.EMAIL_SOCKET_TIMEOUT || '30000', 10),
-  tls: {
-    rejectUnauthorized: false // Helps with some VPS networking issues
-  }
-});
+const isConfigured = process.env.EMAIL_USER && process.env.EMAIL_USER !== 'your_email@zoho.com';
 
-transporter.verify((err) => {
-  if (err) {
-    console.error('Email service error:', err.message);
-  } else {
-    console.log('Email service ready:', process.env.EMAIL_USER);
-  }
-});
+let transporter;
+
+if (isConfigured) {
+  transporter = nodemailer.createTransport({
+    host: process.env.EMAIL_HOST || 'smtppro.zoho.in',
+    port: smtpPort,
+    secure: smtpSecure,
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS,
+    },
+    connectionTimeout: Number.parseInt(process.env.EMAIL_CONNECTION_TIMEOUT || '20000', 10),
+    greetingTimeout: Number.parseInt(process.env.EMAIL_GREETING_TIMEOUT || '20000', 10),
+    socketTimeout: Number.parseInt(process.env.EMAIL_SOCKET_TIMEOUT || '30000', 10),
+    tls: {
+      rejectUnauthorized: false // Helps with some VPS networking issues
+    }
+  });
+
+  transporter.verify((err) => {
+    if (err) {
+      console.error('Email service error:', err.message);
+    } else {
+      console.log('Email service ready:', process.env.EMAIL_USER);
+    }
+  });
+} else {
+  console.log('⚠️ Email service not configured (using placeholders). Emails will be logged to console instead of sending.');
+  transporter = {
+    sendMail: async (options) => {
+      console.log('\n================ MOCK EMAIL ================');
+      console.log('To:', options.to);
+      console.log('Subject:', options.subject);
+      console.log('Text Content:\n', options.text);
+      console.log('============================================\n');
+    }
+  };
+}
 
 export function generateOtp() {
   return Math.floor(100000 + Math.random() * 900000).toString();

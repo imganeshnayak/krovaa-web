@@ -1,6 +1,7 @@
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
 import { auth } from '../middleware/auth.js';
+import { sendUserNotification } from './notifications.js';
 
 const prisma = new PrismaClient();
 const router = express.Router();
@@ -49,7 +50,43 @@ router.get('/:id', auth, async (req, res) => {
             return res.status(404).json({ error: 'Job not found.' });
         }
 
-        res.json(job);
+        // Check if the current user has already applied
+        const application = await prisma.application.findUnique({
+            where: {
+                jobId_userId: {
+                    jobId,
+                    userId: req.user.id
+                }
+            }
+        });
+
+        const jobWithStatus = {
+            ...job,
+            hasApplied: !!application,
+            isOwner: job.postedById === req.user.id
+        };
+
+        // If owner, fetch and include applications
+        if (jobWithStatus.isOwner) {
+            const applications = await prisma.application.findMany({
+                where: { jobId },
+                include: {
+                    user: {
+                        select: {
+                            id: true,
+                            username: true,
+                            displayName: true,
+                            avatarUrl: true,
+                            profession: true
+                        }
+                    }
+                },
+                orderBy: { createdAt: 'desc' }
+            });
+            jobWithStatus.applications = applications;
+        }
+
+        res.json(jobWithStatus);
     } catch (err) {
         console.error('Get job by id error:', err);
         res.status(500).json({ error: 'Failed to fetch job details.' });
@@ -86,6 +123,105 @@ router.post('/', auth, async (req, res) => {
     } catch (err) {
         console.error('Create job error:', err);
         res.status(500).json({ error: 'Failed to create job listing.' });
+    }
+});
+
+// POST /api/jobs/:id/apply
+router.post('/:id/apply', auth, async (req, res) => {
+    try {
+        const jobId = Number(req.params.id);
+        if (Number.isNaN(jobId)) {
+            return res.status(400).json({ error: 'Invalid job ID.' });
+        }
+
+        const userId = req.user.id;
+
+        // Check if job exists
+        const job = await prisma.job.findUnique({
+            where: { id: jobId }
+        });
+
+        if (!job) {
+            return res.status(404).json({ error: 'Job not found.' });
+        }
+
+        // Prevent users from applying to their own job
+        if (job.postedById === userId) {
+            return res.status(400).json({ error: 'You cannot apply to your own job listing.' });
+        }
+
+        // Check if already applied
+        const existingApplication = await prisma.application.findUnique({
+            where: {
+                jobId_userId: {
+                    jobId,
+                    userId
+                }
+            }
+        });
+
+        if (existingApplication) {
+            return res.status(400).json({ error: 'You have already applied for this job.' });
+        }
+
+        // Create application
+        const application = await prisma.application.create({
+            data: {
+                jobId,
+                userId,
+                status: 'pending'
+            }
+        });
+
+        // Send a message to the job poster automatically
+        const chatId = `chat_${userId}_${job.postedById}_${Date.now()}`;
+        const applicationMessage = `Hi, I just applied for your job: **${job.title}** at ${job.company}.`;
+
+        const message = await prisma.message.create({
+            data: {
+                senderId: userId,
+                receiverId: job.postedById,
+                chatId: chatId,
+                content: applicationMessage,
+                messageType: 'text'
+            },
+            include: {
+                sender: { select: { displayName: true, avatarUrl: true, username: true, role: true } }
+            }
+        });
+
+        // Notify via Socket.IO
+        const io = req.app.get('io');
+        if (io) {
+            const socketMessage = {
+                ...message,
+                sender_name: message.sender.displayName,
+                sender_avatar: message.sender.avatarUrl,
+                sender_username: message.sender.username,
+            };
+            io.to(chatId).emit('newMessage', socketMessage);
+            io.to(`user_${job.postedById}`).emit('newMessage', socketMessage);
+            
+            // Also send a system notification (bell icon)
+            const applicant = await prisma.user.findUnique({ where: { id: userId }, select: { displayName: true, username: true } });
+            const applicantName = applicant?.displayName || applicant?.username || 'Someone';
+            await sendUserNotification(
+                io, 
+                job.postedById, 
+                "New Job Application", 
+                `${applicantName} has applied for your job: ${job.title}`, 
+                'info',
+                { jobId: job.id }
+            );
+        }
+
+        res.status(201).json({
+            message: 'Application submitted successfully and message sent to poster.',
+            application
+        });
+    } catch (err) {
+        console.error('Apply for job error:', err);
+        res.status(500).json({ error: 'Failed to submit application.' });
     }
 });
 

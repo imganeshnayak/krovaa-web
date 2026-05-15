@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
-import { getJob, JobDetails } from "../lib/api";
+import { ArrowLeft, CheckCircle2, MessageSquare, User } from "lucide-react";
+import { getJob, JobDetails, applyJob } from "../lib/api";
+import { Button } from "@/components/ui/button";
+import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
 
 const JobDetailsPage = () => {
   const { jobId } = useParams<{ jobId: string }>();
@@ -9,6 +12,9 @@ const JobDetailsPage = () => {
   const [job, setJob] = useState<JobDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [isApplied, setIsApplied] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     const loadJob = async () => {
@@ -24,6 +30,9 @@ const JobDetailsPage = () => {
       try {
         const jobData = await getJob(Number(jobId));
         setJob(jobData);
+        if (jobData.hasApplied) {
+          setIsApplied(true);
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unable to load job details.");
       } finally {
@@ -35,7 +44,7 @@ const JobDetailsPage = () => {
   }, [jobId]);
 
   return (
-    <div className="px-4 pb-28 pt-4 sm:px-6">
+    <div className="px-4 pb-48 pt-4 sm:px-6 relative">
       <div className="mb-6">
         <button
           type="button"
@@ -112,6 +121,181 @@ const JobDetailsPage = () => {
               </div>
             )}
           </section>
+
+          {job.isOwner && job.applications && (
+            <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-slate-950">Applicants ({job.applications.length})</h2>
+              </div>
+
+              {job.applications.length === 0 ? (
+                <div className="text-center py-8 rounded-2xl bg-slate-50 border border-dashed border-slate-200">
+                  <p className="text-sm text-slate-500 font-medium">No applications yet.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {job.applications.map((app: any) => (
+                    <div
+                      key={app.id}
+                      className="flex items-center justify-between p-4 rounded-2xl border border-slate-100 bg-slate-50/50 hover:bg-white hover:shadow-md transition-all group"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="h-12 w-12 rounded-full bg-slate-200 border-2 border-white shadow-sm overflow-hidden flex items-center justify-center shrink-0">
+                          {app.user.avatarUrl ? (
+                            <img src={app.user.avatarUrl} alt={app.user.displayName} className="h-full w-full object-cover" />
+                          ) : (
+                            <User className="h-6 w-6 text-slate-400" />
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
+                            {app.user.displayName || app.user.username}
+                          </p>
+                          <p className="text-xs text-slate-500">@{app.user.username}</p>
+                          {app.user.profession && (
+                            <p className="text-[10px] uppercase tracking-wider font-semibold text-indigo-500 mt-1">
+                              {app.user.profession}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="rounded-xl h-9 px-4 border-slate-200 hover:bg-white hover:text-indigo-600 hover:border-indigo-200 transition-all"
+                          onClick={() => navigate(`/chat`)} // Simple redirect to messages for now
+                        >
+                          <MessageSquare className="h-4 w-4 mr-2" />
+                          Message
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* We will render the success modal as a fixed overlay instead of inline */}
+        </div>
+      )}
+
+      {/* Success Modal Dialogue */}
+      <AnimatePresence>
+        {isApplied && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="bg-white rounded-[2rem] p-8 max-w-sm w-full shadow-2xl flex flex-col items-center text-center relative overflow-hidden"
+            >
+              <div className="absolute top-0 left-0 w-full h-2 bg-indigo-600"></div>
+              <div className="h-20 w-20 bg-indigo-50 rounded-full flex items-center justify-center mb-6 border-8 border-white shadow-sm">
+                <CheckCircle2 className="h-10 w-10 text-indigo-600" />
+              </div>
+              <h2 className="text-2xl font-bold text-slate-900 mb-3">Application Sent!</h2>
+              <p className="text-sm text-slate-600 mb-8 leading-relaxed">
+                Your application has been successfully submitted. We've notified the job poster and started a chat for you.
+              </p>
+              <div className="flex w-full gap-3">
+                <Button
+                  variant="outline"
+                  className="flex-1 rounded-2xl border-slate-200 h-12 font-semibold text-slate-700 hover:bg-slate-50 transition-all"
+                  onClick={() => setIsApplied(false)} // allows them to dismiss the modal and stay on page
+                >
+                  Close
+                </Button>
+                <Button
+                  className="flex-1 rounded-2xl bg-indigo-600 h-12 font-semibold text-white hover:bg-indigo-700 shadow-md shadow-indigo-200 transition-all"
+                  onClick={() => navigate('/chat')}
+                >
+                  View Chat
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {job && !isLoading && !error && !job.isOwner && !isApplied && (
+        <div className="fixed bottom-16 left-0 right-0 z-40 px-4 py-4 bg-white/80 backdrop-blur-xl border-t border-slate-200/50 shadow-[0_-8px_30px_rgb(0,0,0,0.04)] sm:px-6">
+          <div className="mx-auto max-w-2xl">
+            <AnimatePresence mode="wait">
+              {!showConfirmation ? (
+                <motion.div
+                  key="actions"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="flex gap-4"
+                >
+                  <Button
+                    variant="outline"
+                    className="flex-1 rounded-2xl border-slate-200 h-12 text-base font-semibold text-slate-600 hover:bg-slate-50 active:scale-[0.98] transition-all"
+                    onClick={() => navigate(-1)}
+                  >
+                    Close
+                  </Button>
+                  <Button
+                    className="flex-1 rounded-2xl bg-slate-950 h-12 text-base font-semibold text-white hover:bg-slate-800 shadow-lg shadow-slate-200 active:scale-[0.98] transition-all"
+                    onClick={() => setShowConfirmation(true)}
+                  >
+                    Apply
+                  </Button>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="confirmation"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="flex flex-col gap-4"
+                >
+                  <p className="text-center text-sm font-bold text-slate-900">
+                    Are you sure you want to apply?
+                  </p>
+                  <div className="flex gap-3">
+                    <Button
+                      variant="outline"
+                      className="flex-1 rounded-2xl border-slate-200 h-12 text-base font-semibold text-slate-600 hover:bg-slate-50 active:scale-[0.98] transition-all"
+                      onClick={() => setShowConfirmation(false)}
+                    >
+                      Close
+                    </Button>
+                    <Button
+                      disabled={isSubmitting}
+                      className="flex-1 rounded-2xl bg-indigo-600 h-12 text-base font-semibold text-white hover:bg-indigo-700 shadow-lg shadow-indigo-100 active:scale-[0.98] transition-all disabled:opacity-70"
+                      onClick={async () => {
+                        if (!job) return;
+                        setIsSubmitting(true);
+                        try {
+                          await applyJob(job.id);
+                          setIsApplied(true);
+                          toast.success("Application submitted and message sent to poster!");
+                          // Keep isApplied true so it stays in the success state
+                          setShowConfirmation(false);
+                        } catch (err) {
+                          toast.error(err instanceof Error ? err.message : "Failed to submit application");
+                        } finally {
+                          setIsSubmitting(false);
+                        }
+                      }}
+                    >
+                      {isSubmitting ? "Applying..." : "Apply"}
+                    </Button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
       )}
     </div>
