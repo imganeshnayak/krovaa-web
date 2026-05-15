@@ -1,0 +1,63 @@
+{
+  "hero": {
+    "tagline": "Built for freelance teams",
+    "title": "Chat.",
+    "highlightTitle": "Pay.",
+    "subtitle": "Deliver.",
+    "description": "The platform where conversations become contracts — and work actually gets done. Real-time chat, milestone payments, and clear deliverables.",
+    "ctaPrimary": "Start for free",
+    "ctaSecondary": "Sign in",
+    "stats": {
+      "users": "100k+",
+      "usersLabel": "freelancers",
+      "rating": "4.9",
+      "ratingLabel": "avg. rating",
+      "processed": "$120M+",
+      "processedLabel": "processed"
+    }
+  },
+  "features": [
+    {
+      "tag": "Real-Time Chat",
+      "headline": "Every deal starts\nwith a conversation.",
+      "body": "WhatsApp-style messaging with text, images, documents & voice notes — no email chains, no missed context.",
+      "icon": "MessageSquare",
+      "accent": "#00A4EF"
+    },
+    {
+      "tag": "Payment Management",
+      "headline": "Get paid on\nyour terms.",
+      "body": "Milestone-based payment releases give both sides full control. Transparent records for every transaction.",
+      "icon": "IndianRupee",
+      "accent": "#0FB881"
+    },
+    {
+      "tag": "Profile & Sharing",
+      "headline": "Your brand,\none link away.",
+      "body": "Share your professional profile via link or QR code. Let clients come to you — fully set up in minutes.",
+      "icon": "Share2",
+      "accent": "#FF6B35"
+    },
+    {
+      "tag": "Transparent Deals",
+      "headline": "Work that speaks\nfor itself.",
+      "body": "Full audit trail of messages, deliverables, and payments. Both parties always know where things stand.",
+      "icon": "Shield",
+      "accent": "#00A4EF"
+    }
+  ],
+  "cta": {
+    "tag": "Free to start",
+    "title": "Ready to close your next deal?",
+    "description": "Join thousands of freelancers using Krovaa to work faster, communicate clearly, and get paid on time.",
+    "ctaPrimary": "Create Your Account",
+    "ctaSecondary": "Sign In"
+  },
+  "footer": {
+    "tagline": "Chat-first deal management for the modern gig economy.",
+    "email": "support@krovaa.com",
+    "company": ["About Us"],
+    "legal": ["Privacy Policy", "Terms of Service", "Cookie Policy"],
+    "copyright": "2026 Krovaa. All rights reserved."
+  }
+}

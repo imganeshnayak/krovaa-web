@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { ArrowRight, CheckCircle2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import landingContent from '../../content/landing.json';
 
 const statVariants = {
   hidden: { opacity: 0, y: 8 },
@@ -8,6 +9,8 @@ const statVariants = {
 };
 
 export default function HeroLanding() {
+  const { hero } = landingContent;
+
   return (
     <section className="relative overflow-hidden pt-16 pb-24 px-6 md:px-8">
       {/* Background Glow */}
@@ -21,43 +24,43 @@ export default function HeroLanding() {
             <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
               <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold tracking-widest uppercase mb-6 bg-white/10 text-[#00A4EF] border border-white/10 w-fit">
                 <CheckCircle2 className="w-3 h-3" />
-                Built for freelance teams
+                {hero.tagline}
               </div>
 
               <h1 className="text-5xl sm:text-6xl md:text-6xl lg:text-7xl xl:text-8xl font-black tracking-tight leading-[1.1] text-[#0A0E27] mb-8">
-                Chat.
-                <span className="mx-2 bg-clip-text text-transparent bg-gradient-to-r from-[#00A4EF] via-[#0097db] to-[#007BB5]">Pay.</span>
-                Deliver.
+                {hero.title}
+                <span className="mx-2 bg-clip-text text-transparent bg-gradient-to-r from-[#00A4EF] via-[#0097db] to-[#007BB5]">{hero.highlightTitle}</span>
+                {hero.subtitle}
               </h1>
 
-              <p className="text-lg md:text-xl text-slate-600 max-w-xl mb-12 leading-relaxed font-light">The platform where conversations become contracts — and work actually gets done. Real-time chat, milestone payments, and clear deliverables.</p>
+              <p className="text-lg md:text-xl text-slate-600 max-w-xl mb-12 leading-relaxed font-light">{hero.description}</p>
 
               <div className="flex flex-wrap gap-4 mb-12">
                 <Link to="/register">
                   <button className="inline-flex items-center gap-2 bg-[#00A4EF] hover:bg-[#0097db] text-white px-5 py-3 rounded-lg font-semibold shadow-lg transition-transform transform hover:-translate-y-0.5">
-                    Start for free
+                    {hero.ctaPrimary}
                     <ArrowRight className="w-4 h-4" />
                   </button>
                 </Link>
                 <Link to="/login">
-                  <button className="inline-flex items-center gap-2 border border-slate-200 px-4 py-3 rounded-lg text-slate-700 hover:bg-slate-50 transition">Sign in</button>
+                  <button className="inline-flex items-center gap-2 border border-slate-200 px-4 py-3 rounded-lg text-slate-700 hover:bg-slate-50 transition">{hero.ctaSecondary}</button>
                 </Link>
               </div>
 
               <motion.div className="flex flex-wrap gap-6 sm:gap-8 text-sm text-slate-500" initial="hidden" animate="show" transition={{ staggerChildren: 0.08 }}>
                 <motion.div variants={statVariants} className="inline-flex items-center gap-2">
-                  <span className="font-semibold text-slate-800">100k+</span>
-                  <span className="hidden sm:inline">freelancers</span>
+                  <span className="font-semibold text-slate-800">{hero.stats.users}</span>
+                  <span className="hidden sm:inline">{hero.stats.usersLabel}</span>
                   <span className="sm:hidden">users</span>
                 </motion.div>
                 <motion.div variants={statVariants} className="inline-flex items-center gap-2">
-                  <span className="font-semibold text-slate-800">4.9</span>
-                  <span className="hidden sm:inline">avg. rating</span>
+                  <span className="font-semibold text-slate-800">{hero.stats.rating}</span>
+                  <span className="hidden sm:inline">{hero.stats.ratingLabel}</span>
                   <span className="sm:hidden">rating</span>
                 </motion.div>
                 <motion.div variants={statVariants} className="inline-flex items-center gap-2">
-                  <span className="font-semibold text-slate-800">$120M+</span>
-                  <span className="hidden sm:inline">processed</span>
+                  <span className="font-semibold text-slate-800">{hero.stats.processed}</span>
+                  <span className="hidden sm:inline">{hero.stats.processedLabel}</span>
                   <span className="sm:hidden">paid</span>
                 </motion.div>
               </motion.div>

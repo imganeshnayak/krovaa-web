@@ -1,0 +1,91 @@
+{
+  "footer": {
+    "email": "support@krovaa.com"
+  },
+  "privacyPolicy": {
+    "lastUpdated": "March 10, 2026",
+    "sections": [
+      {
+        "title": "Information Collected",
+        "content": "Krovaa may collect information such as name, email address, phone number, account details, device information, and platform activity."
+      },
+      {
+        "title": "Use of Information",
+        "content": "Information may be used to operate the platform, verify accounts, facilitate transactions, improve services, and maintain security."
+      },
+      {
+        "title": "Payment Information",
+        "content": "Payments may be processed through third-party payment providers. Krovaa does not store sensitive payment details such as credit card numbers."
+      },
+      {
+        "title": "Data Protection",
+        "content": "Krovaa implements reasonable security measures to protect user information."
+      },
+      {
+        "title": "Information Sharing",
+        "content": "Krovaa does not sell user data and may share information only with service providers necessary for operating the platform."
+      },
+      {
+        "title": "Cookies",
+        "content": "The platform may use cookies and similar technologies to enhance user experience and analyze usage."
+      },
+      {
+        "title": "Policy Updates",
+        "content": "This Privacy Policy may be updated periodically."
+      },
+      {
+        "title": "Contact",
+        "content": "For privacy inquiries, contact: support@krovaa.com"
+      }
+    ]
+  },
+  "termsAndConditions": {
+    "lastUpdated": "March 10, 2026",
+    "sections": [
+      {
+        "title": "Platform Nature",
+        "content": "Krovaa operates as an online technology platform that enables users to connect, communicate, and transact with one another. Krovaa is not a party to agreements made between users."
+      },
+      {
+        "title": "User Accounts",
+        "content": "Users must provide accurate information when creating an account and are responsible for maintaining the confidentiality of their login credentials."
+      },
+      {
+        "title": "Platform Usage",
+        "content": "Users agree to use the platform only for lawful purposes and must not engage in fraud, abuse, harassment, unauthorized access, or any activity that disrupts the platform."
+      },
+      {
+        "title": "Payments and Wallet",
+        "content": "Krovaa may facilitate payments through its platform and may maintain a wallet or payment system for transactions between users. Users may add funds to their wallet and use them for transactions on the platform."
+      },
+      {
+        "title": "Platform Fees",
+        "content": "Krovaa may charge and deduct a platform service fee or commission from transactions processed through the platform."
+      },
+      {
+        "title": "Withdrawals",
+        "content": "Users may request withdrawal of available wallet balances. Withdrawal requests will be processed within a reasonable timeframe subject to payment provider and banking processes."
+      },
+      {
+        "title": "Service Disclaimer",
+        "content": "Krovaa does not provide, control, or guarantee services or products exchanged between users. Krovaa is not responsible for the quality, legality, delivery, or outcome of transactions between users."
+      },
+      {
+        "title": "Account Suspension",
+        "content": "Krovaa reserves the right to suspend or terminate accounts that violate these Terms or misuse the platform."
+      },
+      {
+        "title": "Limitation of Liability",
+        "content": "Krovaa shall not be liable for disputes, losses, damages, or claims arising from user interactions or transactions conducted through the platform."
+      },
+      {
+        "title": "Changes to Terms",
+        "content": "Krovaa may update these Terms at any time. Continued use of the platform constitutes acceptance of any updates."
+      },
+      {
+        "title": "Contact",
+        "content": "For questions regarding these Terms, contact: support@krovaa.com"
+      }
+    ]
+  }
+}

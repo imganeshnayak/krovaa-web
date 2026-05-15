@@ -15,38 +15,22 @@ import FeatureCard from "@/components/FeatureCard";
 import Timeline from "@/components/Timeline";
 import Navbar from "@/components/Navbar";
 import FeaturesCarousel from "@/components/FeaturesCarousel";
+import landingContent from "../../content/landing.json";
 
-/* ─── Data ─── */
-const slides = [
-  {
-    tag: "Real-Time Chat",
-    headline: "Every deal starts\nwith a conversation.",
-    body: "WhatsApp-style messaging with text, images, documents & voice notes — no email chains, no missed context.",
-    icon: MessageSquare,
-    accent: "#00A4EF",
-  },
-  {
-    tag: "Payment Management",
-    headline: "Get paid on\nyour terms.",
-    body: "Milestone-based payment releases give both sides full control. Transparent records for every transaction.",
-    icon: IndianRupee,
-    accent: "#0FB881",
-  },
-  {
-    tag: "Profile & Sharing",
-    headline: "Your brand,\none link away.",
-    body: "Share your professional profile via link or QR code. Let clients come to you — fully set up in minutes.",
-    icon: Share2,
-    accent: "#FF6B35",
-  },
-  {
-    tag: "Transparent Deals",
-    headline: "Work that speaks\nfor itself.",
-    body: "Full audit trail of messages, deliverables, and payments. Both parties always know where things stand.",
-    icon: Shield,
-    accent: "#00A4EF",
-  },
-];
+const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+  MessageSquare,
+  Shield,
+  Share2,
+  IndianRupee,
+};
+
+const slides = landingContent.features.map((f) => ({
+  tag: f.tag,
+  headline: f.headline,
+  body: f.body,
+  icon: iconMap[f.icon] || MessageSquare,
+  accent: f.accent,
+}));
 
 /* ─── Component ─── */
 const Landing = () => {
@@ -59,6 +43,7 @@ const Landing = () => {
 
   useEffect(() => {
     if (!isLoading && user) {
+      // eslint-disable-next-line @typescript-eslint/no-unused-expressions
       user.role === "admin" ? navigate("/admin") : navigate("/chat");
     }
   }, [user, isLoading, navigate]);
@@ -166,14 +151,14 @@ const Landing = () => {
               color: "#FFFFFF"
             }} className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold tracking-widest uppercase mb-8">
               <Zap className="h-3 w-3 fill-current" />
-              Free to start
+              {landingContent.cta.tag}
             </div>
 
             <h2 style={{ fontFamily: "'Inter', sans-serif" }} className="text-3xl md:text-5xl font-extrabold mb-5 tracking-tight text-white">
-              Ready to close your next deal?
+              {landingContent.cta.title}
             </h2>
             <p className="text-white/80 mb-10 text-base max-w-md mx-auto leading-relaxed font-light">
-              Join thousands of freelancers using Krovaa to work faster, communicate clearly, and get paid on time.
+              {landingContent.cta.description}
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -187,7 +172,7 @@ const Landing = () => {
                   }}
                   className="h-12 px-10 text-base font-semibold transition-all hover:scale-[1.03]"
                 >
-                  Create Your Account
+                  {landingContent.cta.ctaPrimary}
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </Link>
@@ -197,7 +182,7 @@ const Landing = () => {
                   variant="outline"
                   className="h-12 px-8 text-base border-white text-white hover:bg-white/10 transition-all bg-transparent"
                 >
-                  Sign In
+                  {landingContent.cta.ctaSecondary}
                 </Button>
               </Link>
             </div>
@@ -217,7 +202,7 @@ const Landing = () => {
                   <Logo size="md" theme="dark" />
                 </Link>
                 <p className="text-xs text-[#1C1C1C70] leading-relaxed font-light mb-4 max-w-sm">
-                  Chat-first deal management for the modern gig economy.
+                  {landingContent.footer.tagline}
                 </p>
                 {/* Social Links */}
                 <div className="flex gap-2">
@@ -248,9 +233,16 @@ const Landing = () => {
               <div className="col-span-1 md:col-span-4 md:pl-4">
                 <h3 className="text-xs font-bold text-[#0A0E27] mb-3 uppercase tracking-widest">Legal</h3>
                 <ul className="space-y-2 text-xs text-[#1C1C1C70]">
-                  <li><Link to="/privacy" className="hover:text-[#00A4EF] transition-colors font-medium">Privacy Policy</Link></li>
-                  <li><Link to="/terms" className="hover:text-[#00A4EF] transition-colors font-medium">Terms of Service</Link></li>
-                  <li><Link to="/cookie-policy" className="hover:text-[#00A4EF] transition-colors font-medium">Cookie Policy</Link></li>
+                  {landingContent.footer.legal.map((link) => (
+                    <li key={link}>
+                      <Link 
+                        to={link === "Privacy Policy" ? "/privacy" : link === "Terms of Service" ? "/terms" : "/cookie-policy"} 
+                        className="hover:text-[#00A4EF] transition-colors font-medium"
+                      >
+                        {link}
+                      </Link>
+                    </li>
+                  ))}
                 </ul>
               </div>
             </div>
@@ -260,7 +252,7 @@ const Landing = () => {
 
             {/* Footer Bottom */}
             <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-[#1C1C1C50]">
-              <p className="font-medium">© 2026 Krovaa. All rights reserved.</p>
+              <p className="font-medium">© {landingContent.footer.copyright}</p>
               <button
                 onClick={() => { localStorage.removeItem("cookie_consent"); window.location.reload(); }}
                 className="hover:text-[#00A4EF] transition-colors font-medium"
