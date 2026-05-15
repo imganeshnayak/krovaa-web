@@ -8,56 +8,32 @@ datasource db {
 }
 
 model User {
-  id                   Int                   @id @default(autoincrement())
-  username             String                @unique
-  email                String                @unique
-  shareId              String                @unique @map("share_id")
-  password             String
-  displayName          String?               @map("display_name")
-  bio                  String?
-  avatarUrl            String?               @map("avatar_url")
-  coverPhotoUrl        String?               @map("cover_photo_url")
-  role                 String                @default("client")
-  status               String                @default("active")
-  telegramId           String?               @map("telegram_id")
-  createdAt            DateTime              @default(now()) @map("created_at")
-  updatedAt            DateTime              @updatedAt @map("updated_at")
-  socialLinks          Json?                 @default("[]") @map("social_links")
-  permissions          Json?                 @default("[]")
-  profession           String?
-  verified             Boolean               @default(false)
-  walletBalance        Float                 @default(0) @map("wallet_balance")
-  razorpayContactId    String?               @map("razorpay_contact_id")
-  phoneNumber          String?               @map("phone_number")
-  city                 String?
-  pincode              String?
-  gender               String?
-  age                  Int?
-  userGoal             String?               @map("user_goal")
-  skills               Json?                 @default("[]")
-  activities           ActivityLog[]
-  blockedBy            BlockedUser[]         @relation("BlockedByUser")
-  blockedUsers         BlockedUser[]         @relation("BlockingUser")
-  clientDeals          EscrowDeal[]          @relation("ClientDeals")
-  vendorDeals          EscrowDeal[]          @relation("VendorDeals")
-  receivedMessages     Message[]             @relation("ReceivedMessages")
-  sentMessages         Message[]             @relation("SentMessages")
-  notificationReads    NotificationRead[]
-  sentNotifications    Notification[]        @relation("SentNotifications")
-  targetNotifications  Notification[]        @relation("TargetNotifications")
-  payoutRequests       PayoutRequest[]
-  ratingsReceived      Rating[]              @relation("RatingsReceived")
-  ratingsGiven         Rating[]              @relation("RatingsGiven")
-  reportsReceived      Report[]              @relation("ReportsReceived")
-  reportsCreated       Report[]              @relation("ReportsCreated")
-  verificationRequests VerificationRequest[]
-  walletTransactions   WalletTransaction[]
-  adClicks             AdClick[]
-  adsCreated           Ad[]
-  postedJobs           Job[]
-  posts                Post[]
-  postLikes            Post_Like[]
-  postComments         Post_Comment[]
+  id                Int      @id @default(autoincrement())
+  username          String   @unique
+  email             String   @unique
+  password          String
+  displayName       String?  @map("display_name")
+  bio               String?
+  avatarUrl         String?  @map("avatar_url")
+  coverPhotoUrl     String?  @map("cover_photo_url")
+  role              String   @default("client")
+  status            String   @default("active")
+  telegramId        String?  @map("telegram_id")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+  socialLinks       Json?    @default("[]") @map("social_links")
+  permissions       Json?    @default("[]")
+  profession        String?
+  verified          Boolean  @default(false)
+  walletBalance     Float    @default(0) @map("wallet_balance")
+  razorpayContactId String?  @map("razorpay_contact_id")
+  phoneNumber       String?  @map("phone_number")
+  city              String?
+  pincode           String?
+  gender            String?
+  age               Int?
+  userGoal          String?  @map("user_goal")
+  skills            Json?    @default("[]")
 
   @@map("users")
 }
@@ -79,8 +55,6 @@ model Message {
   color             String?
   deletedBySender   Boolean  @default(false) @map("deleted_by_sender")
   deletedByReceiver Boolean  @default(false) @map("deleted_by_receiver")
-  receiver          User     @relation("ReceivedMessages", fields: [receiverId], references: [id])
-  sender            User     @relation("SentMessages", fields: [senderId], references: [id])
 
   @@map("messages")
 }
@@ -92,8 +66,6 @@ model Rating {
   rating     Int
   comment    String?
   createdAt  DateTime @default(now()) @map("created_at")
-  reviewed   User     @relation("RatingsReceived", fields: [reviewedId], references: [id])
-  reviewer   User     @relation("RatingsGiven", fields: [reviewerId], references: [id])
 
   @@unique([reviewerId, reviewedId])
   @@map("ratings")
@@ -106,8 +78,6 @@ model Report {
   reason     String
   status     String   @default("pending")
   createdAt  DateTime @default(now()) @map("created_at")
-  reported   User     @relation("ReportsReceived", fields: [reportedId], references: [id])
-  reporter   User     @relation("ReportsCreated", fields: [reporterId], references: [id])
 
   @@map("reports")
 }
@@ -117,8 +87,6 @@ model BlockedUser {
   blockerId Int      @map("blocker_id")
   blockedId Int      @map("blocked_id")
   createdAt DateTime @default(now()) @map("created_at")
-  blocked   User     @relation("BlockedByUser", fields: [blockedId], references: [id])
-  blocker   User     @relation("BlockingUser", fields: [blockerId], references: [id])
 
   @@unique([blockerId, blockedId])
   @@map("blocked_users")
@@ -131,7 +99,6 @@ model ActivityLog {
   details   String?
   status    String   @default("active")
   createdAt DateTime @default(now()) @map("created_at")
-  user      User     @relation(fields: [userId], references: [id])
 
   @@map("activity_log")
 }
@@ -153,8 +120,6 @@ model EscrowDeal {
   razorpayOrderId   String?             @map("razorpay_order_id")
   razorpayPaymentId String?             @map("razorpay_payment_id")
   terms             String?
-  client            User                @relation("ClientDeals", fields: [clientId], references: [id])
-  vendor            User                @relation("VendorDeals", fields: [vendorId], references: [id])
   transactions      EscrowTransaction[]
 
   @@map("escrow_deals")
@@ -184,7 +149,6 @@ model VerificationRequest {
   paymentStatus     String    @default("pending") @map("payment_status")
   razorpayOrderId   String?   @map("razorpay_order_id")
   razorpayPaymentId String?   @map("razorpay_payment_id")
-  user              User      @relation(fields: [userId], references: [id])
 
   @@map("verification_requests")
 }
@@ -215,7 +179,6 @@ model WalletTransaction {
   description String
   createdAt   DateTime @default(now()) @map("created_at")
   metadata    Json?
-  user        User     @relation(fields: [userId], references: [id])
 
   @@map("wallet_transactions")
 }
@@ -238,7 +201,6 @@ model PayoutRequest {
   upiVpa                String?   @map("upi_vpa")
   phoneNumber           String?   @map("phone_number")
   email                 String?
-  user                  User      @relation(fields: [userId], references: [id])
 
   @@map("payout_requests")
 }
@@ -254,8 +216,6 @@ model Notification {
   color        String?
   metadata     Json?
   reads        NotificationRead[]
-  admin        User?              @relation("SentNotifications", fields: [sentBy], references: [id])
-  targetUser   User?              @relation("TargetNotifications", fields: [targetUserId], references: [id])
 
   @@map("notifications")
 }
@@ -267,7 +227,6 @@ model NotificationRead {
   readAt         DateTime     @default(now()) @map("read_at")
   isDeleted      Boolean      @default(false) @map("is_deleted")
   notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
-  user           User         @relation(fields: [userId], references: [id])
 
   @@unique([notificationId, userId])
   @@map("notification_reads")
@@ -300,14 +259,13 @@ model Ad {
   videoUrl          String?   @map("video_url")
   externalUrl       String?   @map("external_url")
   ctaText           String?   @map("cta_text")
-  type              String    @default("text") // text | image | video
+  type              String    @default("text")
   targetProfessions Json?     @default("[]") @map("target_professions")
-  status            String    @default("active") // active | paused
+  status            String    @default("active")
   impressions       Int       @default(0)
   sentBy            Int?      @map("sent_by")
   createdAt         DateTime  @default(now()) @map("created_at")
   updatedAt         DateTime  @updatedAt @map("updated_at")
-  admin             User?     @relation(fields: [sentBy], references: [id])
   clicks            AdClick[]
 
   @@map("ads")
@@ -319,7 +277,6 @@ model AdClick {
   userId    Int?     @map("user_id")
   clickedAt DateTime @default(now()) @map("clicked_at")
   ad        Ad       @relation(fields: [adId], references: [id], onDelete: Cascade)
-  user      User?    @relation(fields: [userId], references: [id])
 
   @@map("ad_clicks")
 }
@@ -334,7 +291,6 @@ model Job {
   description String
   postedById  Int      @map("posted_by_id")
   createdAt   DateTime @default(now()) @map("created_at")
-  postedBy    User     @relation(fields: [postedById], references: [id])
 
   @@map("jobs")
 }

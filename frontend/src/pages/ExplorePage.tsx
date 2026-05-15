@@ -5,6 +5,30 @@ import { getJobs, Job } from "../lib/api";
 
 const PAGE_SIZE = 6;
 
+const formatPostedAgo = (createdAt: string) => {
+  const createdDate = new Date(createdAt);
+  const diffMinutes = Math.round((Date.now() - createdDate.getTime()) / 60000);
+
+  if (diffMinutes < 60) {
+    return `${diffMinutes}m ago`;
+  }
+
+  const diffHours = Math.round(diffMinutes / 60);
+  if (diffHours < 24) {
+    return `${diffHours}h ago`;
+  }
+
+  const diffDays = Math.round(diffHours / 24);
+  if (diffDays < 7) {
+    return `${diffDays}d ago`;
+  }
+
+  return createdDate.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+};
+
 const ExplorePage = () => {
   const navigate = useNavigate();
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -97,30 +121,40 @@ const ExplorePage = () => {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {visibleJobs.map((job) => (
-            <article key={job.id} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="flex flex-col gap-4 sm:gap-3">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
+            <article key={job.id} className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:border-slate-300 hover:shadow-md">
+              <div className="flex h-full flex-col gap-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{job.company}</p>
-                    <h2 className="mt-2 text-lg font-semibold text-slate-950">{job.title}</h2>
+                    <h2 className="mt-2 text-xl font-semibold text-slate-950">{job.title}</h2>
+                    <p className="mt-3 text-sm leading-6 text-slate-600">{job.description}</p>
                   </div>
-                  <div className="flex flex-wrap gap-2 text-xs font-semibold">
-                    <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-700">{job.location}</span>
-                    <span className="rounded-full bg-[#E8F4FF] px-3 py-1 text-[#0066CC]">{job.mode}</span>
+                  <span className="whitespace-nowrap rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-700">
+                    {formatPostedAgo(job.createdAt)}
+                  </span>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">{job.location}</span>
+                    <span className="rounded-full bg-[#E8F4FF] px-3 py-1 text-xs font-semibold text-[#0066CC]">{job.mode}</span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">INR</span>
+                    <span className="rounded-full bg-[#FEF3C7] px-3 py-1 text-xs font-semibold text-[#B45309]">{job.budget}</span>
                   </div>
                 </div>
-                <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
-                  <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-700">INR</span>
-                  <span className="rounded-full bg-[#FEF3C7] px-3 py-1 text-[#B45309]">{job.budget}</span>
+
+                <div className="mt-auto flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/jobs/${job.id}`)}
+                    className="inline-flex items-center justify-center rounded-full bg-[#00A4EF] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#0087d1]"
+                  >
+                    View Details
+                  </button>
+                  <p className="text-xs text-slate-500">Clean job summary for quick review</p>
                 </div>
-                <p className="text-sm leading-7 text-slate-600">{job.description}</p>
-                <button
-                  type="button"
-                  onClick={() => navigate(`/jobs/${job.id}`)}
-                  className="mt-4 inline-flex items-center justify-center rounded-full bg-[#00A4EF] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#0087d1]"
-                >
-                  View Details
-                </button>
               </div>
             </article>
           ))}
