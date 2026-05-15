@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
-  getUser, getUserByUsername, updateUserProfile, uploadAvatar,
+  getUser, getUserByUsername, getUserByShareId, updateUserProfile, uploadAvatar,
   rateUser, AuthUser, applyForVerification, getVerificationStatus,
   getVerificationFee, VerificationRequest, getRatingEligibility, uploadCoverPhoto,
   deleteAvatar, deleteCoverPhoto
@@ -34,6 +34,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import Logo from "@/components/Logo";
+import { getUserPosts, Post } from "@/lib/api";
+import PostCreate from "@/components/posts/PostCreate";
+import PostGrid from "@/components/posts/PostGrid";
 
 
 
@@ -123,7 +126,7 @@ const Stars = ({ value, max = 5, size = "h-4 w-4", interactive = false, onChange
 );
 
 const ProfilePage = () => {
-  const { username } = useParams();
+  const { username, shareId } = useParams();
   const { user: currentUser, isLoading: authLoading, logout, refreshUser } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -157,17 +160,16 @@ const ProfilePage = () => {
   const [isUploadingCoverPhoto, setIsUploadingCoverPhoto] = useState(false);
   const [localAvatarOverride, setLocalAvatarOverride] = useState<string | null>(null);
   const [localCoverOverride, setLocalCoverOverride] = useState<string | null>(null);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [isLoadingPosts, setIsLoadingPosts] = useState(false);
 
   // Helper to get image URL with cache busting, unless it's a blob preview
-  // Helper to get image URL with cache busting, unless it's a blob preview
   const getImageUrl = (url?: string, type: 'avatar' | 'cover' = 'avatar') => {
-    // Priority: Local override (blob or server-confirmed URL) > user object URL
     const effectiveUrl = (type === 'avatar' ? localAvatarOverride : localCoverOverride) || url;
     
     if (!effectiveUrl) return "";
     if (effectiveUrl.startsWith('blob:') || effectiveUrl.startsWith('data:')) return effectiveUrl;
     
-    // If it's a relative path, prepend API_URL (using standard http/https check)
     let finalUrl = effectiveUrl;
     if (!effectiveUrl.startsWith('http')) {
       const baseApiUrl = (import.meta.env.VITE_API_URL || "http://localhost:5000").replace(/\/$/, "");
@@ -180,10 +182,21 @@ const ProfilePage = () => {
   const loadUser = async () => {
     setIsLoading(true);
     try {
-      if (username) {
+      if (shareId) {
+        const userData = await getUserByShareId(shareId);
+        setUser(userData);
+        if (userData.avatarUrl) setLocalAvatarOverride(null);
+        if (userData.coverPhotoUrl) setLocalCoverOverride(null);
+        if (currentUser?.id && userData.id !== currentUser.id) {
+          try {
+            const eligibility = await getRatingEligibility(userData.id);
+            setCanRateUser(eligibility.canRate);
+            setRatingEligibilityReason(eligibility.reason || "");
+          } catch { setCanRateUser(false); }
+        }
+      } else if (username) {
         const userData = await getUserByUsername(username);
         setUser(userData);
-        // Clear overrides if server now has the data
         if (userData.avatarUrl) setLocalAvatarOverride(null);
         if (userData.coverPhotoUrl) setLocalCoverOverride(null);
         if (currentUser?.id && userData.id !== currentUser.id) {
@@ -196,7 +209,6 @@ const ProfilePage = () => {
       } else if (currentUser?.id) {
         const userData = await getUser(currentUser.id);
         setUser(userData);
-        // Clear overrides if server now has the data
         if (userData.avatarUrl) setLocalAvatarOverride(null);
         if (userData.coverPhotoUrl) setLocalCoverOverride(null);
         setEditForm({
@@ -214,7 +226,6 @@ const ProfilePage = () => {
           userGoal: userData.userGoal || ""
         });
 
-        // Try to match current profession to a category
         const currentProf = userData.profession;
         if (currentProf) {
           if (currentProf === "None") setSelectedCategory("none");
@@ -236,7 +247,6 @@ const ProfilePage = () => {
           }
         }
       } else {
-        // Not logged in and no username in URL — shouldn't happen but handle gracefully
         setError("Please log in to view your profile.");
       }
     } catch (err) {
@@ -252,9 +262,26 @@ const ProfilePage = () => {
     } catch { }
   };
 
+  const loadPosts = async () => {
+    if (!user) return;
+    setIsLoadingPosts(true);
+    try {
+      const userPosts = await getUserPosts(user.id);
+      setPosts(userPosts);
+    } catch { } finally {
+      setIsLoadingPosts(false);
+    }
+  };
+
+  const handlePostCreated = (post: Post) => {
+    setPosts([post, ...posts]);
+  };
+
+  const handlePostDeleted = (postId: number) => {
+    setPosts(posts.filter(p => p.id !== postId));
+  };
+
   useEffect(() => {
-    // For public profiles (username param set), load immediately without waiting for auth
-    // For own profile view (/profile), wait for auth to know who is logged in
     if (username) {
       loadUser();
     } else if (!authLoading) {
@@ -266,10 +293,10 @@ const ProfilePage = () => {
   useEffect(() => {
     if (user) {
       document.title = `${user.displayName || user.username} · Krovaa`;
+      loadPosts();
     }
   }, [user]);
 
-  // Don't wait for authLoading if we have a username (public profile — auth is optional)
   if (authLoading && !username) return <LoadingScreen />;
   if (isLoading && !user) return <LoadingScreen />;
   if (!user || error) {
@@ -281,7 +308,7 @@ const ProfilePage = () => {
   }
 
   const isOwnProfile = !!currentUser && user.id === currentUser.id;
-  const profileLink = `${window.location.origin}/${user.username}`;
+  const profileLink = `${window.location.origin}/s/${user.shareId || user.username}`;
 
   const handleShare = async () => {
     const shareData = {
@@ -336,7 +363,6 @@ const ProfilePage = () => {
       });
       setUser(updated);
       setIsEditing(false);
-      // Refresh global auth context to update other UI parts like navbars
       await refreshUser();
       toast({ title: "Saved!", description: "Your profile has been updated." });
     } catch (err) {
@@ -359,48 +385,37 @@ const ProfilePage = () => {
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    console.log('Avatar upload started', { file: file?.name, size: file?.size, type: file?.type });
     if (!file || !user) return;
     if (file.size > 5 * 1024 * 1024) { toast({ title: "File too large", variant: "destructive" }); return; }
     
     setIsUploadingAvatar(true);
     try {
-      // Create immediate preview using functional override
       const blobUrl = URL.createObjectURL(file);
       setLocalAvatarOverride(blobUrl);
       setImageVersion(Date.now());
       
-      // Upload to server
       const response = await uploadAvatar(file);
       const { avatarUrl } = response;
       
-      // Confirm the server URL locally
       setLocalAvatarOverride(avatarUrl);
       setImageVersion(Date.now());
       
       setUser((prevUser) => prevUser ? { ...prevUser, avatarUrl } : prevUser);
       
-      // Update global user state
       await refreshUser();
-      console.log('User refreshed from context');
       
       toast({ title: "Avatar updated!" });
-      // Clear the input so the same file can be uploaded again
       if (avatarInputRef.current) {
         avatarInputRef.current.value = '';
       }
     } catch (err) {
-      console.error('Avatar upload error:', err);
       toast({ title: "Upload failed", description: err instanceof Error ? err.message : "Failed to upload avatar", variant: "destructive" });
-      // Re-fetch user data to restore correct avatar on error
       try {
         const freshUser = await getUser(user.id);
-        console.log('Fetched fresh user after error:', freshUser);
         setUser(freshUser);
       } catch (e) {
         console.error('Failed to restore user state:', e);
       }
-      // Clear input on error too
       if (avatarInputRef.current) {
         avatarInputRef.current.value = '';
       }
@@ -411,48 +426,37 @@ const ProfilePage = () => {
 
   const handleCoverPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    console.log('Cover photo upload started', { file: file?.name, size: file?.size, type: file?.type });
     if (!file || !user) return;
     if (file.size > 5 * 1024 * 1024) { toast({ title: "File too large", variant: "destructive" }); return; }
     
     setIsUploadingCoverPhoto(true);
     try {
-      // Create immediate preview
       const blobUrl = URL.createObjectURL(file);
       setLocalCoverOverride(blobUrl);
       setImageVersion(Date.now());
       
-      // Upload to server
       const response = await uploadCoverPhoto(file);
       const { coverPhotoUrl } = response;
       
-      // Confirm server URL
       setLocalCoverOverride(coverPhotoUrl);
       setImageVersion(Date.now());
       
       setUser((prevUser) => prevUser ? { ...prevUser, coverPhotoUrl } : prevUser);
       
-      // Update global user state
       await refreshUser();
-      console.log('User refreshed from context');
       
       toast({ title: "Cover updated!" });
-      // Clear the input so the same file can be uploaded again
       if (coverPhotoInputRef.current) {
         coverPhotoInputRef.current.value = '';
       }
     } catch (err) {
-      console.error('Cover photo upload error:', err);
       toast({ title: "Upload failed", description: err instanceof Error ? err.message : "Failed to upload cover", variant: "destructive" });
-      // Re-fetch user data to restore correct cover on error
       try {
         const freshUser = await getUser(user.id);
-        console.log('Fetched fresh user after error:', freshUser);
         setUser(freshUser);
       } catch (e) {
         console.error('Failed to restore user state:', e);
       }
-      // Clear input on error too
       if (coverPhotoInputRef.current) {
         coverPhotoInputRef.current.value = '';
       }
@@ -504,8 +508,6 @@ const ProfilePage = () => {
 
   const initials = user.displayName ? user.displayName.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2) : "?";
 
-  console.log('Rendering for:', user.username, 'Auth ID:', currentUser?.id, 'Display User ID:', user.id, 'Avatar:', user.avatarUrl, 'Override:', localAvatarOverride);
-
   const currentAvatarUrl = localAvatarOverride || user.avatarUrl;
   const currentCoverUrl = localCoverOverride || user.coverPhotoUrl;
 
@@ -547,8 +549,8 @@ const ProfilePage = () => {
       </div>
 
       <div className="max-w-2xl mx-auto px-4 pb-24 relative z-10">
-        {/* ── Cover ── */}
-        <div className="relative h-44 rounded-b-lg overflow-hidden -mx-4 group/cover">
+        {/* ── Cover Photo ── */}
+        <div className="relative h-44 rounded-b-xl overflow-hidden -mx-4 group/cover">
           {currentCoverUrl ? (
             <>
               <img 
@@ -569,13 +571,13 @@ const ProfilePage = () => {
             </div>
           )}
           {isUploadingCoverPhoto && (
-            <div className="absolute inset-0 bg-black/30 rounded-b-lg flex items-center justify-center backdrop-blur-sm">
+            <div className="absolute inset-0 bg-black/30 rounded-b-xl flex items-center justify-center backdrop-blur-sm">
               <Loader2 className="h-8 w-8 text-white animate-spin" />
             </div>
           )}
         </div>
 
-        {/* Secondary Actions — More (Now only for owner) */}
+        {/* ── Cover Actions Dropdown (Owner Only) ── */}
         {isOwnProfile && (
           <div className="relative h-0 w-full z-30">
             <div className="absolute -top-12 right-4">
@@ -585,7 +587,7 @@ const ProfilePage = () => {
                     <MoreHorizontal className="h-4.5 w-4.5" />
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="bg-white border-[#E0E0E0] text-[#1C1C1C] min-w-[180px] p-1.5 shadow-2xl">
+                <DropdownMenuContent align="end" className="bg-white border-[#E0E0E0] text-[#1C1C1C] min-w-[180px] p-1.5 shadow-2xl rounded-lg">
                   <DropdownMenuItem onClick={() => setIsEditing(true)} className="cursor-pointer py-2.5 rounded-lg focus:bg-[#F5F5F5]">
                     <Edit2 className="h-3.5 w-3.5 mr-2.5 text-[#00A4EF]" /> 
                     <span className="text-xs font-semibold">Edit Details</span>
@@ -617,10 +619,10 @@ const ProfilePage = () => {
           </div>
         )}
 
-        {/* ── Avatar + header ── */}
-        <div className="relative z-20 px-6 -mt-16 sm:-mt-20 flex flex-col items-center text-center">
-          {/* Centered Square Avatar */}
-          <div className="relative group/avatar mb-6">
+        {/* ── Profile Header Section ── */}
+        <div className="relative z-20 px-6 -mt-16 sm:-mt-20 flex flex-col items-center text-center mb-12">
+          {/* Avatar */}
+          <div className="relative group/avatar mb-8">
             <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-white p-1 shadow-2xl overflow-hidden border-4 border-[#F5F5F5] relative">
               {currentAvatarUrl ? (
                 <img 
@@ -650,7 +652,7 @@ const ProfilePage = () => {
                       <Camera className="h-4 w-4" />
                     </button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="center" className="bg-white border-[#E0E0E0] text-[#1C1C1C] min-w-[140px]">
+                  <DropdownMenuContent align="center" className="bg-white border-[#E0E0E0] text-[#1C1C1C] min-w-[140px] rounded-lg">
                     <DropdownMenuItem 
                       onClick={() => avatarInputRef.current?.click()} 
                       className="focus:bg-[#F5F5F5] cursor-pointer py-2" 
@@ -674,19 +676,16 @@ const ProfilePage = () => {
             )}
           </div>
 
-          {/* Centered Info Container */}
-          <div className="flex flex-col items-center gap-4 mb-10 w-full">
-            {/* Username */}
+          {/* User Info */}
+          <div className="flex flex-col items-center gap-3 mb-8 w-full">
             <span className="text-sm font-bold text-[#1C1C1C]/60 tracking-tight">@{user.username}</span>
             
-            {/* Profession Badge */}
             {user.profession && user.profession !== 'None' && (
               <div className="px-3 py-1.5 rounded-full bg-[#00A4EF]/10 border border-[#00A4EF]/20 text-[9px] font-bold text-[#00A4EF] uppercase tracking-[0.2em] flex items-center gap-2">
                 <Briefcase className="h-3 w-3" /> {user.profession}
               </div>
             )}
             
-            {/* Status & Location Row */}
             <div className="flex items-center justify-center gap-5 text-[10px] font-bold uppercase tracking-[0.15em] text-[#1C1C1C]/40">
               <div className="flex items-center gap-2">
                 <span className={`w-1.5 h-1.5 rounded-full ${user.status === "active" ? "bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.5)]" : "bg-black/10"}`} />
@@ -701,7 +700,7 @@ const ProfilePage = () => {
             </div>
           </div>
 
-          {/* Bio Section - Centered Clean Typography */}
+          {/* Bio */}
           {!isEditing && user.bio && (
             <div className="mb-10 max-w-lg">
               <p className="text-sm text-[#1C1C1C]/60 leading-relaxed font-medium italic">
@@ -711,37 +710,47 @@ const ProfilePage = () => {
           )}
         </div>
 
-        {/* ── Social Chips & Main Actions ── */}
+        {/* ── Main Content Section ── */}
         {!isEditing && (
-          <div className="px-6 space-y-8 mb-12">
-            {/* Social Media Chips - Perfectly Centered Grid-like row */}
+          <div className="space-y-8 mb-12">
+            {/* Social Links */}
             {user.socialLinks && user.socialLinks.length > 0 && (
-              <div className="flex flex-wrap justify-center gap-3">
-                {user.socialLinks.map((link: any, i: number) => (
-                  <a
-                    key={i}
-                    href={link.url.startsWith("http") ? link.url : `https://${link.url}`}
-                    target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-2.5 px-4 py-2.5 rounded-lg bg-white border border-[#E0E0E0] hover:bg-[#F5F5F5] transition-all active:scale-95 group min-w-[120px] justify-center"
-                  >
-                    <SocialIcon platform={link.platform} className="h-4 w-4 text-[#1C1C1C]/40 group-hover:text-[#00A4EF] transition-colors" />
-                    <span className="text-[11px] font-bold text-[#1C1C1C]/60 group-hover:text-[#1C1C1C] transition-colors capitalize tracking-wide">
-                      {link.platform}
-                    </span>
-                  </a>
-                ))}
+              <div className="px-6 space-y-3">
+                <label className="block text-[9px] font-bold tracking-[0.2em] uppercase text-[#1C1C1C]/40">Connect</label>
+                <div className="flex flex-wrap justify-center gap-3">
+                  {user.socialLinks.map((link: any, i: number) => (
+                    <a
+                      key={i}
+                      href={link.url.startsWith("http") ? link.url : `https://${link.url}`}
+                      target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-2.5 px-4 py-2.5 rounded-lg bg-white border border-[#E0E0E0] hover:bg-[#F5F5F5] hover:border-[#00A4EF]/30 transition-all active:scale-95 group"
+                    >
+                      <SocialIcon platform={link.platform} className="h-4 w-4 text-[#1C1C1C]/40 group-hover:text-[#00A4EF] transition-colors" />
+                      <span className="text-[11px] font-bold text-[#1C1C1C]/60 group-hover:text-[#1C1C1C] transition-colors capitalize tracking-wide">
+                        {link.platform}
+                      </span>
+                    </a>
+                  ))}
+                </div>
               </div>
             )}
 
-            {/* Main Primary Actions */}
-            <div className="space-y-3.5 w-full">
+            {/* Action Buttons */}
+            <div className="px-6 space-y-3">
               {isOwnProfile ? (
-                <button
-                  onClick={() => setIsEditing(true)}
-                  className="w-full h-14 bg-[#00A4EF] text-white font-bold rounded-lg hover:bg-[#007BB5] transition-all flex items-center justify-center gap-2 shadow-2xl shadow-[#00A4EF]/20 active:scale-[0.98]"
-                >
-                  <Edit2 className="h-4 w-4" /> Edit Profile
-                </button>
+                <>
+                  <button
+                    onClick={() => setIsEditing(true)}
+                    className="w-full h-14 bg-[#00A4EF] text-white font-bold rounded-lg hover:bg-[#007BB5] transition-all flex items-center justify-center gap-2 shadow-2xl shadow-[#00A4EF]/20 active:scale-[0.98]"
+                  >
+                    <Edit2 className="h-4 w-4" /> Edit Profile
+                  </button>
+                  <Link to="/posts" className="w-full block">
+                    <button className="w-full h-14 bg-white border-2 border-[#00A4EF] text-[#00A4EF] font-bold rounded-lg hover:bg-[#00A4EF]/5 transition-all flex items-center justify-center gap-2 active:scale-[0.98]">
+                      <Plus className="h-4 w-4" /> Manage Posts
+                    </button>
+                  </Link>
+                </>
               ) : currentUser ? (
                 <Link to={`/chat?userId=${user.id}`} className="w-full block">
                   <button className="w-full h-14 bg-[#00A4EF] text-white font-bold rounded-lg hover:bg-[#007BB5] transition-all flex items-center justify-center gap-2 shadow-2xl shadow-[#00A4EF]/20 active:scale-[0.98]">
@@ -757,11 +766,11 @@ const ProfilePage = () => {
               )}
             </div>
 
-            {/* Skills Section - Centered Minimal badges */}
-            {!isEditing && (user.profession || (user.skills && user.skills.length > 0)) && (
-              <div className="space-y-4 pt-6 border-t border-[#E0E0E0] text-center">
+            {/* Skills Section */}
+            {(user.profession || (user.skills && user.skills.length > 0)) && (
+              <div className="px-6 space-y-4 pt-6 border-t border-[#E0E0E0]">
                 <label className="block text-[10px] font-bold tracking-[0.2em] uppercase text-[#1C1C1C]/40">Expertise & Skills</label>
-                <div className="flex flex-wrap justify-center gap-2 max-w-2xl mx-auto">
+                <div className="flex flex-wrap justify-center gap-2">
                   {user.profession && user.profession !== 'None' && (
                     <Badge className="bg-[#00A4EF]/10 text-[#00A4EF] border-none text-[9px] px-3 py-1 font-bold tracking-widest uppercase">
                       {user.profession}
@@ -781,228 +790,244 @@ const ProfilePage = () => {
           </div>
         )}
 
-        {/* ── Info Sections ── */}
-        <div className="space-y-10 px-6 sm:px-2 mb-10">
-          
-
-
-          {/* Details Grid (Personal + Identity) - Owner Only */}
-          {isOwnProfile && !isEditing && (
+        {/* ── Info Cards (Owner Only) ── */}
+        {isOwnProfile && !isEditing && (
+          <div className="px-6 sm:px-2 space-y-6 mb-12 pt-6 border-t border-[#E0E0E0]">
+            <label className="block text-[10px] font-bold tracking-[0.2em] uppercase text-[#1C1C1C]/40">Profile Information</label>
+            
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Personal Details as Cards */}
-              <div className="p-5 rounded-lg bg-white border border-[#E0E0E0] space-y-4">
-                <label className="block text-[10px] font-bold tracking-[0.2em] uppercase text-[#1C1C1C]/40 flex items-center gap-2">
-                  <div className="w-1 h-3 bg-emerald-500 rounded-full" /> Personal Details
-                </label>
-                <div className="grid grid-cols-2 gap-y-4">
-                  {user.age && (
-                    <div>
-                      <span className="block text-[9px] text-[#1C1C1C]/40 uppercase tracking-wider mb-1">Age</span>
-                      <span className="text-sm text-[#1C1C1C]/80">{user.age} Years</span>
-                    </div>
-                  )}
-                  {user.gender && (
-                    <div>
-                      <span className="block text-[9px] text-[#1C1C1C]/40 uppercase tracking-wider mb-1">Gender</span>
-                      <span className="text-sm text-[#1C1C1C]/80">{user.gender}</span>
-                    </div>
-                  )}
+              {/* Personal Details Card */}
+              <div className="p-5 rounded-xl bg-gradient-to-br from-white to-[#F9F9F9] border border-[#E0E0E0] hover:shadow-[0_4px_12px_rgba(0,164,239,0.05)] transition-all duration-300 space-y-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-1.5 h-4 bg-gradient-to-b from-emerald-500 to-emerald-400 rounded-full" />
+                  <span className="text-[9px] font-bold tracking-[0.2em] uppercase text-[#1C1C1C]/50">Personal Details</span>
+                </div>
+                
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    {user.age && (
+                      <div>
+                        <span className="block text-[8px] text-[#1C1C1C]/40 uppercase tracking-wider font-medium mb-1.5">Age</span>
+                        <span className="text-sm font-semibold text-[#1C1C1C]">{user.age}</span>
+                        <span className="text-[10px] text-[#1C1C1C]/40"> years</span>
+                      </div>
+                    )}
+                    {user.gender && (
+                      <div>
+                        <span className="block text-[8px] text-[#1C1C1C]/40 uppercase tracking-wider font-medium mb-1.5">Gender</span>
+                        <span className="text-sm font-semibold text-[#1C1C1C]">{user.gender}</span>
+                      </div>
+                    )}
+                  </div>
+                  
                   {user.city && (
-                    <div className="col-span-2">
-                      <span className="block text-[9px] text-[#1C1C1C]/40 uppercase tracking-wider mb-1">Location</span>
-                      <div className="flex items-center gap-1.5 text-sm text-[#1C1C1C]/80">
+                    <div className="pt-2 border-t border-[#E0E0E0]/50">
+                      <span className="block text-[8px] text-[#1C1C1C]/40 uppercase tracking-wider font-medium mb-2">Location</span>
+                      <div className="flex items-center gap-2 text-sm text-[#1C1C1C]">
                         <MapPin className="h-3.5 w-3.5 text-emerald-500/60" />
-                        <span>{user.city}{isOwnProfile && user.pincode ? ` (${user.pincode})` : ""}</span>
+                        <span className="font-medium">{user.city}</span>
+                        {user.pincode && <span className="text-[#1C1C1C]/40 text-xs">({user.pincode})</span>}
                       </div>
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* Identity & Contact as Cards */}
-              <div className="p-5 rounded-lg bg-white border border-[#E0E0E0] space-y-4">
-                <label className="block text-[10px] font-bold tracking-[0.2em] uppercase text-[#1C1C1C]/40 flex items-center gap-2">
-                  <div className="w-1 h-3 bg-[#00A4EF] rounded-full" /> Identity & Contact
-                </label>
+              {/* Identity & Contact Card */}
+              <div className="p-5 rounded-xl bg-gradient-to-br from-white to-[#F9F9F9] border border-[#E0E0E0] hover:shadow-[0_4px_12px_rgba(0,164,239,0.05)] transition-all duration-300 space-y-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-1.5 h-4 bg-gradient-to-b from-[#00A4EF] to-[#0088BB] rounded-full" />
+                  <span className="text-[9px] font-bold tracking-[0.2em] uppercase text-[#1C1C1C]/50">Identity & Contact</span>
+                </div>
+                
                 <div className="space-y-4">
                   <div>
-                    <span className="block text-[9px] text-[#1C1C1C]/40 uppercase tracking-wider mb-1">Username</span>
-                    <span className="text-sm text-[#1C1C1C]/80 tracking-tight">@{user.username}</span>
+                    <span className="block text-[8px] text-[#1C1C1C]/40 uppercase tracking-wider font-medium mb-1.5">Username</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-[#1C1C1C]">@{user.username}</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-[#00A4EF]/10 text-[#00A4EF] font-medium">Verified</span>
+                    </div>
                   </div>
+                  
                   {user.phoneNumber && (
-                    <div>
-                      <span className="block text-[9px] text-[#1C1C1C]/40 uppercase tracking-wider mb-1 flex items-center gap-1">
-                        Phone <Lock className="h-2 w-2" />
+                    <div className="pt-2 border-t border-[#E0E0E0]/50">
+                      <span className="block text-[8px] text-[#1C1C1C]/40 uppercase tracking-wider font-medium mb-2 flex items-center gap-1.5">
+                        <Phone className="h-2.5 w-2.5" /> Phone
                       </span>
-                      <span className="text-sm text-[#00A4EF] font-medium">{user.phoneNumber}</span>
+                      <span className="text-sm font-semibold text-[#00A4EF]">{user.phoneNumber}</span>
                     </div>
                   )}
                 </div>
               </div>
             </div>
-          )}
+          </div>
+        )}
 
-        </div>
-
-        {/* ── Edit form ── */}
+        {/* ── Edit Form ── */}
         {isEditing && (
-          <div
-            className="mb-6 p-6 rounded-2xl border border-[#E0E0E0] bg-[#FCFCFC] shadow-[0_8px_30px_rgba(0,0,0,0.04)] space-y-6"
-            style={{ animation: "slideUp 0.35s cubic-bezier(0.16,1,0.3,1) both" }}
-          >
-            <div className="group">
-              <label className="block text-[9px] font-bold tracking-[0.25em] uppercase text-[#1C1C1C]/40 mb-2 ml-0.5">I am here to...</label>
-              <select
-                className="w-full bg-transparent border-b border-[#E0E0E0] focus:border-[#00A4EF] outline-none pb-2.5 pt-1 text-sm text-[#1C1C1C] appearance-none cursor-pointer"
-                value={editForm.userGoal}
-                onChange={(e) => setEditForm({ ...editForm, userGoal: e.target.value })}
-              >
-                <option value="" className="bg-white text-[#1C1C1C]/40">Select goal...</option>
-                <option value="OFFER_SERVICE" className="bg-white text-[#1C1C1C]">Offer my services</option>
-                <option value="HIRE_PROFESSIONALS" className="bg-white text-[#1C1C1C]">Hire professionals</option>
-              </select>
-            </div>
-
-            <div className="grid grid-cols-2 gap-5">
-              <Field label="Display Name" icon={null}
-                placeholder="Your name"
-                value={editForm.displayName}
-                onChange={(e: any) => setEditForm({ ...editForm, displayName: e.target.value })}
-              />
-              <Field label="City" icon={MapPin}
-                placeholder="Mumbai"
-                value={editForm.city}
-                onChange={(e: any) => setEditForm({ ...editForm, city: e.target.value })}
-              />
-            </div>
-            <Field label="Pincode" icon={null}
-              placeholder="400001"
-              value={editForm.pincode}
-              onChange={(e: any) => setEditForm({ ...editForm, pincode: e.target.value })}
-            />
-            <Field label="Phone (private)" icon={Phone}
-              placeholder="+91 98765 43210"
-              value={(editForm as any).phoneNumber}
-              onChange={(e: any) => setEditForm({ ...editForm, phoneNumber: e.target.value })}
-            />
-            <Field label="Bio" icon={null} textarea
-              placeholder="Tell the world what you do..."
-              value={editForm.bio}
-              onChange={(e: any) => setEditForm({ ...editForm, bio: e.target.value })}
-            />
-
-            <div className="grid grid-cols-2 gap-5">
+          <div className="px-6 sm:px-2 mb-6">
+            <div
+              className="p-6 rounded-2xl border border-[#E0E0E0] bg-[#FCFCFC] shadow-[0_8px_30px_rgba(0,0,0,0.04)] space-y-6"
+              style={{ animation: "slideUp 0.35s cubic-bezier(0.16,1,0.3,1) both" }}
+            >
+              {/* Goal */}
               <div className="group">
-                <label className="block text-[9px] font-bold tracking-[0.25em] uppercase text-[#1C1C1C]/40 mb-2 ml-0.5">Gender</label>
+                <label className="block text-[9px] font-bold tracking-[0.25em] uppercase text-[#1C1C1C]/40 mb-2 ml-0.5">I am here to...</label>
                 <select
-                  className="w-full bg-transparent border-b border-[#E0E0E0] focus:border-[#00A4EF] outline-none pb-2.5 pt-1 text-sm text-[#1C1C1C] appearance-none cursor-pointer"
-                  value={editForm.gender}
-                  onChange={(e) => setEditForm({ ...editForm, gender: e.target.value })}
+                  className="w-full bg-transparent border-b-2 border-[#E0E0E0] focus:border-[#00A4EF] outline-none pb-2.5 pt-1 text-sm text-[#1C1C1C] appearance-none cursor-pointer font-medium"
+                  value={editForm.userGoal}
+                  onChange={(e) => setEditForm({ ...editForm, userGoal: e.target.value })}
                 >
-                  <option value="" className="bg-white text-[#1C1C1C]/40">Select Gender</option>
-                  <option value="Male" className="bg-white text-[#1C1C1C]">Male</option>
-                  <option value="Female" className="bg-white text-[#1C1C1C]">Female</option>
-                  <option value="Other" className="bg-white text-[#1C1C1C]">Other</option>
+                  <option value="" className="bg-white text-[#1C1C1C]/40">Select goal...</option>
+                  <option value="OFFER_SERVICE" className="bg-white text-[#1C1C1C]">Offer my services</option>
+                  <option value="HIRE_PROFESSIONALS" className="bg-white text-[#1C1C1C]">Hire professionals</option>
                 </select>
               </div>
-              <Field label="Age" icon={null} type="number"
-                placeholder="25"
-                value={editForm.age}
-                onChange={(e: any) => setEditForm({ ...editForm, age: e.target.value })}
-              />
-            </div>
 
-            {/* Profession — Category/Subcategory Structure */}
-            <div className="space-y-4 pt-2">
-              <label className="block text-[9px] font-bold tracking-[0.25em] uppercase text-[#1C1C1C]/40 ml-0.5">Profession / My Category</label>
-              
-              {/* Category Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {CATEGORIES.map((cat) => (
-                  <button
-                    key={cat.id}
-                    type="button"
-                    onClick={() => {
-                      setSelectedCategory(cat.id);
-                      setEditForm({ ...editForm, profession: "" });
-                      setCustomProfession("");
-                    }}
-                    className={cn(
-                      "flex flex-col items-center justify-center gap-2 p-3 rounded-lg border transition-all duration-200 text-center",
-                      selectedCategory === cat.id
-                        ? `${cat.bg} ${cat.border} ring-1 ring-[#00A4EF]/20`
-                        : "bg-[#F5F5F5] border-[#E0E0E0] hover:bg-[#EFEFEF]"
-                    )}
-                  >
-                    <div className={cn("p-2 rounded-lg", cat.bg, cat.color)}>
-                      <cat.icon className="w-4 h-4" />
-                    </div>
-                    <span className={cn("text-[10px] font-bold uppercase tracking-wider", selectedCategory === cat.id ? "text-[#1C1C1C]" : "text-[#1C1C1C]/40")}>
-                      {cat.label}
-                    </span>
-                  </button>
-                ))}
+              {/* Basic Info */}
+              <div className="space-y-4 pt-4 border-t border-[#E0E0E0]">
+                <h3 className="text-[10px] font-bold tracking-[0.2em] uppercase text-[#1C1C1C]/60">Basic Information</h3>
+                <div className="grid grid-cols-2 gap-5">
+                  <Field label="Display Name" icon={null}
+                    placeholder="Your name"
+                    value={editForm.displayName}
+                    onChange={(e: any) => setEditForm({ ...editForm, displayName: e.target.value })}
+                  />
+                  <Field label="City" icon={MapPin}
+                    placeholder="Mumbai"
+                    value={editForm.city}
+                    onChange={(e: any) => setEditForm({ ...editForm, city: e.target.value })}
+                  />
+                </div>
+                <Field label="Pincode" icon={null}
+                  placeholder="400001"
+                  value={editForm.pincode}
+                  onChange={(e: any) => setEditForm({ ...editForm, pincode: e.target.value })}
+                />
+                <Field label="Phone (private)" icon={Phone}
+                  placeholder="+91 98765 43210"
+                  value={(editForm as any).phoneNumber}
+                  onChange={(e: any) => setEditForm({ ...editForm, phoneNumber: e.target.value })}
+                />
+                <Field label="Bio" icon={null} textarea
+                  placeholder="Tell the world what you do..."
+                  value={editForm.bio}
+                  onChange={(e: any) => setEditForm({ ...editForm, bio: e.target.value })}
+                />
               </div>
 
-              {/* Sub-Professions Display */}
-              {selectedCategory && SUB_PROFESSIONS[selectedCategory] && (
-                <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
-                  <label className="block text-[9px] font-bold tracking-[0.15em] uppercase text-[#00A4EF]/60 ml-0.5 flex items-center gap-1.5">
-                    <ChevronRight className="w-3 h-3" /> Select Expertise
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {SUB_PROFESSIONS[selectedCategory].map((prof) => (
+              {/* Personal Details */}
+              <div className="space-y-4 pt-4 border-t border-[#E0E0E0]">
+                <h3 className="text-[10px] font-bold tracking-[0.2em] uppercase text-[#1C1C1C]/60">Personal Details</h3>
+                <div className="grid grid-cols-2 gap-5">
+                  <div className="group">
+                    <label className="block text-[9px] font-bold tracking-[0.25em] uppercase text-[#1C1C1C]/40 mb-2 ml-0.5">Gender</label>
+                    <select
+                      className="w-full bg-transparent border-b border-[#E0E0E0] focus:border-[#00A4EF] outline-none pb-2.5 pt-1 text-sm text-[#1C1C1C] appearance-none cursor-pointer"
+                      value={editForm.gender}
+                      onChange={(e) => setEditForm({ ...editForm, gender: e.target.value })}
+                    >
+                      <option value="" className="bg-white text-[#1C1C1C]/40">Select Gender</option>
+                      <option value="Male" className="bg-white text-[#1C1C1C]">Male</option>
+                      <option value="Female" className="bg-white text-[#1C1C1C]">Female</option>
+                      <option value="Other" className="bg-white text-[#1C1C1C]">Other</option>
+                    </select>
+                  </div>
+                  <Field label="Age" icon={null} type="number"
+                    placeholder="25"
+                    value={editForm.age}
+                    onChange={(e: any) => setEditForm({ ...editForm, age: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              {/* Profession Section */}
+              <div className="space-y-4 pt-4 border-t border-[#E0E0E0]">
+                <h3 className="text-[10px] font-bold tracking-[0.2em] uppercase text-[#1C1C1C]/60">Profession & Expertise</h3>
+                
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {CATEGORIES.map((cat) => (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedCategory(cat.id);
+                        setEditForm({ ...editForm, profession: "" });
+                        setCustomProfession("");
+                      }}
+                      className={cn(
+                        "flex flex-col items-center justify-center gap-2 p-3 rounded-lg border transition-all duration-200 text-center",
+                        selectedCategory === cat.id
+                          ? `${cat.bg} ${cat.border} ring-1 ring-[#00A4EF]/20`
+                          : "bg-[#F5F5F5] border-[#E0E0E0] hover:bg-[#EFEFEF]"
+                      )}
+                    >
+                      <div className={cn("p-2 rounded-lg", cat.bg, cat.color)}>
+                        <cat.icon className="w-4 h-4" />
+                      </div>
+                      <span className={cn("text-[10px] font-bold uppercase tracking-wider", selectedCategory === cat.id ? "text-[#1C1C1C]" : "text-[#1C1C1C]/40")}>
+                        {cat.label}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+
+                {selectedCategory && SUB_PROFESSIONS[selectedCategory] && (
+                  <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                    <label className="block text-[9px] font-bold tracking-[0.15em] uppercase text-[#00A4EF]/60 ml-0.5 flex items-center gap-1.5">
+                      <ChevronRight className="w-3 h-3" /> Select Expertise
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {SUB_PROFESSIONS[selectedCategory].map((prof) => (
+                        <button
+                          key={prof}
+                          type="button"
+                          onClick={() => setEditForm({ ...editForm, profession: prof })}
+                          className={cn(
+                            "px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all border uppercase tracking-wider",
+                            editForm.profession === prof
+                              ? "bg-[#00A4EF] border-[#00A4EF] text-white shadow-lg shadow-[#00A4EF]/20"
+                              : "bg-[#F5F5F5] border-[#E0E0E0] text-[#1C1C1C]/60 hover:border-[#E0E0E0]"
+                          )}
+                        >
+                          {prof}
+                        </button>
+                      ))}
                       <button
-                        key={prof}
                         type="button"
-                        onClick={() => setEditForm({ ...editForm, profession: prof })}
+                        onClick={() => setEditForm({ ...editForm, profession: "Other" })}
                         className={cn(
                           "px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all border uppercase tracking-wider",
-                          editForm.profession === prof
-                            ? "bg-[#00A4EF] border-[#00A4EF] text-white shadow-lg shadow-[#00A4EF]/20"
+                          editForm.profession === "Other"
+                            ? "bg-[#00A4EF] border-[#00A4EF] text-white"
                             : "bg-[#F5F5F5] border-[#E0E0E0] text-[#1C1C1C]/60 hover:border-[#E0E0E0]"
                         )}
                       >
-                        {prof}
+                        Other...
                       </button>
-                    ))}
-                    <button
-                      type="button"
-                      onClick={() => setEditForm({ ...editForm, profession: "Other" })}
-                      className={cn(
-                        "px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all border uppercase tracking-wider",
-                        editForm.profession === "Other"
-                          ? "bg-[#00A4EF] border-[#00A4EF] text-white"
-                          : "bg-[#F5F5F5] border-[#E0E0E0] text-[#1C1C1C]/60 hover:border-[#E0E0E0]"
-                      )}
-                    >
-                      Other...
-                    </button>
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* Specify Custom Profession */}
-              {(selectedCategory === "other" || editForm.profession === "Other") && (
-                <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
-                  <label className="block text-[9px] font-bold tracking-[0.15em] uppercase text-[#00A4EF]/60 ml-0.5 flex items-center gap-1.5">
-                    <ChevronRight className="w-3 h-3" /> Specify Profession
-                  </label>
-                  <Input
-                    value={customProfession}
-                    onChange={e => setCustomProfession(e.target.value)}
-                    className="bg-[#F5F5F5] border-[#E0E0E0] text-[#1C1C1C] h-10 focus:ring-[#00A4EF]/50 placeholder:text-[#1C1C1C]/20 text-sm"
-                    placeholder="E.g. Full Stack Engineer, UX Specialist..."
-                    autoFocus
-                  />
-                </div>
-              )}
-            </div>
+                {(selectedCategory === "other" || editForm.profession === "Other") && (
+                  <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                    <label className="block text-[9px] font-bold tracking-[0.15em] uppercase text-[#00A4EF]/60 ml-0.5 flex items-center gap-1.5">
+                      <ChevronRight className="w-3 h-3" /> Specify Profession
+                    </label>
+                    <Input
+                      value={customProfession}
+                      onChange={e => setCustomProfession(e.target.value)}
+                      className="bg-[#F5F5F5] border-[#E0E0E0] text-[#1C1C1C] h-10 focus:ring-[#00A4EF]/50 placeholder:text-[#1C1C1C]/20 text-sm"
+                      placeholder="E.g. Full Stack Engineer, UX Specialist..."
+                      autoFocus
+                    />
+                  </div>
+                )}
+              </div>
 
-            {/* Skills Multi-Select */}
-            <div className="group">
-              <label className="block text-[9px] font-bold tracking-[0.25em] uppercase text-[#1C1C1C]/40 mb-2 ml-0.5">Skills (Press Enter to add)</label>
-              <div className="space-y-3">
+              {/* Skills */}
+              <div className="space-y-3 pt-4 border-t border-[#E0E0E0]">
+                <h3 className="text-[10px] font-bold tracking-[0.2em] uppercase text-[#1C1C1C]/60">Skills (Press Enter to add)</h3>
                 <Input 
                   placeholder="Coding, Design, Marketing..."
                   value={skillInput}
@@ -1036,64 +1061,65 @@ const ProfilePage = () => {
                   ))}
                 </div>
               </div>
-            </div>
 
-            {/* Social links */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <label className="text-[9px] font-bold tracking-[0.25em] uppercase text-[#1C1C1C]/40">Social Links</label>
+              {/* Social Links */}
+              <div className="space-y-3 pt-4 border-t border-[#E0E0E0]">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-[10px] font-bold tracking-[0.2em] uppercase text-[#1C1C1C]/60">Social Links</h3>
+                  <button
+                    type="button" onClick={addSocialLink}
+                    className="flex items-center gap-1.5 text-[11px] text-[#00A4EF] hover:text-[#007BB5] transition-colors"
+                  >
+                    <Plus className="h-3 w-3" /> Add link
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {editForm.socialLinks.map((link, i) => (
+                    <div key={i} className="flex gap-2 items-center p-3 rounded-lg border border-[#E0E0E0] bg-[#F5F5F5]">
+                      <Select value={link.platform} onValueChange={(v) => updateSocialLink(i, "platform", v)}>
+                        <SelectTrigger className="w-28 h-8 bg-white border-[#E0E0E0] text-xs text-[#1C1C1C] rounded-lg">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-white border-[#E0E0E0] rounded-lg">
+                          {PLATFORMS.map(p => (
+                            <SelectItem key={p.id} value={p.id} className="text-[#1C1C1C]/70 text-xs focus:bg-[#F5F5F5] focus:text-[#1C1C1C]">{p.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <input
+                        className="flex-1 bg-transparent border-b border-[#E0E0E0] focus:border-[#00A4EF] outline-none text-xs text-[#1C1C1C] placeholder:text-[#1C1C1C]/20 pb-1.5 transition-colors"
+                        placeholder="https://..."
+                        value={link.url}
+                        onChange={(e) => updateSocialLink(i, "url", e.target.value)}
+                      />
+                      <button onClick={() => removeSocialLink(i)} className="text-[#1C1C1C]/20 hover:text-red-400 transition-colors">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Save / Cancel */}
+              <div className="flex gap-3 pt-6 border-t border-[#E0E0E0]">
                 <button
-                  type="button" onClick={addSocialLink}
-                  className="flex items-center gap-1.5 text-[11px] text-[#00A4EF] hover:text-[#007BB5] transition-colors"
+                  onClick={handleSave} disabled={isSaving}
+                  className="flex-1 h-10 bg-[#00A4EF] hover:bg-[#007BB5] disabled:opacity-40 text-white rounded-lg text-sm font-medium transition-all hover:scale-[1.01] flex items-center justify-center gap-2"
                 >
-                  <Plus className="h-3 w-3" /> Add link
+                  {isSaving ? <><RotateCcw className="h-3.5 w-3.5 animate-spin" /> Saving...</> : <><Save className="h-3.5 w-3.5" /> Save changes</>}
+                </button>
+                <button
+                  onClick={() => setIsEditing(false)}
+                  className="px-5 h-10 border border-[#E0E0E0] hover:border-[#1C1C1C]/20 text-[#1C1C1C]/40 hover:text-[#1C1C1C] rounded-lg text-sm transition-all flex items-center gap-2"
+                >
+                  <X className="h-3.5 w-3.5" /> Cancel
                 </button>
               </div>
-              <div className="space-y-2">
-                {editForm.socialLinks.map((link, i) => (
-                  <div key={i} className="flex gap-2 items-center p-3 rounded-lg border border-[#E0E0E0] bg-[#F5F5F5]">
-                    <Select value={link.platform} onValueChange={(v) => updateSocialLink(i, "platform", v)}>
-                      <SelectTrigger className="w-28 h-8 bg-white border-[#E0E0E0] text-xs text-[#1C1C1C] rounded-lg">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-white border-[#E0E0E0]">
-                        {PLATFORMS.map(p => (
-                          <SelectItem key={p.id} value={p.id} className="text-[#1C1C1C]/70 text-xs focus:bg-[#F5F5F5] focus:text-[#1C1C1C]">{p.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <input
-                      className="flex-1 bg-transparent border-b border-[#E0E0E0] focus:border-[#00A4EF] outline-none text-xs text-[#1C1C1C] placeholder:text-[#1C1C1C]/20 pb-1.5 transition-colors"
-                      placeholder="https://..."
-                      value={link.url}
-                      onChange={(e) => updateSocialLink(i, "url", e.target.value)}
-                    />
-                    <button onClick={() => removeSocialLink(i)} className="text-[#1C1C1C]/20 hover:text-red-400 transition-colors">
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Save / Cancel */}
-            <div className="flex gap-3 pt-2">
-              <button
-                onClick={handleSave} disabled={isSaving}
-                className="flex-1 h-10 bg-[#00A4EF] hover:bg-[#007BB5] disabled:opacity-40 text-white rounded-lg text-sm font-medium transition-all hover:scale-[1.01] flex items-center justify-center gap-2"
-              >
-                {isSaving ? <><RotateCcw className="h-3.5 w-3.5 animate-spin" /> Saving...</> : <><Save className="h-3.5 w-3.5" /> Save changes</>}
-              </button>
-              <button
-                onClick={() => setIsEditing(false)}
-                className="px-5 h-10 border border-[#E0E0E0] hover:border-[#1C1C1C]/20 text-[#1C1C1C]/40 hover:text-[#1C1C1C] rounded-lg text-sm transition-all flex items-center gap-2"
-              >
-                <X className="h-3.5 w-3.5" /> Cancel
-              </button>
             </div>
           </div>
         )}
-        {/* ── Action buttons ── */}
+
+        {/* ── Logout Button ── */}
         {!isEditing && isOwnProfile && (
           <div className="mt-4 px-6 sm:px-2">
             <button
@@ -1105,7 +1131,7 @@ const ProfilePage = () => {
           </div>
         )}
 
-        {/* ── Page Footer ── */}
+        {/* ── Footer ── */}
         <div className="mt-16 pt-8 border-t border-[#E0E0E0] text-center">
           <Link to="/" className="text-[10px] text-[#1C1C1C]/20 hover:text-[#00A4EF] tracking-[0.2em] uppercase font-bold transition-colors">
             krovaa.com
@@ -1116,7 +1142,7 @@ const ProfilePage = () => {
       {/* ── Rating Dialog ── */}
       <Dialog open={isRatingDialogOpen} onOpenChange={setIsRatingDialogOpen}>
         <DialogContent
-          className="border-[#E0E0E0] sm:max-w-sm bg-white"
+          className="border-[#E0E0E0] sm:max-w-sm bg-white rounded-2xl"
           style={{ fontFamily: "'DM Sans', sans-serif" }}
         >
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#00A4EF]/40 to-transparent" />
@@ -1131,9 +1157,7 @@ const ProfilePage = () => {
               <span className="text-xs text-[#1C1C1C]/40">{["", "Poor", "Fair", "Good", "Great", "Excellent"][rating]}</span>
             </div>
             <div>
-              <label className="block text-[9px] font-bold tracking-[0.25em] uppercase text-[#1C1C1C]/40 mb-2">
-                Your review
-              </label>
+              <label className="block text-[9px] font-bold tracking-[0.25em] uppercase text-[#1C1C1C]/40 mb-2">Your review</label>
               <textarea
                 className="w-full bg-[#F5F5F5] border border-[#E0E0E0] focus:border-[#00A4EF]/50 outline-none rounded-lg p-3 text-sm text-[#1C1C1C] placeholder:text-[#1C1C1C]/20 resize-none transition-colors"
                 rows={3}
@@ -1156,7 +1180,7 @@ const ProfilePage = () => {
       {/* ── View All Ratings Dialog ── */}
       <Dialog open={isViewAllRatingsOpen} onOpenChange={setIsViewAllRatingsOpen}>
         <DialogContent
-          className="border-[#E0E0E0] sm:max-w-md max-h-[80vh] overflow-y-auto bg-white"
+          className="border-[#E0E0E0] sm:max-w-md max-h-[80vh] overflow-y-auto bg-white rounded-2xl"
           style={{ fontFamily: "'DM Sans', sans-serif" }}
         >
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#00A4EF]/40 to-transparent" />

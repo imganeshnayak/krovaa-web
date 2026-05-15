@@ -6,6 +6,15 @@ import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 
+const formatPostedAt = (createdAt: string) => {
+  return new Date(createdAt).toLocaleDateString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+};
+
 const JobDetailsPage = () => {
   const { jobId } = useParams<{ jobId: string }>();
   const navigate = useNavigate();
@@ -71,18 +80,31 @@ const JobDetailsPage = () => {
       ) : (
         <div className="space-y-6">
           <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{job.company}</p>
-                <h1 className="mt-2 text-3xl font-semibold text-slate-950">{job.title}</h1>
-                <p className="mt-2 text-sm text-slate-600">{job.location} • {job.mode} • {job.budget}</p>
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
+              <div className="space-y-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{job.company}</p>
+                  <h1 className="mt-2 text-3xl font-semibold text-slate-950">{job.title}</h1>
+                </div>
+                <div className="flex flex-wrap items-center gap-3 text-sm text-slate-600">
+                  <span>{job.location}</span>
+                  <span>•</span>
+                  <span>{job.mode}</span>
+                  <span>•</span>
+                  <span>{job.budget}</span>
+                </div>
+                <div className="rounded-3xl bg-slate-50 p-4 text-sm text-slate-700">
+                  <p className="font-semibold text-slate-900">Posted</p>
+                  <p className="mt-2">{formatPostedAt(job.createdAt)}</p>
+                </div>
               </div>
-              <div className="rounded-3xl bg-slate-50 p-4 text-sm text-slate-700">
+
+              <div className="rounded-3xl bg-slate-50 p-5 text-sm text-slate-700">
                 <p className="font-semibold text-slate-900">Posted by</p>
-                <p className="mt-2 text-sm text-slate-600">{job.postedBy.displayName || job.postedBy.username}</p>
-                {job.postedBy.profession && <p className="text-sm text-slate-500">{job.postedBy.profession}</p>}
-                <p className="mt-3 text-xs uppercase tracking-[0.18em] text-slate-500">Joined</p>
-                <p className="text-sm text-slate-600">{new Date(job.postedBy.createdAt).toLocaleDateString()}</p>
+                <p className="mt-3 text-sm text-slate-900">{job.postedBy.displayName || job.postedBy.username}</p>
+                {job.postedBy.profession && <p className="mt-1 text-sm text-slate-600">{job.postedBy.profession}</p>}
+                <p className="mt-4 text-xs uppercase tracking-[0.18em] text-slate-500">Joined</p>
+                <p className="mt-1 text-sm text-slate-600">{new Date(job.postedBy.createdAt).toLocaleDateString()}</p>
               </div>
             </div>
 

@@ -22,11 +22,19 @@ async function promoteToAdmin() {
     }
 
     try {
-        const user = await prisma.user.update({
+        const user = await prisma.user.findUnique({ where: { email } });
+
+        if (!user) {
+            console.error(`No user found with email: ${email}`);
+            process.exit(1);
+        }
+
+        const updatedUser = await prisma.user.update({
             where: { email },
             data: { role: 'admin' },
         });
-        console.log(`Successfully promoted ${user.displayName} (@${user.username}) to ADMIN.`);
+
+        console.log(`Successfully promoted ${updatedUser.displayName} (@${updatedUser.username}) to ADMIN.`);
     } catch (error) {
         console.error('Error promoting user:', error.message);
     } finally {

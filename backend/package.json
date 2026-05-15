@@ -10,6 +10,7 @@
         "postinstall": "npx prisma generate",
         "db:push": "npx prisma db push",
         "db:seed": "node prisma/seed.js",
+        "db:reset": "npx prisma db push --force-reset && node prisma/seed.js",
         "db:setup": "npx prisma db push && node prisma/seed.js",
         "db:studio": "npx prisma studio"
     },
@@ -17,6 +18,7 @@
         "seed": "node prisma/seed.js"
     },
     "dependencies": {
+        "streamifier": "^0.1.1",
         "@prisma/client": "^6.6.0",
         "axios": "^1.13.5",
         "bcryptjs": "^2.4.3",

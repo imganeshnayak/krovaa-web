@@ -12,6 +12,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import ChatPage from "./pages/ChatPage";
 import ProfilePage from "./pages/ProfilePage";
+import PostsPage from "./pages/PostsPage";
 import ExplorePage from "./pages/ExplorePage";
 import PostJobPage from "./pages/PostJobPage";
 import JobDetailsPage from "./pages/JobDetailsPage";
@@ -88,6 +89,7 @@ const MainContent = () => {
         <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
         <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
         <Route path="/chat" element={<ClientRoute><ChatPage /></ClientRoute>} />
+        <Route path="/posts" element={<ClientRoute><PostsPage /></ClientRoute>} />
         <Route path="/explore" element={<ClientRoute><ExplorePage /></ClientRoute>} />
         <Route path="/post-job" element={<ClientRoute><PostJobPage /></ClientRoute>} />
         <Route path="/jobs/:jobId" element={<ClientRoute><JobDetailsPage /></ClientRoute>} />
@@ -106,6 +108,9 @@ const MainContent = () => {
         <Route path="/privacy" element={<Privacy />} />
         <Route path="/refund" element={<Refund />} />
         <Route path="/cookie-policy" element={<CookiePolicy />} />
+
+        {/* Shared profile pages at /s/:shareId */}
+        <Route path="/s/:shareId" element={<ProfilePage />} />
 
         {/* Public profile pages at /:username - works without login */}
         <Route path="/:username" element={<ProfilePage />} />
