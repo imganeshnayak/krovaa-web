@@ -93,10 +93,7 @@ router.get('/username/:username', async (req, res) => {
                 profession: true,
                 skills: true,
                 userGoal: true,
-                createdAt: true,
-                ratingsReceived: {
-                    select: { rating: true }
-                }
+                createdAt: true
                 // email, pincode, phoneNumber intentionally excluded — private fields
             },
         });
@@ -113,14 +110,17 @@ router.get('/username/:username', async (req, res) => {
             return res.status(404).json({ error: 'User not found.' });
         }
 
-        const ratings = user.ratingsReceived.map(r => r.rating);
+        const userRatings = await prisma.rating.findMany({
+            where: { reviewedId: user.id },
+            select: { rating: true }
+        });
+        const ratings = userRatings.map(r => r.rating);
         const avgRating = ratings.length > 0 ? (ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(1) : "0.0";
 
         res.json({
             ...user,
             averageRating: parseFloat(avgRating),
-            ratingCount: ratings.length,
-            ratingsReceived: undefined
+            ratingCount: ratings.length
         });
     } catch (err) {
         console.error('Get user by username error:', err);
@@ -280,10 +280,7 @@ router.get('/:id', auth, async (req, res) => {
                 age: true,
                 userGoal: true,
                 skills: true,
-                createdAt: true,
-                ratingsReceived: {
-                    select: { rating: true }
-                }
+                createdAt: true
             },
         });
 
@@ -296,14 +293,17 @@ router.get('/:id', auth, async (req, res) => {
             return res.status(404).json({ error: 'User not found.' });
         }
 
-        const ratings = user.ratingsReceived.map(r => r.rating);
+        const userRatings = await prisma.rating.findMany({
+            where: { reviewedId: user.id },
+            select: { rating: true }
+        });
+        const ratings = userRatings.map(r => r.rating);
         const avgRating = ratings.length > 0 ? (ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(1) : "0.0";
 
         res.json({
             ...user,
             averageRating: parseFloat(avgRating),
-            ratingCount: ratings.length,
-            ratingsReceived: undefined
+            ratingCount: ratings.length
         });
     } catch (err) {
         console.error('Get user error:', err);
@@ -342,10 +342,7 @@ router.get('/profile/:id', auth, async (req, res) => {
                 gender: true,
                 age: true,
                 userGoal: true,
-                skills: true,
-                ratingsReceived: {
-                    select: { rating: true }
-                }
+                skills: true
             },
         });
 
@@ -353,14 +350,17 @@ router.get('/profile/:id', auth, async (req, res) => {
             return res.status(404).json({ error: 'User not found.' });
         }
 
-        const ratings = user.ratingsReceived.map(r => r.rating);
+        const userRatings = await prisma.rating.findMany({
+            where: { reviewedId: user.id },
+            select: { rating: true }
+        });
+        const ratings = userRatings.map(r => r.rating);
         const avgRating = ratings.length > 0 ? (ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(1) : "0.0";
 
         res.json({
             ...user,
             averageRating: parseFloat(avgRating),
-            ratingCount: ratings.length,
-            ratingsReceived: undefined
+            ratingCount: ratings.length
         });
     } catch (err) {
         console.error('Get profile error:', err);
