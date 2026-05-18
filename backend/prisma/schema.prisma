@@ -20,6 +20,7 @@ model User {
   role                 String                @default("client")
   status               String                @default("active")
   telegramId           String?               @map("telegram_id")
+  shareId              String?               @unique @map("share_id")
   createdAt            DateTime              @default(now()) @map("created_at")
   updatedAt            DateTime              @updatedAt @map("updated_at")
   socialLinks          Json?                 @default("[]") @map("social_links")
@@ -54,9 +55,11 @@ model User {
   reportReceived       Report[]              @relation("Reported")
   blockedUsers         BlockedUser[]         @relation("Blocker")
   blockedBy            BlockedUser[]         @relation("Blocked")
-  posts                Post[]                @relation("UserPosts")
-  postLikes            Post_Like[]           @relation("UserPostLikes")
-  postComments         Post_Comment[]        @relation("UserPostComments")
+  posts                Post[]
+  postLikes            Post_Like[]
+  postComments         Post_Comment[]
+  jobs                 Job[]                 @relation("PostedJobs")
+  applications         Application[]         @relation("UserApplications")
 
   @@map("users")
 }
@@ -325,10 +328,10 @@ model Job {
   budget      String
   mode        String        @default("Remote")
   description String
-  postedById  Int           @map("posted_by_id")
-  postedBy    User          @relation("UserPostedJobs", fields: [postedById], references: [id])
+  postedById  Int      @map("posted_by_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  postedBy    User     @relation("PostedJobs", fields: [postedById], references: [id], onDelete: Cascade)
   applications Application[]
-  createdAt   DateTime      @default(now()) @map("created_at")
 
   @@map("jobs")
 }

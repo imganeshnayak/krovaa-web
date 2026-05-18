@@ -536,7 +536,7 @@ const ProfilePage = () => {
             Back
           </Link>
           <Link to="/" className="flex items-center">
-            <Logo size="sm" />
+            <Logo size="sm" theme="dark" />
           </Link>
           <button 
             onClick={handleShare}
@@ -1116,6 +1116,49 @@ const ProfilePage = () => {
                 </button>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* ── Posts / Proof of Work ── */}
+        {!isEditing && (
+          <div className="mt-8 px-6 sm:px-2 space-y-4 pb-6 border-t border-[#E0E0E0] pt-8">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-1.5 h-4 bg-gradient-to-b from-[#00A4EF] to-[#0088BB] rounded-full" />
+                <span className="text-[10px] font-bold tracking-[0.2em] uppercase text-[#1C1C1C]/50">
+                  Proof of Work
+                </span>
+                {posts.length > 0 && (
+                  <span className="px-2 py-0.5 rounded-full bg-[#00A4EF]/10 border border-[#00A4EF]/20 text-[10px] font-bold text-[#00A4EF]">
+                    {posts.length}
+                  </span>
+                )}
+              </div>
+              {isOwnProfile && (
+                <Link
+                  to="/posts"
+                  className="text-[11px] font-semibold text-[#00A4EF] hover:text-[#007BB5] transition-colors"
+                >
+                  Manage Posts →
+                </Link>
+              )}
+            </div>
+
+            <PostGrid
+              posts={posts}
+              isLoading={isLoadingPosts}
+              isOwnProfile={isOwnProfile}
+              onPostDeleted={handlePostDeleted}
+            />
+
+            {!isLoadingPosts && posts.length === 0 && isOwnProfile && (
+              <Link to="/posts">
+                <div className="py-8 text-center rounded-xl border border-dashed border-[#E0E0E0] hover:border-[#00A4EF]/30 hover:bg-[#00A4EF]/5 transition-all cursor-pointer">
+                  <p className="text-[#1C1C1C]/40 text-sm mb-1">No posts yet</p>
+                  <p className="text-[#00A4EF] text-xs font-semibold">+ Share your first post</p>
+                </div>
+              </Link>
+            )}
           </div>
         )}
 

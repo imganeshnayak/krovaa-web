@@ -14,6 +14,8 @@ interface PostDetailModalProps {
   isOwnProfile: boolean;
 }
 
+import { createPortal } from "react-dom";
+
 export default function PostDetailModal({
   post,
   isOpen,
@@ -90,9 +92,9 @@ export default function PostDetailModal({
 
   const canDelete = user?.id === post.userId;
 
-  return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+  return createPortal(
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col relative z-[10000]">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-[#E0E0E0]">
           {post.user && (
@@ -239,6 +241,7 @@ export default function PostDetailModal({
           </button>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

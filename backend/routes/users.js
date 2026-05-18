@@ -186,6 +186,7 @@ router.get('/share-id/:shareId', async (req, res) => {
         }
 
         if (!user) {
+
             return res.status(404).json({ error: 'User not found.' });
         }
 
@@ -517,7 +518,7 @@ router.post('/avatar', auth, upload.single('avatar'), async (req, res) => {
         console.log('Avatar upload endpoint called');
         console.log('File object:', req.file ? { fieldname: req.file.fieldname, originalname: req.file.originalname, encoding: req.file.encoding, mimetype: req.file.mimetype, size: req.file.size, buffer: req.file.buffer ? 'exists' : 'missing' } : 'no file');
         console.log('User ID:', req.user.id);
-        
+
         if (!req.file) {
             console.log('No file provided in request');
             return res.status(400).json({ error: 'No file uploaded.' });
@@ -528,14 +529,14 @@ router.post('/avatar', auth, upload.single('avatar'), async (req, res) => {
             return res.status(400).json({ error: 'File buffer is missing.' });
         }
 
-        console.log('Cloudinary config:', { 
+        console.log('Cloudinary config:', {
             cloud_name: process.env.CLOUDINARY_CLOUD_NAME ? 'set' : 'missing',
             api_key: process.env.CLOUDINARY_API_KEY ? 'set' : 'missing',
             api_secret: process.env.CLOUDINARY_API_SECRET ? 'set' : 'missing'
         });
 
         console.log('Cloudinary upload starting...');
-        
+
         // Convert buffer to base64 for more reliable upload in some environments
         const b64 = req.file.buffer.toString('base64');
         const dataURI = "data:" + req.file.mimetype + ";base64," + b64;
@@ -576,7 +577,7 @@ router.post('/cover-photo', auth, upload.single('coverPhoto'), async (req, res) 
         console.log('Cover photo upload endpoint called');
         console.log('File object:', req.file ? { fieldname: req.file.fieldname, originalname: req.file.originalname, encoding: req.file.encoding, mimetype: req.file.mimetype, size: req.file.size, buffer: req.file.buffer ? 'exists' : 'missing' } : 'no file');
         console.log('User ID:', req.user.id);
-        
+
         if (!req.file) {
             console.log('No file provided in request');
             return res.status(400).json({ error: 'No file uploaded.' });
@@ -587,14 +588,14 @@ router.post('/cover-photo', auth, upload.single('coverPhoto'), async (req, res) 
             return res.status(400).json({ error: 'File buffer is missing.' });
         }
 
-        console.log('Cloudinary config:', { 
+        console.log('Cloudinary config:', {
             cloud_name: process.env.CLOUDINARY_CLOUD_NAME ? 'set' : 'missing',
             api_key: process.env.CLOUDINARY_API_KEY ? 'set' : 'missing',
             api_secret: process.env.CLOUDINARY_API_SECRET ? 'set' : 'missing'
         });
 
         console.log('Cloudinary cover upload starting...');
-        
+
         const b64 = req.file.buffer.toString('base64');
         const dataURI = "data:" + req.file.mimetype + ";base64," + b64;
 

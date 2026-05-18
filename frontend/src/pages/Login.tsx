@@ -127,7 +127,7 @@ const Login = () => {
         {/* Mobile logo */}
         <div className="lg:hidden flex items-center justify-between px-8 pt-8 pb-4">
           <Link to="/" className="flex items-center">
-            <Logo size="md" />
+            <Logo size="md" theme="dark" />
           </Link>
         </div>
 
