@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, CheckCircle2, Clock, LogOut, XCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock, LogOut, XCircle, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getVerificationStatus, getVerificationFee, applyForVerification, VerificationRequest, initiateVerificationPayment, verifyPayment } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
@@ -30,6 +30,10 @@ const SettingsPage = () => {
     const [isVerificationDialogOpen, setIsVerificationDialogOpen] = useState(false);
     const [isApplying, setIsApplying] = useState(false);
     const [agreeToTerms, setAgreeToTerms] = useState(false);
+    const [isImageGeneratorEnabled, setIsImageGeneratorEnabled] = useState(() => {
+        const saved = localStorage.getItem("image_generator_enabled");
+        return saved !== "false";
+    });
 
     useEffect(() => {
         loadVerificationData();
@@ -51,6 +55,17 @@ const SettingsPage = () => {
     const handleLogout = () => {
         logout();
         navigate("/login");
+    };
+
+    const handleToggleImageGenerator = (checked: boolean) => {
+        setIsImageGeneratorEnabled(checked);
+        localStorage.setItem("image_generator_enabled", checked ? "true" : "false");
+        toast({
+            title: checked ? "KrovAI Enabled" : "KrovAI Disabled",
+            description: checked
+                ? "AI Image Generator is now available in the navigation bar"
+                : "AI Image Generator has been hidden from the navigation bar",
+        });
     };
 
     const handleApplyForVerification = async () => {
@@ -273,6 +288,28 @@ const SettingsPage = () => {
                                             <p className="text-sm text-muted-foreground">Receive updates via email</p>
                                         </div>
                                         <Switch id="email-notifications" />
+                                    </div>
+                                </AccordionContent>
+                            </AccordionItem>
+
+                            <AccordionItem value="features">
+                                <AccordionTrigger>Features</AccordionTrigger>
+                                <AccordionContent className="space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-start gap-3">
+                                            <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-[#00A4EF] to-[#7C3AED] flex items-center justify-center shrink-0">
+                                                <Sparkles className="h-5 w-5 text-white" />
+                                            </div>
+                                            <div>
+                                                <Label htmlFor="image-generator" className="text-sm font-medium">KrovAI Image Generator</Label>
+                                                <p className="text-sm text-muted-foreground">Generate images from text descriptions using AI</p>
+                                            </div>
+                                        </div>
+                                        <Switch
+                                            id="image-generator"
+                                            checked={isImageGeneratorEnabled}
+                                            onCheckedChange={handleToggleImageGenerator}
+                                        />
                                     </div>
                                 </AccordionContent>
                             </AccordionItem>

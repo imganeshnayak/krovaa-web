@@ -29,10 +29,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const userData = await getCurrentUser();
           setUser(userData);
         } catch (error) {
-          // Token invalid, clear it
-          localStorage.removeItem('authToken');
-          setToken(null);
-          setUser(null);
+          // Only clear token on explicit auth errors; keep token for transient failures
+          const status = (error as any)?.status;
+          if (status === 401 || status === 403) {
+            localStorage.removeItem('authToken');
+            setToken(null);
+            setUser(null);
+          } else {
+            // transient error (network/provider); keep token and schedule a retry
+            setTimeout(async () => {
+              try {
+                const retryUser = await getCurrentUser();
+                setUser(retryUser);
+              } catch (e) {
+                // On retry failure, don't aggressively clear token here
+              }
+            }, 3000);
+          }
         }
       }
       setIsLoading(false);
