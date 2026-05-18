@@ -333,4 +333,55 @@ router.get('/stats', auth, async (req, res) => {
     }
 });
 
+// Share generated image to a chat
+router.post('/:id/share-to-chat', auth, async (req, res) => {
+    try {
+        const { chatId, receiverId, caption } = req.body;
+
+        if (!chatId || !receiverId) {
+            return res.status(400).json({ error: 'chatId and receiverId are required' });
+        }
+
+        const generationId = parseInt(req.params.id);
+        const generation = await prisma.imageGeneration.findUnique({
+            where: { id: generationId },
+        });
+
+        if (!generation) {
+            return res.status(404).json({ error: 'Image generation not found' });
+        }
+
+        // Check if user is authorized to share this (owner or admin)
+        if (generation.userId !== req.user.id && req.user.role !== 'admin') {
+            return res.status(403).json({ error: 'Not authorized to share this image' });
+        }
+
+        // Send message with image
+        const message = await prisma.message.create({
+            data: {
+                senderId: req.user.id,
+                receiverId: receiverId,
+                chatId: chatId,
+                content: caption || `Check out this AI-generated image: "${generation.prompt}"`,
+                messageType: 'image',
+                attachmentUrl: generation.imageUrl,
+                attachmentName: `generated-image-${generation.id}.png`,
+            },
+        });
+
+        res.json({
+            success: true,
+            message: {
+                id: message.id,
+                content: message.content,
+                attachmentUrl: message.attachmentUrl,
+                createdAt: message.createdAt,
+            },
+        });
+    } catch (error) {
+        console.error('Share image to chat error:', error.message);
+        res.status(500).json({ error: 'Failed to share image to chat' });
+    }
+});
+
 export default router;

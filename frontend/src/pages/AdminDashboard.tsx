@@ -889,11 +889,11 @@ const AdminDashboard = () => {
                                 <MessageSquare className="h-3 w-3" />
                                 Reviews & Feedback
                               </h4>
-                              {userTransactions[user.id]?.ratingsReceived?.length === 0 ? (
+                              {userTransactions[user.id]?.ratingReceived?.length === 0 ? (
                                 <p className="text-xs text-muted-foreground italic pl-5">No reviews received yet</p>
                               ) : (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                  {userTransactions[user.id]?.ratingsReceived?.map((r: any) => (
+                                  {userTransactions[user.id]?.ratingReceived?.map((r: any) => (
                                     <div key={r.id} className="bg-secondary/20 rounded-lg p-3 border border-border/30">
                                       <div className="flex justify-between items-start mb-1">
                                         <p className="text-[10px] font-bold">from {r.reviewer.displayName}</p>

@@ -672,6 +672,17 @@ export interface FullUserDetails extends AuthUser {
   blockedBy: (any & { blocker: { id: number; displayName: string; username: string } })[];
   blockedUsers: (any & { blocked: { id: number; displayName: string; username: string } })[];
   verificationRequests: VerificationRequest[];
+  imageGenerations: ImageGeneration[];
+}
+
+export interface ImageGeneration {
+  id: number;
+  userId: number;
+  prompt: string;
+  style: string;
+  imageUrl: string;
+  size: string;
+  createdAt: string;
 }
 
 export function getAdminUserFullDetails(userId: number): Promise<FullUserDetails> {
@@ -1258,4 +1269,15 @@ export function getImageGeneratorStats(): Promise<{
   topStyles: { style: string; _count: number }[];
 }> {
   return apiFetch("/api/image-generator/stats");
+}
+
+export function shareImageToChat(imageId: number, data: {
+  chatId: string;
+  receiverId: number;
+  caption?: string;
+}): Promise<{ success: boolean; message: { id: number; content: string; attachmentUrl: string; createdAt: string } }> {
+  return apiFetch(`/api/image-generator/${imageId}/share-to-chat`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
 }
