@@ -198,6 +198,14 @@ const SettingsPage = () => {
                                             <span className="text-sm font-medium">Verification Status:</span>
                                             {getVerificationStatusBadge()}
                                         </div>
+                                        {verificationRequest.status === 'pending_payment' && (
+                                            <Button
+                                                onClick={() => setIsVerificationDialogOpen(true)}
+                                                className="w-full bg-[#00A4EF] hover:bg-[#007BB5] text-white"
+                                            >
+                                                Proceed Payment
+                                            </Button>
+                                        )}
                                         {verificationRequest.status === 'rejected' && verificationRequest.adminNote && (
                                             <div className="p-3 bg-[#E74C3C]/10 rounded-lg">
                                                 <p className="text-sm text-[#E74C3C] font-medium">Admin Note:</p>

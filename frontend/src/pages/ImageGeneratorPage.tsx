@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Send, Sparkles, Image, Download, Trash2, Loader2, Wand2,
-  Maximize2, History, ArrowLeft, X,
+  Maximize2, History, ArrowLeft, X, Plus,
 } from "lucide-react";
 import {
   generateImage, getImageHistory, deleteGeneratedImage,
@@ -38,12 +38,77 @@ interface GenerationMessage {
   generatedImage?: GeneratedImage;
 }
 
+interface ChatSession {
+  id: string;
+  title: string;
+  messages: GenerationMessage[];
+  updatedAt: number;
+}
+
 const ImageGeneratorPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [prompt, setPrompt] = useState("");
-  const [messages, setMessages] = useState<GenerationMessage[]>([]);
+  const [sessions, setSessions] = useState<ChatSession[]>(() => {
+    try {
+      const saved = localStorage.getItem("krovai_generator_sessions");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed.map((s: any) => ({
+          ...s,
+          messages: s.messages.map((m: any) => ({
+            ...m,
+            timestamp: new Date(m.timestamp)
+          }))
+        }));
+      }
+      // Migrate old single chat
+      const oldMessages = localStorage.getItem("krovai_generator_messages");
+      if (oldMessages) {
+        const parsed = JSON.parse(oldMessages).map((m: any) => ({ ...m, timestamp: new Date(m.timestamp) }));
+        if (parsed.length > 0) {
+           return [{ id: `session_${Date.now()}`, title: "Previous Chat", messages: parsed, updatedAt: Date.now() }];
+        }
+      }
+    } catch (e) {
+      console.error("Failed to parse generator sessions", e);
+    }
+    return [{ id: `session_${Date.now()}`, title: "New Chat", messages: [], updatedAt: Date.now() }];
+  });
+
+  const [currentSessionId, setCurrentSessionId] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem("krovai_generator_current_session");
+      if (saved) return saved;
+    } catch(e) {}
+    return `session_${Date.now()}`;
+  });
+
+  const currentSession = sessions.find(s => s.id === currentSessionId) || sessions[0];
+  const messages = currentSession?.messages || [];
+
+  const setMessages = useCallback((updater: GenerationMessage[] | ((prev: GenerationMessage[]) => GenerationMessage[])) => {
+    setSessions(prev => prev.map(session => {
+      if (session.id === currentSessionId) {
+        const updatedMessages = typeof updater === 'function' ? updater(session.messages) : updater;
+        let title = session.title;
+        if (session.title === "New Chat" && updatedMessages.length > 0) {
+          const firstPrompt = updatedMessages.find((m: any) => m.type === 'prompt');
+          if (firstPrompt) title = firstPrompt.content?.substring(0, 30) + (firstPrompt.content!.length > 30 ? "..." : "");
+        }
+        return { ...session, messages: updatedMessages, updatedAt: Date.now(), title };
+      }
+      return session;
+    }));
+  }, [currentSessionId]);
+
+  useEffect(() => {
+    localStorage.setItem("krovai_generator_sessions", JSON.stringify(sessions));
+    localStorage.setItem("krovai_generator_current_session", currentSessionId);
+  }, [sessions, currentSessionId]);
+
+  const [historyTab, setHistoryTab] = useState<'chats' | 'images'>('chats');
   const [isLoading, setIsLoading] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState<GeneratedImage[]>([]);
@@ -204,12 +269,28 @@ const ImageGeneratorPage = () => {
             </div>
             <span className="font-bold text-[#1C1C1C]">KrovAI</span>
           </div>
-          <button
-            onClick={() => setShowHistory(!showHistory)}
-            className="p-2 hover:bg-[#E0E0E0]/50 rounded-lg transition-colors text-[#1C1C1C]/40 hover:text-[#1C1C1C]"
-          >
-            <History className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => {
+                const newId = `session_${Date.now()}`;
+                setSessions(prev => [{ id: newId, title: "New Chat", messages: [], updatedAt: Date.now() }, ...prev]);
+                setCurrentSessionId(newId);
+                setPrompt("");
+                setTimeout(() => inputRef.current?.focus(), 100);
+              }}
+              title="New Chat"
+              className="p-2 hover:bg-[#E0E0E0]/50 rounded-lg transition-colors text-[#1C1C1C]/40 hover:text-[#1C1C1C]"
+            >
+              <Plus className="h-5 w-5" />
+            </button>
+            <button
+              onClick={() => setShowHistory(!showHistory)}
+              title="History"
+              className="p-2 hover:bg-[#E0E0E0]/50 rounded-lg transition-colors text-[#1C1C1C]/40 hover:text-[#1C1C1C]"
+            >
+              <History className="h-5 w-5" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -343,11 +424,27 @@ const ImageGeneratorPage = () => {
       {showHistory && (
         <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm" onClick={() => setShowHistory(false)}>
           <div
-            className="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl max-h-[80vh] overflow-hidden"
+            className="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl max-h-[85vh] h-[85vh] flex flex-col overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="sticky top-0 bg-white border-b border-[#E0E0E0] p-4 flex items-center justify-between">
-              <h3 className="font-bold text-[#1C1C1C]">Generation History</h3>
+            <div className="bg-white border-b border-[#E0E0E0] p-4 flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <h3 className="font-bold text-[#1C1C1C]">History</h3>
+                <div className="flex bg-[#F5F5F5] rounded-lg p-1">
+                  <button
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${historyTab === 'chats' ? 'bg-white shadow-sm text-[#00A4EF]' : 'text-[#1C1C1C]/40 hover:text-[#1C1C1C]'}`}
+                    onClick={() => setHistoryTab('chats')}
+                  >
+                    Chats
+                  </button>
+                  <button
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${historyTab === 'images' ? 'bg-white shadow-sm text-[#00A4EF]' : 'text-[#1C1C1C]/40 hover:text-[#1C1C1C]'}`}
+                    onClick={() => setHistoryTab('images')}
+                  >
+                    All Images
+                  </button>
+                </div>
+              </div>
               <button
                 onClick={() => setShowHistory(false)}
                 className="p-2 hover:bg-[#E0E0E0]/50 rounded-lg transition-colors text-[#1C1C1C]/40 hover:text-[#1C1C1C]"
@@ -355,49 +452,87 @@ const ImageGeneratorPage = () => {
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <ScrollArea className="max-h-[calc(80vh-60px)]">
-              <div className="p-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {history.map((img) => (
-                  <div key={img.id} className="relative group rounded-xl overflow-hidden bg-[#F5F5F5] border border-[#E0E0E0]">
-                    <img
-                      src={img.imageUrl}
-                      alt={img.prompt}
-                      className="w-full aspect-square object-cover cursor-pointer"
-                      onClick={() => setPreviewImage(img)}
-                    />
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100">
+            <ScrollArea className="flex-1">
+              {historyTab === 'chats' ? (
+                <div className="p-4 space-y-2">
+                  {sessions.map((session) => (
+                    <button
+                      key={session.id}
+                      onClick={() => {
+                        setCurrentSessionId(session.id);
+                        setShowHistory(false);
+                        setTimeout(() => scrollToBottom(), 100);
+                      }}
+                      className={`w-full text-left p-4 rounded-xl border transition-all flex items-center justify-between group ${session.id === currentSessionId ? 'border-[#00A4EF] bg-[#00A4EF]/5' : 'border-[#E0E0E0] bg-white hover:bg-[#F5F5F5]'}`}
+                    >
+                      <div>
+                        <h4 className={`font-semibold text-sm ${session.id === currentSessionId ? 'text-[#00A4EF]' : 'text-[#1C1C1C]'}`}>
+                          {session.title}
+                        </h4>
+                        <div className="flex gap-2 mt-1">
+                          <span className="text-xs text-[#1C1C1C]/40">{session.messages.length} messages</span>
+                          <span className="text-xs text-[#1C1C1C]/20">•</span>
+                          <span className="text-xs text-[#1C1C1C]/40">
+                            {new Date(session.updatedAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        {session.messages.filter(m => m.type === 'image').slice(-3).map((img, i) => (
+                          <div key={i} className="w-8 h-8 rounded-md overflow-hidden bg-black/5 border border-black/10">
+                            <img src={img.imageUrl} alt="preview" className="w-full h-full object-cover" />
+                          </div>
+                        ))}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {history.map((img) => (
+                      <div key={img.id} className="relative group rounded-xl overflow-hidden bg-[#F5F5F5] border border-[#E0E0E0]">
+                        <img
+                          src={img.imageUrl}
+                          alt={img.prompt}
+                          className="w-full aspect-square object-cover cursor-pointer"
+                          onClick={() => setPreviewImage(img)}
+                        />
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100">
+                          <Button
+                            size="icon"
+                            className="h-8 w-8 rounded-full bg-white/20 hover:bg-white/30 text-white"
+                            onClick={() => handleDownload(img.imageUrl, img.prompt)}
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            className="h-8 w-8 rounded-full bg-red-500/20 hover:bg-red-500/30 text-white"
+                            onClick={() => handleDeleteImage(img.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {hasMoreHistory && (
+                    <div className="mt-4">
                       <Button
-                        size="icon"
-                        className="h-8 w-8 rounded-full bg-white/20 hover:bg-white/30 text-white"
-                        onClick={() => handleDownload(img.imageUrl, img.prompt)}
+                        variant="outline"
+                        className="w-full bg-white border-[#E0E0E0] text-[#1C1C1C] hover:bg-[#F5F5F5]"
+                        onClick={() => loadHistory(historyPage + 1)}
                       >
-                        <Download className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        className="h-8 w-8 rounded-full bg-red-500/20 hover:bg-red-500/30 text-white"
-                        onClick={() => handleDeleteImage(img.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
+                        Load More
                       </Button>
                     </div>
-                  </div>
-                ))}
-              </div>
-              {hasMoreHistory && (
-                <div className="p-4">
-                  <Button
-                    variant="outline"
-                    className="w-full bg-white border-[#E0E0E0] text-[#1C1C1C] hover:bg-[#F5F5F5]"
-                    onClick={() => loadHistory(historyPage + 1)}
-                  >
-                    Load More
-                  </Button>
-                </div>
-              )}
-              {history.length === 0 && (
-                <div className="p-12 text-center text-[#1C1C1C]/40 text-sm">
-                  No images generated yet
+                  )}
+                  {history.length === 0 && (
+                    <div className="p-12 text-center text-[#1C1C1C]/40 text-sm">
+                      No images generated yet
+                    </div>
+                  )}
                 </div>
               )}
             </ScrollArea>

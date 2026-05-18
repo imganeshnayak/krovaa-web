@@ -496,7 +496,7 @@ const AdminDashboard = () => {
       {/* Sidebar */}
       <div className="hidden md:flex flex-col w-64 border-r border-border bg-card p-4">
         <div className="flex items-center gap-2 mb-8 px-2">
-          <Logo size="md" />
+          <Logo size="md" theme="dark" />
           <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1 opacity-50">Admin</span>
         </div>
         <nav className="space-y-1">

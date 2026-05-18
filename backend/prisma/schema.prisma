@@ -13,6 +13,7 @@ model User {
   email                String                @unique
   password             String
   displayName          String?               @map("display_name")
+  shareId              String?               @unique @map("share_id")
   bio                  String?
   avatarUrl            String?               @map("avatar_url")
   coverPhotoUrl        String?               @map("cover_photo_url")
@@ -35,13 +36,15 @@ model User {
   userGoal             String?               @map("user_goal")
   skills               Json?                 @default("[]")
   imageGenerations     ImageGeneration[]
-  posts                Post[]
-  postLikes            Post_Like[]
-  postComments         Post_Comment[]
+  posts                Post[]                @relation("UserPosts")
+  postLikes            Post_Like[]           @relation("UserPostLikes")
+  postComments         Post_Comment[]        @relation("UserPostComments")
   sentMessages         Message[]             @relation("UserSentMessages")
   receivedMessages     Message[]             @relation("UserReceivedMessages")
   clientDeals          EscrowDeal[]          @relation("UserClientDeals")
   vendorDeals          EscrowDeal[]          @relation("UserVendorDeals")
+  postedJobs           Job[]                 @relation("PostedJobs")
+  jobApplications      Application[]         @relation("UserApplications")
   verificationRequests VerificationRequest[]
   payoutRequests       PayoutRequest[]
   walletTransactions   WalletTransaction[]
@@ -51,6 +54,7 @@ model User {
   reportReceived       Report[]              @relation("Reported")
   blockedUsers         BlockedUser[]         @relation("Blocker")
   blockedBy            BlockedUser[]         @relation("Blocked")
+
 
   @@map("users")
 }
@@ -312,17 +316,32 @@ model AdClick {
 }
 
 model Job {
-  id          Int      @id @default(autoincrement())
+  id          Int           @id @default(autoincrement())
   title       String
   company     String
   location    String
   budget      String
-  mode        String   @default("Remote")
+  mode        String        @default("Remote")
   description String
   postedById  Int      @map("posted_by_id")
   createdAt   DateTime @default(now()) @map("created_at")
+  postedBy    User     @relation("PostedJobs", fields: [postedById], references: [id], onDelete: Cascade)
+  applications Application[]
 
   @@map("jobs")
+}
+
+model Application {
+  id        Int      @id @default(autoincrement())
+  jobId     Int      @map("job_id")
+  userId    Int      @map("user_id")
+  status    String   @default("pending")
+  createdAt DateTime @default(now()) @map("created_at")
+  job       Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  user      User     @relation("UserApplications", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, userId])
+  @@map("applications")
 }
 
 model Post {
@@ -332,7 +351,7 @@ model Post {
   media     Json?        @default("[]")
   createdAt DateTime     @default(now()) @map("created_at")
   updatedAt DateTime     @updatedAt @map("updated_at")
-  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User         @relation("UserPosts", fields: [userId], references: [id], onDelete: Cascade)
   likes     Post_Like[]
   comments  Post_Comment[]
 
@@ -345,7 +364,7 @@ model Post_Like {
   userId    Int      @map("user_id")
   createdAt DateTime @default(now()) @map("created_at")
   post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User     @relation("UserPostLikes", fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([postId, userId])
   @@map("post_likes")
@@ -359,7 +378,7 @@ model Post_Comment {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
   post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User     @relation("UserPostComments", fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("post_comments")
 }

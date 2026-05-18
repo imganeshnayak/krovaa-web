@@ -678,7 +678,7 @@ const ChatView = ({
             </Avatar>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5">
-                <h3 style={{ fontFamily: "'Syne', sans-serif" }} className="font-bold text-white tracking-tight truncate">{selectedChat.display_name}</h3>
+                <h3 style={{ fontFamily: "'Syne', sans-serif" }} className="font-bold text-foreground tracking-tight truncate">{selectedChat.display_name}</h3>
 
                 {selectedChat.isOfficial ? (
                   <Badge variant="secondary" className="bg-primary/10 text-primary text-[10px] px-1.5 border-none flex items-center gap-0.5">
@@ -689,7 +689,7 @@ const ChatView = ({
                   <img src="/verified-badge.svg" alt="Verified" className="h-7 w-7 flex-shrink-0" title="Verified Account" />
                 )}
               </div>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground font-medium">
                 {selectedChat.isOfficial ? "Official Support Channel" : `@${selectedChat.username}`}
               </p>
             </div>
@@ -1718,6 +1718,7 @@ const ChatPage = () => {
   }, [user, chats, startChat]);
 
   // Load chats on mount and when user changes
+  const socketConnectedRef = useRef(false);
   useEffect(() => {
     if (!user && !authLoading) {
       navigate("/login", { replace: true });
@@ -1725,12 +1726,20 @@ const ChatPage = () => {
     }
     if (user) {
       loadChats();
-      socketService.connect(user.id);
+      if (!socketConnectedRef.current) {
+        socketService.connect(user.id);
+        socketConnectedRef.current = true;
+      }
     }
+    // Only disconnect on true component unmount
     return () => {
-      socketService.disconnect();
+      if (socketConnectedRef.current) {
+        socketService.disconnect();
+        socketConnectedRef.current = false;
+      }
     };
-  }, [user, authLoading, navigate, loadChats]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, authLoading]);
 
   // Handle real-time messages
   useEffect(() => {

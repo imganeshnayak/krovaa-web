@@ -82,18 +82,18 @@ const PostsPage = () => {
             Back
           </Link>
           <Link to="/" className="flex items-center">
-            <Logo size="sm" />
+            <Logo size="sm" theme="dark" />
           </Link>
           <div className="w-12" />
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="max-w-3xl mx-auto px-4 pb-24 relative z-10">
+      <div className="max-w-3xl mx-auto px-4 pb-40 relative z-10">
         {/* ── Floating Action Button ── */}
         <button
           onClick={handleFABClick}
-          className={`fixed bottom-8 right-8 z-40 w-16 h-16 rounded-full bg-[#00A4EF] hover:bg-[#007BB5] text-white shadow-2xl shadow-[#00A4EF]/40 flex items-center justify-center transition-all hover:scale-110 active:scale-95 ${
+          className={`fixed bottom-24 right-6 z-[60] w-16 h-16 rounded-full bg-[#00A4EF] hover:bg-[#007BB5] text-white shadow-2xl shadow-[#00A4EF]/40 flex items-center justify-center transition-all hover:scale-110 active:scale-95 ${
             showCreateForm ? 'rotate-45' : ''
           }`}
           style={{ transitionDuration: '300ms' }}
