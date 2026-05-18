@@ -122,10 +122,9 @@ router.post('/register', async (req, res) => {
         }
 
         const hashedPassword = await bcrypt.hash(password, 10);
-        const shareId = crypto.randomBytes(8).toString('hex');
         const user = await prisma.user.create({
-            data: { username, email, password: hashedPassword, displayName: display_name || username, profession, shareId },
-            select: { id: true, username: true, email: true, displayName: true, role: true, profession: true, shareId: true },
+            data: { username, email, password: hashedPassword, displayName: display_name || username, profession },
+            select: { id: true, username: true, email: true, displayName: true, role: true, profession: true },
         });
 
         const token = jwt.sign(
@@ -135,6 +134,39 @@ router.post('/register', async (req, res) => {
         );
 
         await prisma.activityLog.create({ data: { userId: user.id, action: 'Registered' } });
+
+        // Create a default support message so the 'Krovaa' chat appears immediately
+        try {
+            const admin = await prisma.user.findFirst({ where: { role: 'admin', status: 'active' }, select: { id: true, displayName: true, username: true } });
+            if (admin) {
+                const supportChatId = `support_${user.id}`;
+                const welcomeContent = `🔔 Welcome to Krovaa!\n\nThis is the official Krovaa channel for updates and support. You can message here for help or receive important notifications.`;
+
+                const created = await prisma.message.create({
+                    data: {
+                        chatId: supportChatId,
+                        senderId: admin.id,
+                        receiverId: user.id,
+                        content: welcomeContent,
+                        messageType: 'notification'
+                    }
+                });
+
+                // Emit to user's socket room so their chat list updates in real-time (if socket exists)
+                const io = req.app && req.app.get ? req.app.get('io') : null;
+                if (io) {
+                    io.to(`user_${user.id}`).emit('newMessage', {
+                        ...created,
+                        sender_name: 'Krovaa',
+                        sender_avatar: null
+                    });
+                    // Also notify admins (they may want to see it in admin dashboard)
+                    io.to('admin_broadcast').emit('newMessage', created);
+                }
+            }
+        } catch (e) {
+            console.error('Failed to create welcome support message:', e);
+        }
 
         res.status(201).json({ user, token });
     } catch (err) {
@@ -193,7 +225,7 @@ router.get('/me', auth, async (req, res) => {
                 avatarUrl: true, role: true, status: true, city: true, 
                 pincode: true, profession: true, bio: true, phoneNumber: true,
                 gender: true, age: true, userGoal: true, skills: true,
-                shareId: true, createdAt: true 
+                createdAt: true 
             },
         });
 
@@ -384,7 +416,7 @@ router.post('/telegram', async (req, res) => {
         });
 
         if (!user) {
-            user = await prisma.user.upsert({
+                user = await prisma.user.upsert({
                 where: { username: data.username || `tg_${data.id}` },
                 update: { telegramId: data.id.toString() },
                 create: {
@@ -394,7 +426,6 @@ router.post('/telegram', async (req, res) => {
                     displayName: `${data.first_name} ${data.last_name || ''}`.trim(),
                     avatarUrl: data.photo_url,
                     telegramId: data.id.toString(),
-                    shareId: crypto.randomBytes(8).toString('hex'),
                     role: 'client'
                 }
             });

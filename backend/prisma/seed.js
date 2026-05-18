@@ -18,27 +18,27 @@ async function seed() {
     const admin = await prisma.user.upsert({
         where: { email: 'admin@krovaa.com' },
         update: {},
-        create: { username: 'krovaa', email: 'admin@krovaa.com', password: hashedPassword, displayName: 'Krovaa', role: 'admin', shareId: crypto.randomBytes(8).toString('hex') },
+        create: { username: 'krovaa', email: 'admin@krovaa.com', password: hashedPassword, displayName: 'Krovaa', role: 'admin' },
     });
     const alice = await prisma.user.upsert({
         where: { email: 'alice@example.com' },
         update: {},
-        create: { username: 'alice', email: 'alice@example.com', password: hashedPassword, displayName: 'Alice Murray', role: 'client', shareId: crypto.randomBytes(8).toString('hex') },
+        create: { username: 'alice', email: 'alice@example.com', password: hashedPassword, displayName: 'Alice Murray', role: 'client' },
     });
     const mark = await prisma.user.upsert({
         where: { email: 'mark@example.com' },
         update: {},
-        create: { username: 'mark', email: 'mark@example.com', password: hashedPassword, displayName: 'Mark Solomons', role: 'client', shareId: crypto.randomBytes(8).toString('hex') },
+        create: { username: 'mark', email: 'mark@example.com', password: hashedPassword, displayName: 'Mark Solomons', role: 'client' },
     });
     const sara = await prisma.user.upsert({
         where: { email: 'sara@example.com' },
         update: {},
-        create: { username: 'sara', email: 'sara@example.com', password: hashedPassword, displayName: 'Sara Lee', role: 'client', shareId: crypto.randomBytes(8).toString('hex') },
+        create: { username: 'sara', email: 'sara@example.com', password: hashedPassword, displayName: 'Sara Lee', role: 'client' },
     });
     const dev = await prisma.user.upsert({
         where: { email: 'dev@example.com' },
         update: {},
-        create: { username: 'devteam', email: 'dev@example.com', password: hashedPassword, displayName: 'Dev Team', role: 'vendor', shareId: crypto.randomBytes(8).toString('hex') },
+        create: { username: 'devteam', email: 'dev@example.com', password: hashedPassword, displayName: 'Dev Team', role: 'vendor' },
     });
 
     // Seed messages

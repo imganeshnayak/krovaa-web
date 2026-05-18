@@ -10,6 +10,7 @@ import {
   Search, Send, Paperclip, Smile, ArrowLeft, Image, FileText,
   Mic, MoreVertical, IndianRupee, User as UserIcon, Plus,
   Trash2, Ban, AlertTriangle, Download, X, CheckCircle2, Loader2, LogOut, Settings, User, HelpCircle, ShieldCheck, EyeOff, Eye, Lock, Shield, Camera, Film
+  , Sparkles
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -143,6 +144,7 @@ const ConversationList = ({
   onSupport: () => void;
   isMobile: boolean;
 }) => {
+  const navigate = useNavigate();
   const [isSearchVisible, setIsSearchVisible] = useState(false);
   const [showWelcomeBanner, setShowWelcomeBanner] = useState(() => localStorage.getItem("show_welcome_banner") === "true");
 
@@ -329,17 +331,24 @@ const ConversationList = ({
         {isLoading ? (
           <div className="text-center text-muted-foreground py-8">Loading chats...</div>
         ) : filteredChats.length === 0 && searchQuery.trim().length === 0 ? (
-          <div className="text-center text-muted-foreground py-8">
-            <p>No conversations yet</p>
-            <p className="text-xs mt-2">Search for a user to start chatting</p>
+          <div className="text-center text-muted-foreground py-8 px-4 flex flex-col items-center gap-4">
+            <div>
+              <p>No conversations yet</p>
+              <p className="text-xs mt-2">Search for a user to start chatting</p>
+            </div>
           </div>
         ) : (
           filteredChats.map((chat) => (
             <button
               key={chat.chat_id}
-              onClick={() => setSelectedChat(chat)}
-              className={`w-full grid grid-cols-[48px_1fr_auto] items-center gap-3 p-4 hover:bg-secondary/60 transition-colors border-b border-border text-left overflow-hidden ${selectedChat?.chat_id === chat.chat_id ? "bg-secondary" : ""
-                }`}
+              onClick={() => {
+                if (chat.isKrovAI) {
+                  navigate('/image-generator');
+                } else {
+                  setSelectedChat(chat);
+                }
+              }}
+              className={`w-full grid grid-cols-[48px_1fr_auto] items-center gap-3 p-4 hover:bg-secondary/60 transition-colors border-b border-border text-left overflow-hidden ${selectedChat?.chat_id === chat.chat_id ? "bg-secondary" : ""} ${chat.isKrovAI ? 'bg-gradient-to-r from-[#e0e7ff]/40 to-[#f3e8ff]/40' : ''}`}
             >
               <Avatar className="h-12 w-12 shrink-0">
                 <AvatarImage src={chat.avatar_url} />
@@ -352,7 +361,12 @@ const ConversationList = ({
                 <div className="flex items-center gap-1.5 overflow-hidden">
                   <span className="font-semibold text-foreground text-[14px] truncate leading-tight">{chat.display_name}</span>
                   <div className="flex items-center gap-1 shrink-0">
-                    {chat.isOfficial ? (
+                    {chat.isKrovAI ? (
+                      <Badge variant="secondary" className="bg-gradient-to-r from-[#7C3AED]/10 to-[#00A4EF]/10 text-[#7C3AED] text-[9px] h-3.5 px-1 border-none flex items-center gap-0.5">
+                        <Sparkles className="h-2.5 w-2.5" />
+                        AI
+                      </Badge>
+                    ) : chat.isOfficial ? (
                       <Badge variant="secondary" className="bg-primary/10 text-primary text-[9px] h-3.5 px-1 border-none flex items-center gap-0.5">
                         <ShieldCheck className="h-2.5 w-2.5" />
                         OFFICIAL
@@ -1556,13 +1570,56 @@ const ChatPage = () => {
     setIsLoading(true);
     try {
       const data = await getChatList();
+      if (user?.role !== 'admin' && user?.role !== 'staff' && user?.id) {
+        const supportChatId = `support_${user.id}`;
+        const hasSupportChat = data.some((chat) => chat.chat_id === supportChatId);
+
+        if (!hasSupportChat) {
+          try {
+            const { admin } = await getSupportChat();
+            data.unshift({
+              chat_id: supportChatId,
+              last_message: "Official Support & Notifications",
+              last_message_time: new Date().toISOString(),
+              user_id: admin.id,
+              display_name: "Krovaa",
+              avatar_url: "/krovaa-logo.svg?v=3",
+              username: "krovaa",
+              unread_count: 0,
+              verified: true,
+              isOfficial: true,
+            });
+          } catch {
+            // Leave the list as-is if support cannot be resolved right now.
+          }
+        }
+      }
+
       setChats(data);
+          // Inject KrovAI chat row
+          const isImageGeneratorEnabled = localStorage.getItem("image_generator_enabled") !== "false";
+          const krovaiChatId = `krovai_${user?.id}`;
+          const hasKrovaiChat = data.some((chat) => chat.chat_id === krovaiChatId);
+          if (isImageGeneratorEnabled && !hasKrovaiChat && user?.role !== 'admin' && user?.role !== 'staff' && user?.id) {
+            data.unshift({
+              chat_id: krovaiChatId,
+              last_message: "Generate images & chat with AI!",
+              last_message_time: new Date().toISOString(),
+              user_id: 0,
+              display_name: "KrovAI",
+              avatar_url: "/ai-sparkle.svg",
+              username: "krovai",
+              unread_count: 0,
+              verified: false,
+              isKrovAI: true,
+            });
+          }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load chats");
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [user?.id, user?.role]);
 
   const loadMessages = useCallback(async (chatId: string) => {
     try {

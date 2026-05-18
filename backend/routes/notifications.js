@@ -33,7 +33,6 @@ router.get('/', auth, async (req, res) => {
             orderBy: { createdAt: 'desc' },
             take: 100,
             include: {
-                admin: { select: { displayName: true, username: true, avatarUrl: true } },
                 reads: {
                     where: { userId: req.user.id }
                 }

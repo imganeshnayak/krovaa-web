@@ -42,7 +42,9 @@ const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:5000";
       // Not JSON, use raw text
     }
 
-    throw new Error(errorMessage);
+    const err: any = new Error(errorMessage);
+    err.status = res.status;
+    throw err;
   }
 
   return res.json();
@@ -1210,4 +1212,50 @@ export function deletePost(postId: number): Promise<{ success: boolean }> {
   return apiFetch<{ success: boolean }>(`/api/posts/${postId}`, {
     method: "DELETE",
   });
+}
+
+// ============ Image Generator API ============
+
+export interface GeneratedImage {
+  id: number;
+  imageUrl: string;
+  prompt: string;
+  style: string;
+  size: string;
+  createdAt: string;
+}
+
+export interface ImageGenerationHistory {
+  generations: GeneratedImage[];
+  total: number;
+  page: number;
+  totalPages: number;
+}
+
+export function generateImage(data: {
+  prompt: string;
+  size?: string;
+}): Promise<GeneratedImage> {
+  return apiFetch<GeneratedImage>("/api/image-generator/generate", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export function getImageHistory(page = 1, limit = 20): Promise<ImageGenerationHistory> {
+  return apiFetch<ImageGenerationHistory>(`/api/image-generator/history?page=${page}&limit=${limit}`);
+}
+
+export function deleteGeneratedImage(id: number): Promise<{ success: boolean }> {
+  return apiFetch<{ success: boolean }>(`/api/image-generator/${id}`, {
+    method: "DELETE",
+  });
+}
+
+export function getImageGeneratorStats(): Promise<{
+  totalGenerations: number;
+  todayGenerations: number;
+  topStyles: { style: string; _count: number }[];
+}> {
+  return apiFetch("/api/image-generator/stats");
 }

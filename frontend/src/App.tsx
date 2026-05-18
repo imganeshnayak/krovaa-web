@@ -21,6 +21,7 @@ import WalletPage from "./pages/WalletPage";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminChatView from "./pages/AdminChatView";
 import SettingsPage from "./pages/SettingsPage";
+import ImageGeneratorPage from "./pages/ImageGeneratorPage";
 import BlockedUsersPage from "./pages/BlockedUsersPage";
 import ForgotPassword from "./pages/ForgotPassword";
 import Terms from "./pages/legal/Terms";
@@ -89,6 +90,7 @@ const MainContent = () => {
         <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
         <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
         <Route path="/chat" element={<ClientRoute><ChatPage /></ClientRoute>} />
+        <Route path="/image-generator" element={<ClientRoute><ImageGeneratorPage /></ClientRoute>} />
         <Route path="/posts" element={<ClientRoute><PostsPage /></ClientRoute>} />
         <Route path="/explore" element={<ClientRoute><ExplorePage /></ClientRoute>} />
         <Route path="/post-job" element={<ClientRoute><PostJobPage /></ClientRoute>} />

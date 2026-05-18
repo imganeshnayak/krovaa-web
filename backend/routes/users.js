@@ -128,35 +128,62 @@ router.get('/username/:username', async (req, res) => {
     }
 });
 
-// GET /api/users/share-id/:shareId - Get user profile by share ID
+// GET /api/users/share-id/:shareId - Get user profile by share ID or username fallback
 router.get('/share-id/:shareId', async (req, res) => {
     try {
         const { shareId } = req.params;
 
-        const user = await prisma.user.findUnique({
-            where: { shareId },
-            select: {
-                id: true,
-                username: true,
-                displayName: true,
-                bio: true,
-                avatarUrl: true,
-                coverPhotoUrl: true,
-                socialLinks: true,
-                role: true,
-                status: true,
-                verified: true,
-                city: true,
-                profession: true,
-                skills: true,
-                userGoal: true,
-                shareId: true,
-                createdAt: true,
-                ratingsReceived: {
-                    select: { rating: true }
-                }
-            },
-        });
+        // Fallback: schema may not have `shareId`. Treat incoming value as username if necessary.
+        let user;
+        if (/^\d+$/.test(shareId)) {
+            user = await prisma.user.findUnique({
+                where: { id: parseInt(shareId) },
+                select: {
+                    id: true,
+                    username: true,
+                    displayName: true,
+                    bio: true,
+                    avatarUrl: true,
+                    coverPhotoUrl: true,
+                    socialLinks: true,
+                    role: true,
+                    status: true,
+                    verified: true,
+                    city: true,
+                    profession: true,
+                    skills: true,
+                    userGoal: true,
+                    createdAt: true,
+                    ratingsReceived: {
+                        select: { rating: true }
+                    }
+                },
+            });
+        } else {
+            user = await prisma.user.findFirst({
+                where: { username: { equals: decodeURIComponent(shareId), mode: 'insensitive' } },
+                select: {
+                    id: true,
+                    username: true,
+                    displayName: true,
+                    bio: true,
+                    avatarUrl: true,
+                    coverPhotoUrl: true,
+                    socialLinks: true,
+                    role: true,
+                    status: true,
+                    verified: true,
+                    city: true,
+                    profession: true,
+                    skills: true,
+                    userGoal: true,
+                    createdAt: true,
+                    ratingsReceived: {
+                        select: { rating: true }
+                    }
+                },
+            });
+        }
 
         if (!user) {
             return res.status(404).json({ error: 'User not found.' });

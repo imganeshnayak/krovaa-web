@@ -1,11 +1,13 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { Home, User, Wallet, Settings, Shield, Compass, PlusCircle } from 'lucide-react';
+import { Home, User, Wallet, Settings, Shield, Compass, Sparkles } from 'lucide-react';
 
 const BottomNavbar = () => {
   const location = useLocation();
   const { user } = useAuth();
+
+  // const isImageGeneratorEnabled = localStorage.getItem("image_generator_enabled") !== "false";
 
   const navItems = [
     {
@@ -14,12 +16,12 @@ const BottomNavbar = () => {
       icon: <Home className="w-6 h-6" />,
       show: user?.role !== 'staff'
     },
-    {
-      label: 'Profile',
-      to: '/profile',
-      icon: <User className="w-6 h-6" />,
-      show: user?.role !== 'staff'
-    },
+    // {
+    //   label: 'KrovAI',
+    //   to: '/image-generator',
+    //   icon: <Sparkles className="w-6 h-6" />,
+    //   show: user?.role !== 'staff' && isImageGeneratorEnabled
+    // },
     {
       label: 'Explore',
       to: '/explore',
@@ -33,16 +35,22 @@ const BottomNavbar = () => {
       show: user?.role !== 'staff'
     },
     {
+      label: 'Profile',
+      to: '/profile',
+      icon: <User className="w-6 h-6" />,
+      show: user?.role !== 'staff'
+    },
+    {
       label: 'Settings',
       to: '/settings',
       icon: <Settings className="w-6 h-6" />,
-      show: (user?.role !== 'admin' && user?.role !== 'staff') // Disable/hide for admins and staff
+      show: (user?.role !== 'admin' && user?.role !== 'staff')
     },
     {
       label: 'Admin',
       to: '/admin',
       icon: <Shield className="w-6 h-6 text-[#00A4EF]" />,
-      show: (user?.role === 'admin' || user?.role === 'staff') // Only show for admins and staff
+      show: (user?.role === 'admin' || user?.role === 'staff')
     }
   ];
 
