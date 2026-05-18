@@ -20,7 +20,6 @@ model User {
   role                 String                @default("client")
   status               String                @default("active")
   telegramId           String?               @map("telegram_id")
-  shareId              String?               @unique @map("share_id")
   createdAt            DateTime              @default(now()) @map("created_at")
   updatedAt            DateTime              @updatedAt @map("updated_at")
   socialLinks          Json?                 @default("[]") @map("social_links")
@@ -37,14 +36,14 @@ model User {
   userGoal             String?               @map("user_goal")
   skills               Json?                 @default("[]")
   imageGenerations     ImageGeneration[]
-  posts                Post[]
-  postLikes            Post_Like[]
-  postComments         Post_Comment[]
+  posts                Post[]                @relation("UserPosts")
+  postLikes            Post_Like[]           @relation("UserPostLikes")
+  postComments         Post_Comment[]        @relation("UserPostComments")
   sentMessages         Message[]             @relation("UserSentMessages")
   receivedMessages     Message[]             @relation("UserReceivedMessages")
   clientDeals          EscrowDeal[]          @relation("UserClientDeals")
   vendorDeals          EscrowDeal[]          @relation("UserVendorDeals")
-  postedJobs           Job[]                 @relation("UserPostedJobs")
+  postedJobs           Job[]                 @relation("PostedJobs")
   jobApplications      Application[]         @relation("UserApplications")
   verificationRequests VerificationRequest[]
   payoutRequests       PayoutRequest[]
@@ -55,11 +54,6 @@ model User {
   reportReceived       Report[]              @relation("Reported")
   blockedUsers         BlockedUser[]         @relation("Blocker")
   blockedBy            BlockedUser[]         @relation("Blocked")
-  posts                Post[]
-  postLikes            Post_Like[]
-  postComments         Post_Comment[]
-  jobs                 Job[]                 @relation("PostedJobs")
-  applications         Application[]         @relation("UserApplications")
 
   @@map("users")
 }
