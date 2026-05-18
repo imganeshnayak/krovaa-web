@@ -55,6 +55,29 @@ router.post('/', requireAuth, upload.array('files', 6), async (req, res) => {
   }
 })
 
+// Get all posts (feed) — must be defined BEFORE /:userId to avoid route conflict
+router.get('/', async (req, res) => {
+  try {
+    const posts = await prisma.post.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+      include: {
+        user: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
+        likes: { select: { userId: true } },
+        comments: {
+          include: { user: { select: { id: true, username: true, displayName: true, avatarUrl: true } } },
+          orderBy: { createdAt: 'desc' },
+          take: 3,
+        },
+      },
+    })
+    res.json(posts)
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: 'Failed to fetch posts' })
+  }
+})
+
 router.get('/:userId', async (req, res) => {
   try {
     const userId = parseInt(req.params.userId, 10)

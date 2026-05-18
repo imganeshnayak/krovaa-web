@@ -133,32 +133,37 @@ router.get('/share-id/:shareId', async (req, res) => {
     try {
         const { shareId } = req.params;
 
-        const user = await prisma.user.findUnique({
-            where: { shareId },
-            select: {
-                id: true,
-                username: true,
-                displayName: true,
-                bio: true,
-                avatarUrl: true,
-                coverPhotoUrl: true,
-                socialLinks: true,
-                role: true,
-                status: true,
-                verified: true,
-                city: true,
-                profession: true,
-                skills: true,
-                userGoal: true,
-                shareId: true,
-                createdAt: true,
-                ratingsReceived: {
-                    select: { rating: true }
-                }
-            },
-        });
+        const selectFields = {
+            id: true,
+            username: true,
+            displayName: true,
+            bio: true,
+            avatarUrl: true,
+            coverPhotoUrl: true,
+            socialLinks: true,
+            role: true,
+            status: true,
+            verified: true,
+            city: true,
+            profession: true,
+            skills: true,
+            userGoal: true,
+            shareId: true,
+            createdAt: true,
+        };
+
+        // First try by shareId, then fallback to username (for users without a shareId)
+        let user = await prisma.user.findUnique({ where: { shareId }, select: selectFields });
 
         if (!user) {
+            user = await prisma.user.findFirst({
+                where: { username: { equals: shareId, mode: 'insensitive' } },
+                select: selectFields,
+            });
+        }
+
+        if (!user) {
+
             return res.status(404).json({ error: 'User not found.' });
         }
 

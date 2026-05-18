@@ -11,6 +11,8 @@ class SocketService {
         this.socket = io(API_URL, {
             withCredentials: true,
             transports: ["websocket", "polling"],
+            reconnectionAttempts: 5,
+            reconnectionDelay: 2000,
         });
 
         this.socket.on("connect", () => {
@@ -18,8 +20,16 @@ class SocketService {
             this.socket?.emit("join", { userId, chatId: `user_${userId}` });
         });
 
-        this.socket.on("disconnect", () => {
-            console.log("🔴 Disconnected from socket server");
+        this.socket.on("disconnect", (reason) => {
+            // Only log if it's not an expected client-side disconnect
+            if (reason !== "io client disconnect") {
+                console.log("🔴 Disconnected from socket server:", reason);
+            }
+        });
+
+        this.socket.on("reconnect", (attempt) => {
+            console.log(`🟡 Reconnected after ${attempt} attempt(s)`);
+            this.socket?.emit("join", { userId, chatId: `user_${userId}` });
         });
     }
 

@@ -10,17 +10,17 @@ const formatPostedAgo = (createdAt: string) => {
   const diffMinutes = Math.round((Date.now() - createdDate.getTime()) / 60000);
 
   if (diffMinutes < 60) {
-    return `${diffMinutes}m ago`;
+    return `${diffMinutes} mins ago`;
   }
 
   const diffHours = Math.round(diffMinutes / 60);
   if (diffHours < 24) {
-    return `${diffHours}h ago`;
+    return `${diffHours} hrs ago`;
   }
 
   const diffDays = Math.round(diffHours / 24);
   if (diffDays < 7) {
-    return `${diffDays}d ago`;
+    return `${diffDays} days ago`;
   }
 
   return createdDate.toLocaleDateString(undefined, {

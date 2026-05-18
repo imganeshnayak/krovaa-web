@@ -19,6 +19,7 @@ model User {
   role                 String                @default("client")
   status               String                @default("active")
   telegramId           String?               @map("telegram_id")
+  shareId              String?               @unique @map("share_id")
   createdAt            DateTime              @default(now()) @map("created_at")
   updatedAt            DateTime              @updatedAt @map("updated_at")
   socialLinks          Json?                 @default("[]") @map("social_links")
@@ -47,6 +48,11 @@ model User {
   reportReceived       Report[]              @relation("Reported")
   blockedUsers         BlockedUser[]         @relation("Blocker")
   blockedBy            BlockedUser[]         @relation("Blocked")
+  posts                Post[]
+  postLikes            Post_Like[]
+  postComments         Post_Comment[]
+  jobs                 Job[]                 @relation("PostedJobs")
+  applications         Application[]         @relation("UserApplications")
 
   @@map("users")
 }
@@ -317,8 +323,23 @@ model Job {
   description String
   postedById  Int      @map("posted_by_id")
   createdAt   DateTime @default(now()) @map("created_at")
+  postedBy    User     @relation("PostedJobs", fields: [postedById], references: [id], onDelete: Cascade)
+  applications Application[]
 
   @@map("jobs")
+}
+
+model Application {
+  id        Int      @id @default(autoincrement())
+  jobId     Int      @map("job_id")
+  userId    Int      @map("user_id")
+  status    String   @default("pending")
+  createdAt DateTime @default(now()) @map("created_at")
+  job       Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  user      User     @relation("UserApplications", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, userId])
+  @@map("applications")
 }
 
 model Post {
