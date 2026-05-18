@@ -28,6 +28,7 @@ import notificationRoutes from './routes/notifications.js';
 import adsRoutes from './routes/ads.js';
 import jobsRoutes from './routes/jobs.js';
 import postsRoutes from './routes/posts.js';
+import imageGeneratorRoutes from './routes/imageGenerator.js';
 import setupSocket from './socket/chat.js';
 
 const app = express();
@@ -113,6 +114,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/ads', adsRoutes);
 app.use('/api/jobs', jobsRoutes);
 app.use('/api/posts', postsRoutes);
+app.use('/api/image-generator', imageGeneratorRoutes);
 
 // Global Error Handler
 app.use((err, req, res, next) => {

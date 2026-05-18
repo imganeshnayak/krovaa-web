@@ -128,37 +128,60 @@ router.get('/username/:username', async (req, res) => {
     }
 });
 
-// GET /api/users/share-id/:shareId - Get user profile by share ID
+// GET /api/users/share-id/:shareId - Get user profile by share ID or username fallback
 router.get('/share-id/:shareId', async (req, res) => {
     try {
         const { shareId } = req.params;
 
-        const selectFields = {
-            id: true,
-            username: true,
-            displayName: true,
-            bio: true,
-            avatarUrl: true,
-            coverPhotoUrl: true,
-            socialLinks: true,
-            role: true,
-            status: true,
-            verified: true,
-            city: true,
-            profession: true,
-            skills: true,
-            userGoal: true,
-            shareId: true,
-            createdAt: true,
-        };
-
-        // First try by shareId, then fallback to username (for users without a shareId)
-        let user = await prisma.user.findUnique({ where: { shareId }, select: selectFields });
-
-        if (!user) {
+        // Fallback: schema may not have `shareId`. Treat incoming value as username if necessary.
+        let user;
+        if (/^\d+$/.test(shareId)) {
+            user = await prisma.user.findUnique({
+                where: { id: parseInt(shareId) },
+                select: {
+                    id: true,
+                    username: true,
+                    displayName: true,
+                    bio: true,
+                    avatarUrl: true,
+                    coverPhotoUrl: true,
+                    socialLinks: true,
+                    role: true,
+                    status: true,
+                    verified: true,
+                    city: true,
+                    profession: true,
+                    skills: true,
+                    userGoal: true,
+                    createdAt: true,
+                    ratingsReceived: {
+                        select: { rating: true }
+                    }
+                },
+            });
+        } else {
             user = await prisma.user.findFirst({
-                where: { username: { equals: shareId, mode: 'insensitive' } },
-                select: selectFields,
+                where: { username: { equals: decodeURIComponent(shareId), mode: 'insensitive' } },
+                select: {
+                    id: true,
+                    username: true,
+                    displayName: true,
+                    bio: true,
+                    avatarUrl: true,
+                    coverPhotoUrl: true,
+                    socialLinks: true,
+                    role: true,
+                    status: true,
+                    verified: true,
+                    city: true,
+                    profession: true,
+                    skills: true,
+                    userGoal: true,
+                    createdAt: true,
+                    ratingsReceived: {
+                        select: { rating: true }
+                    }
+                },
             });
         }
 
@@ -495,7 +518,7 @@ router.post('/avatar', auth, upload.single('avatar'), async (req, res) => {
         console.log('Avatar upload endpoint called');
         console.log('File object:', req.file ? { fieldname: req.file.fieldname, originalname: req.file.originalname, encoding: req.file.encoding, mimetype: req.file.mimetype, size: req.file.size, buffer: req.file.buffer ? 'exists' : 'missing' } : 'no file');
         console.log('User ID:', req.user.id);
-        
+
         if (!req.file) {
             console.log('No file provided in request');
             return res.status(400).json({ error: 'No file uploaded.' });
@@ -506,14 +529,14 @@ router.post('/avatar', auth, upload.single('avatar'), async (req, res) => {
             return res.status(400).json({ error: 'File buffer is missing.' });
         }
 
-        console.log('Cloudinary config:', { 
+        console.log('Cloudinary config:', {
             cloud_name: process.env.CLOUDINARY_CLOUD_NAME ? 'set' : 'missing',
             api_key: process.env.CLOUDINARY_API_KEY ? 'set' : 'missing',
             api_secret: process.env.CLOUDINARY_API_SECRET ? 'set' : 'missing'
         });
 
         console.log('Cloudinary upload starting...');
-        
+
         // Convert buffer to base64 for more reliable upload in some environments
         const b64 = req.file.buffer.toString('base64');
         const dataURI = "data:" + req.file.mimetype + ";base64," + b64;
@@ -554,7 +577,7 @@ router.post('/cover-photo', auth, upload.single('coverPhoto'), async (req, res) 
         console.log('Cover photo upload endpoint called');
         console.log('File object:', req.file ? { fieldname: req.file.fieldname, originalname: req.file.originalname, encoding: req.file.encoding, mimetype: req.file.mimetype, size: req.file.size, buffer: req.file.buffer ? 'exists' : 'missing' } : 'no file');
         console.log('User ID:', req.user.id);
-        
+
         if (!req.file) {
             console.log('No file provided in request');
             return res.status(400).json({ error: 'No file uploaded.' });
@@ -565,14 +588,14 @@ router.post('/cover-photo', auth, upload.single('coverPhoto'), async (req, res) 
             return res.status(400).json({ error: 'File buffer is missing.' });
         }
 
-        console.log('Cloudinary config:', { 
+        console.log('Cloudinary config:', {
             cloud_name: process.env.CLOUDINARY_CLOUD_NAME ? 'set' : 'missing',
             api_key: process.env.CLOUDINARY_API_KEY ? 'set' : 'missing',
             api_secret: process.env.CLOUDINARY_API_SECRET ? 'set' : 'missing'
         });
 
         console.log('Cloudinary cover upload starting...');
-        
+
         const b64 = req.file.buffer.toString('base64');
         const dataURI = "data:" + req.file.mimetype + ";base64," + b64;
 

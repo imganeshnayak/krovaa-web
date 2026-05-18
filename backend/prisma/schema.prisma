@@ -35,6 +35,10 @@ model User {
   age                  Int?
   userGoal             String?               @map("user_goal")
   skills               Json?                 @default("[]")
+  imageGenerations     ImageGeneration[]
+  posts                Post[]
+  postLikes            Post_Like[]
+  postComments         Post_Comment[]
   sentMessages         Message[]             @relation("UserSentMessages")
   receivedMessages     Message[]             @relation("UserReceivedMessages")
   clientDeals          EscrowDeal[]          @relation("UserClientDeals")
@@ -379,4 +383,17 @@ model Post_Comment {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("post_comments")
+}
+
+model ImageGeneration {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  prompt    String
+  style     String   @default("natural")
+  imageUrl  String   @map("image_url")
+  size      String   @default("1024x1024")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("image_generations")
 }
