@@ -55,9 +55,6 @@ model User {
   reportReceived       Report[]              @relation("Reported")
   blockedUsers         BlockedUser[]         @relation("Blocker")
   blockedBy            BlockedUser[]         @relation("Blocked")
-  posts                Post[]
-  postLikes            Post_Like[]
-  postComments         Post_Comment[]
   jobs                 Job[]                 @relation("PostedJobs")
   applications         Application[]         @relation("UserApplications")
 
