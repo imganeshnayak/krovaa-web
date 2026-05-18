@@ -7,7 +7,7 @@ const prisma = new PrismaClient();
 const router = express.Router();
 
 // GET /api/jobs
-router.get('/', auth, async (req, res) => {
+router.get('/', async (req, res) => {
     try {
         const jobs = await prisma.job.findMany({
             orderBy: { createdAt: 'desc' }
@@ -21,7 +21,7 @@ router.get('/', auth, async (req, res) => {
 });
 
 // GET /api/jobs/:id
-router.get('/:id', auth, async (req, res) => {
+router.get('/:id', async (req, res) => {
     try {
         const jobId = Number(req.params.id);
         if (Number.isNaN(jobId)) {
@@ -50,40 +50,46 @@ router.get('/:id', auth, async (req, res) => {
             return res.status(404).json({ error: 'Job not found.' });
         }
 
-        // Check if the current user has already applied
-        const application = await prisma.application.findUnique({
-            where: {
-                jobId_userId: {
-                    jobId,
-                    userId: req.user.id
-                }
-            }
-        });
-
         const jobWithStatus = {
             ...job,
-            hasApplied: !!application,
-            isOwner: job.postedById === req.user.id
+            hasApplied: false,
+            isOwner: false,
+            applications: []
         };
 
-        // If owner, fetch and include applications
-        if (jobWithStatus.isOwner) {
-            const applications = await prisma.application.findMany({
-                where: { jobId },
-                include: {
-                    user: {
-                        select: {
-                            id: true,
-                            username: true,
-                            displayName: true,
-                            avatarUrl: true,
-                            profession: true
-                        }
+        // If user is authenticated, check their application status and if they own it
+        if (req.user) {
+            const application = await prisma.application.findUnique({
+                where: {
+                    jobId_userId: {
+                        jobId,
+                        userId: req.user.id
                     }
-                },
-                orderBy: { createdAt: 'desc' }
+                }
             });
-            jobWithStatus.applications = applications;
+
+            jobWithStatus.hasApplied = !!application;
+            jobWithStatus.isOwner = job.postedById === req.user.id;
+
+            // If owner, fetch and include applications
+            if (jobWithStatus.isOwner) {
+                const applications = await prisma.application.findMany({
+                    where: { jobId },
+                    include: {
+                        user: {
+                            select: {
+                                id: true,
+                                username: true,
+                                displayName: true,
+                                avatarUrl: true,
+                                profession: true
+                            }
+                        }
+                    },
+                    orderBy: { createdAt: 'desc' }
+                });
+                jobWithStatus.applications = applications;
+            }
         }
 
         res.json(jobWithStatus);
