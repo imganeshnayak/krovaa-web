@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -28,7 +29,7 @@ import {
   MessageSquare, Users, DollarSign, Shield, Search,
   Eye, Ban, AlertTriangle, ChevronRight, TrendingUp,
   Activity, UserCheck, Trash2, CheckCircle2, LogOut, Wallet, Bell, Send,
-  IndianRupee, Settings, Loader2, Info, Percent, ExternalLink, ImageIcon, Film, X, Plus, RadioTower
+  IndianRupee, Settings, Loader2, Info, Percent, ExternalLink, ImageIcon, Film, X, Plus, RadioTower, Zap
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
@@ -72,7 +73,8 @@ import {
   createAd,
   updateAd,
   deleteAd,
-  pushAdNotification
+  pushAdNotification,
+  getImageGeneratorStats
 } from "@/lib/api";
 
 type AdminTab = "overview" | "users" | "chats" | "escrow" | "activity" | "reports" | "verifications" | "payouts" | "broadcast" | "settings" | "staff";
@@ -102,7 +104,9 @@ const AdminDashboard = () => {
   const [sentNotifications, setSentNotifications] = useState<Notification[]>([]);
   const [systemSettings, setSystemSettings] = useState<Record<string, string>>({
     verification_fee: "109",
-    platform_fee_percent: "0.10"
+    platform_fee_percent: "0.10",
+    image_generator_enabled: "true",
+    image_generation_daily_limit: "5"
   });
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [expandedUsers, setExpandedUsers] = useState<Record<number, boolean>>({});
@@ -132,6 +136,10 @@ const AdminDashboard = () => {
   const [adFile, setAdFile] = useState<File | null>(null);
   const [adFilePreview, setAdFilePreview] = useState<string | null>(null);
   const [isSavingAd, setIsSavingAd] = useState(false);
+
+  // --- Image Generation Stats ---
+  const [imageGenStats, setImageGenStats] = useState<any>(null);
+  const [isLoadingImageStats, setIsLoadingImageStats] = useState(false);
 
   const adminPermissions = [
     { id: "users", label: "Users Management" },
@@ -180,6 +188,17 @@ const AdminDashboard = () => {
     try {
       const statsData = await getAdminStats();
       setStats(statsData);
+
+      // Load image generation stats
+      try {
+        setIsLoadingImageStats(true);
+        const imageStatsData = await getImageGeneratorStats();
+        setImageGenStats(imageStatsData);
+      } catch (err) {
+        console.error('Failed to load image generation stats:', err);
+      } finally {
+        setIsLoadingImageStats(false);
+      }
 
       if (activeTab === "users") {
         const usersData = await getAdminUsers({ search: searchQuery, status: statusFilter === "all" ? "" : statusFilter });
@@ -709,6 +728,57 @@ const AdminDashboard = () => {
                     </CardContent>
                   </Card>
                 </div>
+
+                {imageGenStats && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <Card className="bg-card border-border border-l-4 border-l-purple-500">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium text-muted-foreground flex items-center justify-between">
+                          Today's AI Generations
+                          <ImageIcon className="h-4 w-4 text-purple-500" />
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold text-card-foreground">{imageGenStats.todayGenerations}</div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {imageGenStats.uniqueUsersToday} users active
+                        </p>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="bg-card border-border border-l-4 border-l-purple-500">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium text-muted-foreground flex items-center justify-between">
+                          Daily Limit Status
+                          <Zap className="h-4 w-4 text-purple-500" />
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold text-card-foreground">{imageGenStats.usersAtLimitToday}</div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Users at limit
+                        </p>
+                      </CardContent>
+                    </Card>
+
+                    <Card className={`bg-card border-border border-l-4 ${imageGenStats.isEnabled ? 'border-l-green-500' : 'border-l-red-500'}`}>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium text-muted-foreground flex items-center justify-between">
+                          AI Generator Status
+                          <ImageIcon className={`h-4 w-4 ${imageGenStats.isEnabled ? 'text-green-500' : 'text-red-500'}`} />
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className={`text-lg font-bold ${imageGenStats.isEnabled ? 'text-green-500' : 'text-red-500'}`}>
+                          {imageGenStats.isEnabled ? 'Enabled' : 'Disabled'}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Limit: {imageGenStats.dailyLimit} images/day
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
 
                 <Card className="bg-card border-border">
                   <CardHeader>
@@ -1828,7 +1898,83 @@ const AdminDashboard = () => {
                       </Button>
                     </CardContent>
                   </Card>
-                </div>
+
+                  <Card className="bg-card/50 border-border/50 backdrop-blur-md shadow-xl overflow-hidden rounded-2xl border">
+                    <CardHeader className="bg-secondary/20 border-b border-border/50 py-5">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-purple-500/10 rounded-xl">
+                          <ImageIcon className="h-5 w-5 text-purple-500" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-lg font-bold">KrovAI Image Generator</CardTitle>
+                          <p className="text-xs text-muted-foreground">Configure AI image generation feature</p>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="p-6 space-y-6">
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between p-4 bg-background/50 rounded-xl border border-border/50">
+                          <div className="space-y-1">
+                            <label className="text-sm font-semibold text-foreground/80">Enable/Disable Feature</label>
+                            <p className="text-xs text-muted-foreground">Toggle AI image generation for all users</p>
+                          </div>
+                          <Switch
+                            checked={systemSettings.image_generator_enabled !== 'false'}
+                            onCheckedChange={(checked) => 
+                              setSystemSettings(prev => ({ 
+                                ...prev, 
+                                image_generator_enabled: checked ? 'true' : 'false'
+                              }))
+                            }
+                          />
+                        </div>
+
+                        <div className="space-y-3">
+                          <label className="text-sm font-semibold text-foreground/80 block uppercase tracking-wider">Daily Limit (Images/Day)</label>
+                          <div className="relative group">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                              <Zap className="h-4 w-4 text-muted-foreground group-focus-within:text-purple-500 transition-colors" />
+                            </div>
+                            <Input
+                              type="number"
+                              min="1"
+                              max="100"
+                              className="pl-10 h-12 bg-background/50 border-border/50 focus:border-purple-500/50 focus:ring-purple-500/20 rounded-xl transition-all"
+                              value={systemSettings.image_generation_daily_limit || '5'}
+                              onChange={(e) => setSystemSettings(prev => ({ ...prev, image_generation_daily_limit: e.target.value }))}
+                              placeholder="e.g. 5"
+                            />
+                          </div>
+                          <p className="text-[10px] text-muted-foreground italic">Maximum number of images a user can generate per day</p>
+                        </div>
+                      </div>
+
+                      <div className="bg-purple-500/5 border border-purple-500/10 rounded-lg p-3">
+                        <div className="flex gap-2">
+                          <span className="text-purple-500 mt-0.5 font-bold">⚡</span>
+                          <p className="text-xs text-purple-500/80 leading-relaxed italic">
+                            Rate limiting helps manage API costs and prevents abuse. Daily limit resets at midnight for each user.
+                          </p>
+                        </div>
+                      </div>
+
+                      <Button
+                        onClick={handleSaveSettings}
+                        className="w-full h-11 rounded-xl shadow-lg shadow-purple-500/20 hover:shadow-purple-500/30 transition-all font-semibold bg-purple-600 hover:bg-purple-700 text-white"
+                        disabled={isSavingSettings}
+                      >
+                        {isSavingSettings ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Saving Settings...
+                          </>
+                        ) : (
+                          "Update Image Generator Settings"
+                        )
+                        }
+                      </Button>
+                    </CardContent>
+                  </Card>
               </div>
             )}
 

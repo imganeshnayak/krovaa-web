@@ -30,6 +30,33 @@ router.post('/generate', auth, async (req, res) => {
             return res.status(403).json({ error: 'Image generator is currently disabled' });
         }
 
+        // Check daily rate limit (5 images per day)
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+
+        const todayCount = await prisma.imageGenerationDaily.findUnique({
+            where: {
+                userId_date: {
+                    userId: req.user.id,
+                    date: today
+                }
+            }
+        });
+
+        const currentCount = todayCount?.count || 0;
+        const dailyLimit = parseInt(settingsMap['image_generation_daily_limit'] || '5');
+
+        if (currentCount >= dailyLimit) {
+            return res.status(429).json({ 
+                error: `Daily limit reached. You can generate ${dailyLimit} images per day.`,
+                limit: dailyLimit,
+                used: currentCount,
+                resetTime: tomorrow
+            });
+        }
+
         let imageUrl;
         const provider = process.env.IMAGE_GENERATOR_PROVIDER || 'pollinations';
         console.log(`[ImageGen] Using provider: ${provider}, prompt: ${prompt.substring(0, 50)}...`);
@@ -216,6 +243,22 @@ router.post('/generate', auth, async (req, res) => {
             },
         });
 
+        // Update daily generation count
+        await prisma.imageGenerationDaily.upsert({
+            where: {
+                userId_date: {
+                    userId: req.user.id,
+                    date: today
+                }
+            },
+            update: { count: { increment: 1 } },
+            create: {
+                userId: req.user.id,
+                date: today,
+                count: 1
+            }
+        });
+
         res.json({
             id: generation.id,
             imageUrl: imageUrl,
@@ -299,12 +342,54 @@ router.delete('/:id', auth, async (req, res) => {
     }
 });
 
+// Get user's daily generation count
+router.get('/daily-limit/check', auth, async (req, res) => {
+    try {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const settings = await prisma.systemSetting.findMany();
+        const settingsMap = {};
+        settings.forEach(s => { settingsMap[s.key] = s.value; });
+
+        const dailyLimit = parseInt(settingsMap['image_generation_daily_limit'] || '5');
+
+        const todayCount = await prisma.imageGenerationDaily.findUnique({
+            where: {
+                userId_date: {
+                    userId: req.user.id,
+                    date: today
+                }
+            }
+        });
+
+        const used = todayCount?.count || 0;
+        const remaining = Math.max(0, dailyLimit - used);
+
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+
+        res.json({
+            limit: dailyLimit,
+            used: used,
+            remaining: remaining,
+            resetTime: tomorrow
+        });
+    } catch (error) {
+        console.error('Get daily limit error:', error.message);
+        res.status(500).json({ error: 'Failed to fetch daily limit info' });
+    }
+});
+
 // Get generation stats (for admin)
 router.get('/stats', auth, async (req, res) => {
     try {
         if (req.user.role !== 'admin' && req.user.role !== 'staff') {
             return res.status(403).json({ error: 'Admin access required' });
         }
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
 
         const totalGenerations = await prisma.imageGeneration.count();
         const todayGenerations = await prisma.imageGeneration.count({
@@ -322,10 +407,39 @@ router.get('/stats', auth, async (req, res) => {
             take: 10,
         });
 
+        // Get daily limit stats
+        const settings = await prisma.systemSetting.findMany();
+        const settingsMap = {};
+        settings.forEach(s => { settingsMap[s.key] = s.value; });
+
+        const dailyLimit = parseInt(settingsMap['image_generation_daily_limit'] || '5');
+        const isEnabled = settingsMap['image_generator_enabled'] !== 'false';
+
+        // Get users who hit the daily limit today
+        const usersAtLimit = await prisma.imageGenerationDaily.findMany({
+            where: {
+                date: today,
+                count: { gte: dailyLimit }
+            }
+        });
+
+        // Get total users who generated today
+        const uniqueUsersToday = await prisma.imageGenerationDaily.findMany({
+            where: { date: today }
+        });
+
         res.json({
             totalGenerations,
             todayGenerations,
             topStyles,
+            dailyLimit,
+            isEnabled,
+            usersAtLimitToday: usersAtLimit.length,
+            uniqueUsersToday: uniqueUsersToday.length,
+            totalDailyUsers: uniqueUsersToday.map(u => u.userId),
+            averagePerUser: uniqueUsersToday.length > 0 
+                ? (todayGenerations / uniqueUsersToday.length).toFixed(2)
+                : 0
         });
     } catch (error) {
         console.error('Get stats error:', error.message);

@@ -1267,8 +1267,25 @@ export function getImageGeneratorStats(): Promise<{
   totalGenerations: number;
   todayGenerations: number;
   topStyles: { style: string; _count: number }[];
+  dailyLimit: number;
+  isEnabled: boolean;
+  usersAtLimitToday: number;
+  uniqueUsersToday: number;
+  totalDailyUsers: number[];
+  averagePerUser: number | string;
 }> {
   return apiFetch("/api/image-generator/stats");
+}
+
+export interface DailyLimitInfo {
+  limit: number;
+  used: number;
+  remaining: number;
+  resetTime: string;
+}
+
+export function getDailyGenerationLimit(): Promise<DailyLimitInfo> {
+  return apiFetch<DailyLimitInfo>("/api/image-generator/daily-limit/check");
 }
 
 export function shareImageToChat(imageId: number, data: {

@@ -6,9 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, CheckCircle2, Clock, LogOut, XCircle, Sparkles } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock, LogOut, XCircle, Sparkles, AlertCircle, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
-import { getVerificationStatus, getVerificationFee, applyForVerification, VerificationRequest, initiateVerificationPayment, verifyPayment } from "@/lib/api";
+import { getVerificationStatus, getVerificationFee, applyForVerification, VerificationRequest, initiateVerificationPayment, verifyPayment, getDailyGenerationLimit, DailyLimitInfo } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { useRazorpay } from "@/hooks/useRazorpay";
 import {
@@ -34,9 +34,14 @@ const SettingsPage = () => {
         const saved = localStorage.getItem("image_generator_enabled");
         return saved !== "false";
     });
+    const [dailyLimitInfo, setDailyLimitInfo] = useState<DailyLimitInfo | null>(null);
+    const [isLoadingLimit, setIsLoadingLimit] = useState(false);
 
     useEffect(() => {
         loadVerificationData();
+        if (isImageGeneratorEnabled) {
+            loadDailyLimitInfo();
+        }
     }, []);
 
     const loadVerificationData = async () => {
@@ -49,6 +54,18 @@ const SettingsPage = () => {
             setVerificationFee(feeData.fee);
         } catch (err) {
             console.error('Load verification data error:', err);
+        }
+    };
+
+    const loadDailyLimitInfo = async () => {
+        setIsLoadingLimit(true);
+        try {
+            const limitInfo = await getDailyGenerationLimit();
+            setDailyLimitInfo(limitInfo);
+        } catch (err) {
+            console.error('Load daily limit error:', err);
+        } finally {
+            setIsLoadingLimit(false);
         }
     };
 
@@ -66,6 +83,9 @@ const SettingsPage = () => {
                 ? "AI Image Generator is now available in the navigation bar"
                 : "AI Image Generator has been hidden from the navigation bar",
         });
+        if (checked) {
+            loadDailyLimitInfo();
+        }
     };
 
     const handleApplyForVerification = async () => {
@@ -319,6 +339,49 @@ const SettingsPage = () => {
                                             onCheckedChange={handleToggleImageGenerator}
                                         />
                                     </div>
+                                    
+                                    {isImageGeneratorEnabled && (
+                                        <div className="mt-4 p-3 bg-[#7C3AED]/10 rounded-lg border border-[#7C3AED]/20">
+                                            <div className="flex items-start gap-2">
+                                                <Zap className="h-4 w-4 text-[#7C3AED] mt-0.5 shrink-0" />
+                                                <div className="flex-1">
+                                                    <p className="text-sm font-medium text-[#7C3AED]">Daily Generation Limit</p>
+                                                    {isLoadingLimit ? (
+                                                        <p className="text-sm text-muted-foreground mt-1">Loading...</p>
+                                                    ) : dailyLimitInfo ? (
+                                                        <>
+                                                            <div className="mt-2 space-y-1 text-sm">
+                                                                <div className="flex justify-between items-center">
+                                                                    <span className="text-muted-foreground">Images generated today:</span>
+                                                                    <span className="font-semibold">{dailyLimitInfo.used} / {dailyLimitInfo.limit}</span>
+                                                                </div>
+                                                                <div className="w-full bg-[#7C3AED]/20 rounded-full h-2">
+                                                                    <div 
+                                                                        className="bg-[#7C3AED] h-2 rounded-full transition-all"
+                                                                        style={{ width: `${(dailyLimitInfo.used / dailyLimitInfo.limit) * 100}%` }}
+                                                                    />
+                                                                </div>
+                                                                <div className="flex justify-between items-center mt-1">
+                                                                    <span className="text-muted-foreground">Remaining:</span>
+                                                                    <span className={dailyLimitInfo.remaining === 0 ? "text-[#E74C3C] font-semibold" : "text-[#0FB881] font-semibold"}>
+                                                                        {dailyLimitInfo.remaining} images
+                                                                    </span>
+                                                                </div>
+                                                                {dailyLimitInfo.used >= dailyLimitInfo.limit && (
+                                                                    <div className="flex items-center gap-1.5 mt-2 p-2 bg-[#E74C3C]/10 rounded text-[#E74C3C] text-xs">
+                                                                        <AlertCircle className="h-3 w-3" />
+                                                                        <span>Daily limit reached. Try again tomorrow!</span>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </>
+                                                    ) : (
+                                                        <p className="text-sm text-muted-foreground mt-1">Unable to load limit info</p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
                                 </AccordionContent>
                             </AccordionItem>
 
