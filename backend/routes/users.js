@@ -154,7 +154,7 @@ router.get('/share-id/:shareId', async (req, res) => {
                     skills: true,
                     userGoal: true,
                     createdAt: true,
-                    ratingsReceived: {
+                    ratingReceived: {
                         select: { rating: true }
                     }
                 },
@@ -178,7 +178,7 @@ router.get('/share-id/:shareId', async (req, res) => {
                     skills: true,
                     userGoal: true,
                     createdAt: true,
-                    ratingsReceived: {
+                    ratingReceived: {
                         select: { rating: true }
                     }
                 },

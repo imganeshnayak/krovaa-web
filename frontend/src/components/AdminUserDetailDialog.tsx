@@ -11,9 +11,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import {
     User, Mail, Calendar, Shield, Activity, Wallet,
     Handshake, Star, AlertTriangle, Ban, CheckCircle2,
-    Globe, Phone, Clock, CreditCard, TrendingUp, ExternalLink
+    Globe, Phone, Clock, CreditCard, TrendingUp, ExternalLink,
+    Image as ImageIcon, LayoutGrid
 } from "lucide-react";
-import { getAdminUserFullDetails, FullUserDetails } from "@/lib/api";
+import { getAdminUserFullDetails, FullUserDetails, shareImageToChat } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
@@ -23,13 +24,17 @@ interface AdminUserDetailDialogProps {
     onClose: () => void;
 }
 
-type TabType = "overview" | "wallet" | "escrow" | "activity" | "moderation";
+type TabType = "overview" | "wallet" | "escrow" | "activity" | "moderation" | "images";
 
 const AdminUserDetailDialog = ({ userId, isOpen, onClose }: AdminUserDetailDialogProps) => {
     const { toast } = useToast();
     const [details, setDetails] = useState<FullUserDetails | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [activeTab, setActiveTab] = useState<TabType>("overview");
+    const [shareChatId, setShareChatId] = useState<string>("");
+    const [shareReceiverId, setShareReceiverId] = useState<string>("");
+    const [shareCaption, setShareCaption] = useState<string>("");
+    const [isSharingImage, setIsSharingImage] = useState(false);
 
     useEffect(() => {
         if (isOpen && userId) {
@@ -37,6 +42,9 @@ const AdminUserDetailDialog = ({ userId, isOpen, onClose }: AdminUserDetailDialo
         } else {
             setDetails(null);
             setActiveTab("overview");
+            setShareChatId("");
+            setShareReceiverId("");
+            setShareCaption("");
         }
     }, [isOpen, userId]);
 
@@ -63,6 +71,41 @@ const AdminUserDetailDialog = ({ userId, isOpen, onClose }: AdminUserDetailDialo
             style: "currency",
             currency: "INR",
         }).format(amount);
+    };
+
+    const handleShareImage = async (generationId: number) => {
+        if (!shareChatId || !shareReceiverId) {
+            toast({
+                title: "Missing chat details",
+                description: "Enter both a chat ID and receiver ID before sharing.",
+                variant: "destructive",
+            });
+            return;
+        }
+
+        setIsSharingImage(true);
+        try {
+            await shareImageToChat(generationId, {
+                chatId: shareChatId,
+                receiverId: Number(shareReceiverId),
+                caption: shareCaption,
+            });
+
+            toast({
+                title: "Image shared",
+                description: "The selected image was sent to the chat successfully.",
+                variant: "success",
+            });
+            setShareCaption("");
+        } catch (err) {
+            toast({
+                title: "Share failed",
+                description: err instanceof Error ? err.message : "Could not share the image.",
+                variant: "destructive",
+            });
+        } finally {
+            setIsSharingImage(false);
+        }
     };
 
     if (!isOpen) return null;
@@ -127,7 +170,7 @@ const AdminUserDetailDialog = ({ userId, isOpen, onClose }: AdminUserDetailDialo
 
                         {/* Tabs */}
                         <div className="flex border-b border-border bg-card sticky top-0 z-10">
-                            {(["overview", "wallet", "escrow", "activity", "moderation"] as TabType[]).map((tab) => (
+                            {(["overview", "wallet", "escrow", "activity", "moderation", "images"] as TabType[]).map((tab) => (
                                 <button
                                     key={tab}
                                     onClick={() => setActiveTab(tab)}
@@ -136,7 +179,7 @@ const AdminUserDetailDialog = ({ userId, isOpen, onClose }: AdminUserDetailDialo
                                         : "border-transparent text-muted-foreground hover:text-foreground hover:bg-secondary/50"
                                         }`}
                                 >
-                                    {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                                    {tab === "images" ? "AI Images" : tab.charAt(0).toUpperCase() + tab.slice(1)}
                                 </button>
                             ))}
                         </div>
@@ -216,7 +259,7 @@ const AdminUserDetailDialog = ({ userId, isOpen, onClose }: AdminUserDetailDialo
                                                 {[
                                                     { label: "Client Deals", value: details.clientDeals.length, icon: Handshake },
                                                     { label: "Vendor Deals", value: details.vendorDeals.length, icon: Handshake },
-                                                    { label: "Ratings Received", value: details.ratingsReceived.length, icon: Star },
+                                                    { label: "Ratings Received", value: details.ratingReceived.length, icon: Star },
                                                     { label: "Payouts Requested", value: details.payoutRequests.length, icon: CreditCard },
                                                 ].map((stat, idx) => (
                                                     <div key={idx} className="bg-card border border-border p-3 rounded-lg text-center shadow-sm">
@@ -437,7 +480,7 @@ const AdminUserDetailDialog = ({ userId, isOpen, onClose }: AdminUserDetailDialo
                                                 <Star className="h-4 w-4" /> Ratings Received
                                             </h3>
                                             <div className="space-y-2">
-                                                {details.ratingsReceived.map((rating) => (
+                                                {details.ratingReceived.map((rating) => (
                                                     <div key={rating.id} className="bg-secondary/20 p-3 rounded-lg text-xs border border-border/50">
                                                         <div className="flex justify-between mb-1">
                                                             <p className="font-bold">{rating.reviewer.displayName}</p>
@@ -448,7 +491,7 @@ const AdminUserDetailDialog = ({ userId, isOpen, onClose }: AdminUserDetailDialo
                                                         <p>{rating.comment}</p>
                                                     </div>
                                                 ))}
-                                                {details.ratingsReceived.length === 0 && <p className="text-center text-muted-foreground text-xs italic py-2 border border-dashed rounded bg-secondary/10">No ratings yet</p>}
+                                                {details.ratingReceived.length === 0 && <p className="text-center text-muted-foreground text-xs italic py-2 border border-dashed rounded bg-secondary/10">No ratings yet</p>}
                                             </div>
                                         </section>
                                     </div>
@@ -497,6 +540,72 @@ const AdminUserDetailDialog = ({ userId, isOpen, onClose }: AdminUserDetailDialo
                                             </div>
                                         </section>
                                     </div>
+                                </div>
+                            )}
+
+                            {activeTab === "images" && (
+                                <div className="space-y-6">
+                                    <section className="bg-secondary/10 border border-border rounded-xl p-4">
+                                        <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground mb-4">
+                                            <ImageIcon className="h-4 w-4" />
+                                            <span>AI Image Stats</span>
+                                        </div>
+                                        <div className="grid grid-cols-3 gap-4">
+                                            <div className="text-center p-3 bg-card rounded-lg border border-border">
+                                                <p className="text-2xl font-bold">{details.imageGenerations.length}</p>
+                                                <p className="text-xs text-muted-foreground uppercase tracking-wider">Total Generated</p>
+                                            </div>
+                                            {(() => {
+                                                const styleCounts: Record<string, number> = {};
+                                                details.imageGenerations.forEach((g: any) => {
+                                                    styleCounts[g.style] = (styleCounts[g.style] || 0) + 1;
+                                                });
+                                                const topStyle = Object.entries(styleCounts).sort((a, b) => b[1] - a[1])[0];
+                                                return (
+                                                    <>
+                                                        <div className="text-center p-3 bg-card rounded-lg border border-border">
+                                                            <p className="text-xl font-bold capitalize">{topStyle ? topStyle[0] : 'N/A'}</p>
+                                                            <p className="text-xs text-muted-foreground uppercase tracking-wider">Top Style</p>
+                                                        </div>
+                                                        <div className="text-center p-3 bg-card rounded-lg border border-border">
+                                                            <p className="text-xl font-bold">{new Set(details.imageGenerations.map((g: any) => g.size)).size}</p>
+                                                            <p className="text-xs text-muted-foreground uppercase tracking-wider">Size Variants</p>
+                                                        </div>
+                                                    </>
+                                                );
+                                            })()}
+                                        </div>
+                                    </section>
+
+                                    <section className="space-y-4">
+                                        <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
+                                            <LayoutGrid className="h-4 w-4" />
+                                            Generated Images ({details.imageGenerations.length})
+                                        </h3>
+                                        {details.imageGenerations.length > 0 ? (
+                                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                                                {details.imageGenerations.map((gen) => (
+                                                    <div key={gen.id} className="bg-secondary/20 border border-border rounded-2xl overflow-hidden shadow-sm">
+                                                        <div className="aspect-square bg-muted">
+                                                            <img src={gen.imageUrl} alt={gen.prompt} className="h-full w-full object-cover" />
+                                                        </div>
+                                                        <div className="p-4 space-y-3">
+                                                            <div className="flex items-center justify-between gap-2">
+                                                                <p className="font-semibold text-card-foreground truncate">{gen.prompt}</p>
+                                                                <Badge variant="outline" className="text-[10px] uppercase tracking-[0.12em]">{gen.size}</Badge>
+                                                            </div>
+                                                            <p className="text-[11px] text-muted-foreground line-clamp-3">Style: {gen.style}</p>
+                                                            <p className="text-[10px] text-muted-foreground">Created: {new Date(gen.createdAt).toLocaleString()}</p>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="rounded-xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
+                                                No AI-generated images found for this user.
+                                            </div>
+                                        )}
+                                    </section>
                                 </div>
                             )}
                         </ScrollArea>

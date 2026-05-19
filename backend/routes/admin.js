@@ -673,7 +673,7 @@ router.get('/users/:id/transactions', auth, adminOnly, checkPermission('users'),
     try {
         const userId = parseInt(req.params.id);
 
-        const [escrowDeals, payoutRequests, walletTransactions, ratingsReceived, ratingsGiven] = await Promise.all([
+        const [escrowDeals, payoutRequests, walletTransactions, ratingReceived, ratingReviews] = await Promise.all([
             prisma.escrowDeal.findMany({
                 where: {
                     OR: [{ clientId: userId }, { vendorId: userId }]
@@ -710,8 +710,8 @@ router.get('/users/:id/transactions', auth, adminOnly, checkPermission('users'),
             escrowDeals,
             payoutRequests,
             walletTransactions,
-            ratingsReceived,
-            ratingsGiven
+            ratingReceived,
+            ratingReviews
         });
     } catch (err) {
         console.error('Get user transactions error:', err);
@@ -782,53 +782,60 @@ router.get('/users/:id/full', auth, adminOnly, async (req, res) => {
     try {
         const userId = parseInt(req.params.id);
 
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
-            include: {
-                activities: { orderBy: { createdAt: 'desc' }, take: 50 },
-                walletTransactions: { orderBy: { createdAt: 'desc' }, take: 50 },
-                clientDeals: {
-                    include: {
-                        vendor: { select: { id: true, displayName: true, username: true } },
-                        transactions: { orderBy: { createdAt: 'desc' } }
+        const [user, activities] = await Promise.all([
+            prisma.user.findUnique({
+                where: { id: userId },
+                include: {
+                    walletTransactions: { orderBy: { createdAt: 'desc' }, take: 50 },
+                    clientDeals: {
+                        include: {
+                            vendor: { select: { id: true, displayName: true, username: true } },
+                            transactions: { orderBy: { createdAt: 'desc' } }
+                        },
+                        orderBy: { createdAt: 'desc' }
                     },
-                    orderBy: { createdAt: 'desc' }
-                },
-                vendorDeals: {
-                    include: {
-                        client: { select: { id: true, displayName: true, username: true } },
-                        transactions: { orderBy: { createdAt: 'desc' } }
+                    vendorDeals: {
+                        include: {
+                            client: { select: { id: true, displayName: true, username: true } },
+                            transactions: { orderBy: { createdAt: 'desc' } }
+                        },
+                        orderBy: { createdAt: 'desc' }
                     },
-                    orderBy: { createdAt: 'desc' }
-                },
-                payoutRequests: { orderBy: { requestedAt: 'desc' } },
-                ratingsReceived: {
-                    include: { reviewer: { select: { id: true, displayName: true, username: true } } },
-                    orderBy: { createdAt: 'desc' }
-                },
-                ratingsGiven: {
-                    include: { reviewed: { select: { id: true, displayName: true, username: true } } },
-                    orderBy: { createdAt: 'desc' }
-                },
-                reportsReceived: {
-                    include: { reporter: { select: { id: true, displayName: true, username: true } } },
-                    orderBy: { createdAt: 'desc' }
-                },
-                reportsCreated: {
-                    include: { reported: { select: { id: true, displayName: true, username: true } } },
-                    orderBy: { createdAt: 'desc' }
-                },
-                blockedBy: {
-                    include: { blocker: { select: { id: true, displayName: true, username: true } } },
-                    orderBy: { createdAt: 'desc' }
-                },
-                blockedUsers: {
-                    include: { blocked: { select: { id: true, displayName: true, username: true } } },
-                    orderBy: { createdAt: 'desc' }
-                },
-                verificationRequests: { orderBy: { createdAt: 'desc' } }
-            }
-        });
+                    payoutRequests: { orderBy: { requestedAt: 'desc' } },
+                    ratingReceived: {
+                        include: { reviewer: { select: { id: true, displayName: true, username: true } } },
+                        orderBy: { createdAt: 'desc' }
+                    },
+                    ratingReviews: {
+                        include: { reviewed: { select: { id: true, displayName: true, username: true } } },
+                        orderBy: { createdAt: 'desc' }
+                    },
+                    reportReceived: {
+                        include: { reporter: { select: { id: true, displayName: true, username: true } } },
+                        orderBy: { createdAt: 'desc' }
+                    },
+                    reportSent: {
+                        include: { reported: { select: { id: true, displayName: true, username: true } } },
+                        orderBy: { createdAt: 'desc' }
+                    },
+                    blockedBy: {
+                        include: { blocker: { select: { id: true, displayName: true, username: true } } },
+                        orderBy: { createdAt: 'desc' }
+                    },
+                    blockedUsers: {
+                        include: { blocked: { select: { id: true, displayName: true, username: true } } },
+                        orderBy: { createdAt: 'desc' }
+                    },
+                    verificationRequests: { orderBy: { createdAt: 'desc' } },
+                    imageGenerations: { orderBy: { createdAt: 'desc' }, take: 50 }
+                }
+            }),
+            prisma.activityLog.findMany({
+                where: { userId },
+                orderBy: { createdAt: 'desc' },
+                take: 50,
+            }),
+        ]);
 
         if (!user) {
             return res.status(404).json({ error: 'User not found.' });
@@ -836,7 +843,7 @@ router.get('/users/:id/full', auth, adminOnly, async (req, res) => {
 
         // Exclude password
         const { password, ...safeUser } = user;
-        res.json(safeUser);
+        res.json({ ...safeUser, activities });
     } catch (err) {
         console.error('Get full user details error:', err);
         res.status(500).json({ error: 'Server error.' });

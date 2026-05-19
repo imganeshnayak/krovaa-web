@@ -672,6 +672,17 @@ export interface FullUserDetails extends AuthUser {
   blockedBy: (any & { blocker: { id: number; displayName: string; username: string } })[];
   blockedUsers: (any & { blocked: { id: number; displayName: string; username: string } })[];
   verificationRequests: VerificationRequest[];
+  imageGenerations: ImageGeneration[];
+}
+
+export interface ImageGeneration {
+  id: number;
+  userId: number;
+  prompt: string;
+  style: string;
+  imageUrl: string;
+  size: string;
+  createdAt: string;
 }
 
 export function getAdminUserFullDetails(userId: number): Promise<FullUserDetails> {
@@ -1256,6 +1267,34 @@ export function getImageGeneratorStats(): Promise<{
   totalGenerations: number;
   todayGenerations: number;
   topStyles: { style: string; _count: number }[];
+  dailyLimit: number;
+  isEnabled: boolean;
+  usersAtLimitToday: number;
+  uniqueUsersToday: number;
+  totalDailyUsers: number[];
+  averagePerUser: number | string;
 }> {
   return apiFetch("/api/image-generator/stats");
+}
+
+export interface DailyLimitInfo {
+  limit: number;
+  used: number;
+  remaining: number;
+  resetTime: string;
+}
+
+export function getDailyGenerationLimit(): Promise<DailyLimitInfo> {
+  return apiFetch<DailyLimitInfo>("/api/image-generator/daily-limit/check");
+}
+
+export function shareImageToChat(imageId: number, data: {
+  chatId: string;
+  receiverId: number;
+  caption?: string;
+}): Promise<{ success: boolean; message: { id: number; content: string; attachmentUrl: string; createdAt: string } }> {
+  return apiFetch(`/api/image-generator/${imageId}/share-to-chat`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
 }
