@@ -200,6 +200,13 @@ router.post('/broadcast', auth, adminOnly, checkPermission('broadcast'), async (
 
         const sanitizedTitle = sanitizeNotificationText(title).trim();
         const sanitizedMessage = sanitizeNotificationText(message).trim();
+        const sender = await prisma.user.findUnique({
+            where: { id: req.user.id },
+            select: { displayName: true, username: true, role: true }
+        });
+        const sentByLabel = (sender?.role === 'admin' || sender?.role === 'staff')
+            ? 'Krovaa'
+            : (sender?.displayName || sender?.username || 'Krovaa');
 
         const notification = await prisma.notification.create({
             data: {
@@ -209,9 +216,6 @@ router.post('/broadcast', auth, adminOnly, checkPermission('broadcast'), async (
                 color,
                 sentBy: req.user.id,
                 metadata: req.body.metadata // Capture metadata from body
-            },
-            include: {
-                admin: { select: { displayName: true, username: true, role: true } }
             }
         });
 
@@ -225,7 +229,7 @@ router.post('/broadcast', auth, adminOnly, checkPermission('broadcast'), async (
                 type: notification.type,
                 color: notification.color,
                 createdAt: notification.createdAt,
-                sentBy: (notification.admin?.role === 'admin' || notification.admin?.role === 'staff') ? 'Krovaa' : (notification.admin?.displayName || notification.admin?.username || 'Krovaa'),
+                sentBy: sentByLabel,
                 sentById: req.user.id, // Include sender ID for filtering
                 isRead: false,
                 metadata: notification.metadata
@@ -274,7 +278,7 @@ router.post('/broadcast', auth, adminOnly, checkPermission('broadcast'), async (
 
         console.log(`📢 Admin broadcast sent: "${title}" to all users`);
 
-        res.json({ success: true, notification });
+        res.json({ success: true, notification, sentBy: sentByLabel });
     } catch (err) {
         console.error('Broadcast error:', err);
         res.status(500).json({ error: 'Failed to send broadcast' });

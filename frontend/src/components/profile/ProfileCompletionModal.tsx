@@ -50,7 +50,7 @@ const CATEGORIES = [
   { id: "freelancer",  label: "Freelancer",   icon: Users,       color: "text-pink-400",   bg: "bg-pink-400/10",   border: "border-pink-400/20"   },
   { id: "student",     label: "Student",      icon: GraduationCap,color:"text-cyan-400",   bg: "bg-cyan-400/10",   border: "border-cyan-400/20"   },
   { id: "none",        label: "None",         icon: UserCircle,  color: "text-indigo-400", bg: "bg-indigo-400/10", border: "border-indigo-400/20" },
-  { id: "other",       label: "Other",        icon: HelpCircle,  color: "text-zinc-400",   bg: "bg-zinc-400/10",   border: "border-zinc-400/20"   },
+  { id: "other",       label: "Other",        icon: HelpCircle,  color: "text-slate-400",   bg: "bg-slate-400/10",   border: "border-slate-400/20"   },
 ];
 
 const SUB_PROFESSIONS: Record<string, string[]> = {
@@ -145,14 +145,14 @@ function InlineDatePicker({ value, onChange }: InlineDatePickerProps) {
     new Date(viewYear, viewMonth, day) > today;
 
   return (
-    <div className="rounded-2xl border border-zinc-800/70 bg-zinc-900/60 p-4 space-y-3">
+    <div className="rounded-3xl border border-slate-200/80 bg-white/95 p-4 space-y-3 shadow-sm">
 
       {/* ── Header: prev / month+year dropdowns / next ── */}
       <div className="flex items-center justify-between gap-2">
         <button
           type="button"
           onClick={prevMonth}
-          className="flex items-center justify-center w-8 h-8 rounded-xl bg-zinc-800/70 border border-zinc-700/50 text-zinc-400 hover:text-white hover:bg-zinc-700/70 transition-all"
+          className="flex items-center justify-center w-8 h-8 rounded-xl bg-slate-100 border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-200 transition-all"
           aria-label="Previous month"
         >
           <ChevronLeft className="w-4 h-4" />
@@ -165,13 +165,13 @@ function InlineDatePicker({ value, onChange }: InlineDatePickerProps) {
               value={viewMonth}
               onChange={e => setViewMonth(Number(e.target.value))}
               aria-label="Select month"
-              className="appearance-none bg-zinc-800/70 border border-zinc-700/50 rounded-xl text-zinc-200 text-xs font-semibold px-3 pr-7 py-1.5 cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-500/50 transition-all hover:border-zinc-600"
+              className="appearance-none bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-xs font-semibold px-3 pr-7 py-1.5 cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-500/50 transition-all hover:border-slate-300"
             >
               {MONTHS.map((m, i) => (
-                <option key={m} value={i} className="bg-zinc-900">{m}</option>
+                <option key={m} value={i} className="bg-white">{m}</option>
               ))}
             </select>
-            <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-zinc-500" />
+            <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
           </div>
 
           {/* Year selector */}
@@ -180,13 +180,13 @@ function InlineDatePicker({ value, onChange }: InlineDatePickerProps) {
               value={viewYear}
               onChange={e => setViewYear(Number(e.target.value))}
               aria-label="Select year"
-              className="appearance-none bg-zinc-800/70 border border-zinc-700/50 rounded-xl text-zinc-200 text-xs font-semibold px-3 pr-7 py-1.5 cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-500/50 transition-all hover:border-zinc-600 w-[72px]"
+              className="appearance-none bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-xs font-semibold px-3 pr-7 py-1.5 cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-500/50 transition-all hover:border-slate-300 w-[72px]"
             >
               {years.map(y => (
-                <option key={y} value={y} className="bg-zinc-900">{y}</option>
+                <option key={y} value={y} className="bg-white">{y}</option>
               ))}
             </select>
-            <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-zinc-500" />
+            <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
           </div>
         </div>
 
@@ -194,7 +194,7 @@ function InlineDatePicker({ value, onChange }: InlineDatePickerProps) {
           type="button"
           onClick={nextMonth}
           disabled={viewYear * 12 + viewMonth >= today.getFullYear() * 12 + today.getMonth()}
-          className="flex items-center justify-center w-8 h-8 rounded-xl bg-zinc-800/70 border border-zinc-700/50 text-zinc-400 hover:text-white hover:bg-zinc-700/70 transition-all disabled:opacity-25 disabled:pointer-events-none"
+          className="flex items-center justify-center w-8 h-8 rounded-xl bg-slate-100 border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-200 transition-all disabled:opacity-25 disabled:pointer-events-none"
           aria-label="Next month"
         >
           <ChevronRight className="w-4 h-4" />
@@ -204,7 +204,7 @@ function InlineDatePicker({ value, onChange }: InlineDatePickerProps) {
       {/* ── Weekday labels ── */}
       <div className="grid grid-cols-7">
         {WEEKDAYS.map(d => (
-          <div key={d} className="text-center text-[10px] font-bold tracking-widest text-zinc-600 py-1">
+          <div key={d} className="text-center text-[10px] font-bold tracking-widest text-slate-500 py-1">
             {d}
           </div>
         ))}
@@ -226,14 +226,14 @@ function InlineDatePicker({ value, onChange }: InlineDatePickerProps) {
               onClick={() => !muted && !future && selectDay(cell.day)}
               className={cn(
                 "relative mx-auto flex items-center justify-center w-8 h-8 rounded-xl text-[12px] font-medium transition-all duration-150",
-                muted   && "text-zinc-700 cursor-default",
-                future  && "text-zinc-700 cursor-default",
+                muted   && "text-slate-700 cursor-default",
+                future  && "text-slate-700 cursor-default",
                 !muted && !future && !sel && !todayMark &&
-                  "text-zinc-400 hover:bg-zinc-800 hover:text-white",
+                  "text-slate-700 hover:bg-slate-100 hover:text-slate-900",
                 todayMark && !sel &&
-                  "text-blue-400 font-bold",
+                  "text-blue-600 font-bold",
                 sel &&
-                  "bg-blue-600 text-white font-bold shadow-lg shadow-blue-900/40 ring-2 ring-blue-500/30",
+                  "bg-blue-600 text-white font-bold shadow-lg shadow-blue-900/20 ring-2 ring-blue-500/30",
               )}
             >
               {cell.day}
@@ -251,16 +251,16 @@ function InlineDatePicker({ value, onChange }: InlineDatePickerProps) {
         "flex items-center gap-3 rounded-xl px-3.5 py-2.5 border transition-all duration-300",
         selected
           ? "bg-blue-600/10 border-blue-500/30"
-          : "bg-zinc-800/40 border-zinc-800/50"
+          : "bg-slate-50 border-slate-200"
       )}>
-        <CalendarIcon className={cn("w-4 h-4 shrink-0", selected ? "text-blue-400" : "text-zinc-600")} />
+        <CalendarIcon className={cn("w-4 h-4 shrink-0", selected ? "text-blue-400" : "text-slate-500")} />
         <div className="flex-1 min-w-0">
           {selected ? (
-            <p className="text-[13px] font-semibold text-zinc-100 truncate">
+            <p className="text-[13px] font-semibold text-slate-900 truncate">
               {formatDisplay(selected)}
             </p>
           ) : (
-            <p className="text-[12px] text-zinc-600">Select your date of birth</p>
+            <p className="text-[12px] text-slate-500">Select your date of birth</p>
           )}
         </div>
         {selected && (() => {
@@ -370,7 +370,7 @@ export function ProfileCompletionModal() {
   const renderStepGoal = () => (
     <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
       <div className="space-y-4">
-        <label className="text-[10px] font-bold tracking-widest uppercase text-zinc-500 ml-1">
+        <label className="text-[10px] font-bold tracking-widest uppercase text-slate-500 ml-1">
           I want to...
         </label>
         <div className="grid grid-cols-1 gap-3">
@@ -382,22 +382,22 @@ export function ProfileCompletionModal() {
               "flex items-center gap-4 p-5 rounded-2xl border transition-all duration-300 text-left group",
               formData.userGoal === "OFFER_SERVICE"
                 ? "bg-blue-500/10 border-blue-500/50 ring-1 ring-blue-500/50"
-                : "bg-zinc-900/40 border-zinc-800/50 hover:bg-zinc-900/60 hover:border-zinc-700"
+                : "bg-slate-50 border-slate-200 hover:bg-slate-100 hover:border-slate-300"
             )}
           >
             <div className={cn(
               "p-3 rounded-xl transition-colors",
               formData.userGoal === "OFFER_SERVICE"
                 ? "bg-blue-500 text-white"
-                : "bg-zinc-800 text-zinc-400 group-hover:text-zinc-200"
+                : "bg-slate-100 text-slate-600 group-hover:text-slate-900"
             )}>
               <Handshake className="w-5 h-5" />
             </div>
             <div>
-              <p className={cn("text-sm font-bold", formData.userGoal === "OFFER_SERVICE" ? "text-white" : "text-zinc-200")}>
+              <p className={cn("text-sm font-bold", formData.userGoal === "OFFER_SERVICE" ? "text-slate-900" : "text-slate-700")}>
                 Offer my services
               </p>
-              <p className="text-[10px] text-zinc-500 mt-0.5">I'm here to work and earn</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">I'm here to work and earn</p>
             </div>
             {formData.userGoal === "OFFER_SERVICE" && <CheckCircle2 className="w-4 h-4 text-blue-500 ml-auto" />}
           </button>
@@ -410,22 +410,22 @@ export function ProfileCompletionModal() {
               "flex items-center gap-4 p-5 rounded-2xl border transition-all duration-300 text-left group",
               formData.userGoal === "HIRE_PROFESSIONALS"
                 ? "bg-purple-500/10 border-purple-500/50 ring-1 ring-purple-500/50"
-                : "bg-zinc-900/40 border-zinc-800/50 hover:bg-zinc-900/60 hover:border-zinc-700"
+                : "bg-slate-50 border-slate-200 hover:bg-slate-100 hover:border-slate-300"
             )}
           >
             <div className={cn(
               "p-3 rounded-xl transition-colors",
               formData.userGoal === "HIRE_PROFESSIONALS"
                 ? "bg-purple-500 text-white"
-                : "bg-zinc-800 text-zinc-400 group-hover:text-zinc-200"
+                : "bg-slate-100 text-slate-600 group-hover:text-slate-900"
             )}>
               <Target className="w-5 h-5" />
             </div>
             <div>
-              <p className={cn("text-sm font-bold", formData.userGoal === "HIRE_PROFESSIONALS" ? "text-white" : "text-zinc-200")}>
+              <p className={cn("text-sm font-bold", formData.userGoal === "HIRE_PROFESSIONALS" ? "text-slate-900" : "text-slate-700")}>
                 Hire professionals
               </p>
-              <p className="text-[10px] text-zinc-500 mt-0.5">I'm looking for talent for my projects</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">I'm looking for talent for my projects</p>
             </div>
             {formData.userGoal === "HIRE_PROFESSIONALS" && <CheckCircle2 className="w-4 h-4 text-purple-500 ml-auto" />}
           </button>
@@ -434,7 +434,7 @@ export function ProfileCompletionModal() {
       <Button
         onClick={handleNext}
         disabled={!formData.userGoal}
-        className="w-full h-11 bg-zinc-100 hover:bg-white text-zinc-950 font-bold mt-4"
+        className="w-full h-11 bg-brand-blue text-white hover:bg-brand-blue-dark font-bold mt-4"
       >
         Continue <ArrowRight className="ml-2 w-4 h-4" />
       </Button>
@@ -446,26 +446,25 @@ export function ProfileCompletionModal() {
       <div className="grid grid-cols-1 gap-4">
         {/* Display name */}
         <div className="space-y-1.5">
-          <label className="text-[10px] font-bold tracking-widest uppercase text-zinc-500 ml-1 flex items-center gap-1.5">
-            <UserIcon className="w-3 h-3" /> Display Name
-          </label>
-          <Input
-            value={formData.displayName}
-            onChange={e => setFormData({ ...formData, displayName: e.target.value })}
-            className="bg-zinc-900/50 border-zinc-800 text-zinc-200 focus:ring-blue-500/50 h-11"
-            placeholder="John Doe"
+        <label className="text-[10px] font-bold tracking-widest uppercase text-slate-500 ml-1 flex items-center gap-1.5">
+          <UserIcon className="w-3 h-3" /> Display Name
+        </label>
+        <Input
+          value={formData.displayName}
+          onChange={e => setFormData({ ...formData, displayName: e.target.value })}
+          className="bg-slate-50 border-slate-200 text-slate-900 focus:ring-blue-500/50 h-11"
           />
         </div>
 
         {/* Phone */}
         <div className="space-y-1.5">
-          <label className="text-[10px] font-bold tracking-widest uppercase text-zinc-500 ml-1 flex items-center gap-1.5">
+          <label className="text-[10px] font-bold tracking-widest uppercase text-slate-500 ml-1 flex items-center gap-1.5">
             <Phone className="w-3 h-3" /> Phone Number
           </label>
           <Input
             value={formData.phoneNumber}
             onChange={e => setFormData({ ...formData, phoneNumber: e.target.value })}
-            className="bg-zinc-900/50 border-zinc-800 text-zinc-200 focus:ring-blue-500/50 h-11"
+            className="bg-slate-50 border-slate-200 text-slate-900 focus:ring-blue-500/50 h-11"
             placeholder="+91 98765 43210"
           />
         </div>
@@ -473,29 +472,29 @@ export function ProfileCompletionModal() {
 
       {/* Gender */}
       <div className="space-y-1.5">
-        <label htmlFor="gender" className="text-[10px] font-bold tracking-widest uppercase text-zinc-500 ml-1 flex items-center gap-1.5">
+        <label htmlFor="gender" className="text-[10px] font-bold tracking-widest uppercase text-slate-500 ml-1 flex items-center gap-1.5">
           Gender
         </label>
         <div className="relative">
           <select
             id="gender"
             aria-label="Gender"
-            className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl outline-none px-3 py-2 text-sm text-zinc-200 appearance-none focus:ring-2 focus:ring-blue-500/50"
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl outline-none px-3 py-2 text-sm text-slate-900 appearance-none focus:ring-2 focus:ring-blue-500/50"
             value={formData.gender}
             onChange={e => setFormData({ ...formData, gender: e.target.value })}
           >
-            <option value="" disabled className="text-zinc-400">Select gender</option>
+            <option value="" disabled className="text-slate-400">Select gender</option>
             <option value="Male">Male</option>
             <option value="Female">Female</option>
             <option value="Other">Other</option>
           </select>
-          <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+          <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
         </div>
       </div>
 
       {/* ── Improved inline date picker ── */}
       <div className="space-y-1.5">
-        <label className="text-[10px] font-bold tracking-widest uppercase text-zinc-500 ml-1 flex items-center gap-1.5">
+        <label className="text-[10px] font-bold tracking-widest uppercase text-slate-500 ml-1 flex items-center gap-1.5">
           <CalendarIcon className="w-3 h-3" /> Date of Birth
         </label>
         <InlineDatePicker
@@ -513,7 +512,7 @@ export function ProfileCompletionModal() {
           !formData.dateOfBirth ||
           calculateAge(formData.dateOfBirth) === null
         }
-        className="w-full h-11 bg-zinc-100 hover:bg-white text-zinc-950 font-bold mt-2"
+        className="w-full h-11 bg-brand-blue text-white hover:bg-brand-blue-dark font-bold mt-2"
       >
         Continue <ArrowRight className="ml-2 w-4 h-4" />
       </Button>
@@ -527,7 +526,7 @@ export function ProfileCompletionModal() {
       <div className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
         {/* Category grid */}
         <div className="space-y-3">
-          <label className="text-[10px] font-bold tracking-widest uppercase text-zinc-500 ml-1">
+          <label className="text-[10px] font-bold tracking-widest uppercase text-slate-500 ml-1">
             Choose Category
           </label>
           <div className="grid grid-cols-2 gap-2">
@@ -540,13 +539,13 @@ export function ProfileCompletionModal() {
                   "flex items-center gap-3 p-3 rounded-xl border transition-all duration-200 text-left",
                   formData.category === cat.id
                     ? `${cat.bg} ${cat.border} ring-1 ring-offset-2 ring-offset-zinc-950`
-                    : "bg-zinc-900/30 border-zinc-800/50 hover:bg-zinc-900/60 hover:border-zinc-700"
+                    : "bg-slate-50 border-slate-200 hover:bg-slate-100 hover:border-slate-300"
                 )}
               >
                 <div className={cn("p-2 rounded-lg", cat.bg, cat.color)}>
                   <cat.icon className="w-4 h-4" />
                 </div>
-                <span className={cn("text-xs font-medium", formData.category === cat.id ? "text-white" : "text-zinc-400")}>
+                <span className={cn("text-xs font-medium", formData.category === cat.id ? "text-slate-900" : "text-slate-700")}>
                   {cat.label}
                 </span>
               </button>
@@ -557,7 +556,7 @@ export function ProfileCompletionModal() {
         {/* Sub-profession pills */}
         {hasSubCategories && (
           <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
-            <label className="text-[10px] font-bold tracking-widest uppercase text-zinc-500 ml-1">
+            <label className="text-[10px] font-bold tracking-widest uppercase text-slate-500 ml-1">
               Select Profession
             </label>
             <div className="flex flex-wrap gap-2">
@@ -569,8 +568,8 @@ export function ProfileCompletionModal() {
                   className={cn(
                     "px-3 py-1.5 rounded-full text-[11px] font-medium transition-all border",
                     formData.profession === prof
-                      ? "bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-900/20"
-                      : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700"
+                      ? "bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-900/10"
+                      : "bg-slate-50 border-slate-200 text-slate-700 hover:border-slate-300"
                   )}
                 >
                   {prof}
@@ -583,7 +582,7 @@ export function ProfileCompletionModal() {
                   "px-3 py-1.5 rounded-full text-[11px] font-medium transition-all border",
                   formData.profession === "Other"
                     ? "bg-blue-600 border-blue-500 text-white"
-                    : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700"
+                    : "bg-slate-50 border-slate-200 text-slate-700 hover:border-slate-300"
                 )}
               >
                 Other...
@@ -595,13 +594,13 @@ export function ProfileCompletionModal() {
         {/* Custom profession input */}
         {(formData.category === "other" || formData.profession === "Other") && (
           <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
-            <label className="text-[10px] font-bold tracking-widest uppercase text-zinc-500 ml-1">
+            <label className="text-[10px] font-bold tracking-widest uppercase text-slate-500 ml-1">
               Specify Profession
             </label>
             <Input
               value={formData.customProfession}
               onChange={e => setFormData({ ...formData, customProfession: e.target.value })}
-              className="bg-zinc-900/50 border-zinc-800 text-zinc-200 h-11"
+              className="bg-slate-50 border-slate-200 text-slate-900 h-11"
               placeholder="Type your skill..."
               autoFocus
             />
@@ -609,7 +608,7 @@ export function ProfileCompletionModal() {
         )}
 
         <div className="flex gap-3 mt-4">
-          <Button variant="ghost" onClick={handleBack} className="flex-1 h-11 text-zinc-400 hover:text-white hover:bg-zinc-900">
+          <Button variant="ghost" onClick={handleBack} className="flex-1 h-11 text-slate-600 hover:text-slate-900 hover:bg-slate-100">
             <ArrowLeft className="mr-2 w-4 h-4" /> Back
           </Button>
           <Button
@@ -626,7 +625,7 @@ export function ProfileCompletionModal() {
               (formData.category === "other" && !formData.customProfession) ||
               (formData.profession === "Other" && !formData.customProfession)
             }
-            className="flex-[2] h-11 bg-zinc-100 hover:bg-white text-zinc-950 font-bold"
+            className="flex-[2] h-11 bg-brand-blue text-white hover:bg-brand-blue-dark font-bold"
           >
             Continue <ArrowRight className="ml-2 w-4 h-4" />
           </Button>
@@ -638,23 +637,23 @@ export function ProfileCompletionModal() {
   const renderStep3 = () => (
     <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
       <div className="space-y-1.5">
-        <label className="text-[10px] font-bold tracking-widest uppercase text-zinc-500 ml-1">
+        <label className="text-[10px] font-bold tracking-widest uppercase text-slate-500 ml-1">
           Bio (Optional)
         </label>
         <Textarea
           value={formData.bio}
           onChange={e => setFormData({ ...formData, bio: e.target.value })}
-          className="bg-zinc-900/50 border-zinc-800 text-zinc-200 min-h-[120px] focus:ring-blue-500/50 resize-none placeholder:text-zinc-700"
+          className="bg-slate-50 border-slate-200 text-slate-900 min-h-[120px] focus:ring-blue-500/50 resize-none placeholder:text-slate-400"
           placeholder="I'm a passionate developer focusing on..."
         />
-        <p className="text-[10px] text-zinc-600 mt-1">Tell people what makes you special.</p>
+        <p className="text-[10px] text-slate-500 mt-1">Tell people what makes you special.</p>
       </div>
 
       <div className="flex gap-3 mt-6">
         <Button
           variant="ghost"
           onClick={handleBack}
-          className="flex-1 h-11 text-zinc-400 hover:text-white hover:bg-zinc-900"
+          className="flex-1 h-11 text-slate-600 hover:text-slate-900 hover:bg-slate-100"
           disabled={isSubmitting}
         >
           <ArrowLeft className="mr-2 w-4 h-4" /> Back
@@ -693,11 +692,11 @@ export function ProfileCompletionModal() {
   return (
     <Dialog open={true} onOpenChange={() => {}}>
       <DialogContent
-        className="sm:max-w-[480px] w-[calc(100%-32px)] max-h-[90vh] overflow-y-auto bg-zinc-950 border-zinc-900 text-white p-0 shadow-2xl shadow-black/50 z-[100]"
+        className="sm:max-w-[520px] w-[calc(100%-32px)] max-h-[90vh] overflow-y-auto bg-card/95 backdrop-blur-xl border-border/50 text-foreground p-0 shadow-2xl shadow-black/10 rounded-3xl z-[100]"
         hideCloseButton
       >
         {/* Progress bar */}
-        <div className="absolute top-0 left-0 w-full h-1 bg-zinc-900 z-50">
+        <div className="absolute top-0 left-0 w-full h-1 bg-slate-200 z-50">
           <div
             className="h-full bg-blue-500 transition-all duration-500 ease-out"
             style={{ width: `${(step / 4) * 100}%` }}
@@ -707,14 +706,14 @@ export function ProfileCompletionModal() {
         <div className="p-8">
           {/* Header */}
           <div className="mb-8 text-center">
-            <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-blue-600/10 border border-blue-500/20 text-blue-400 mb-4">
+            <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-blue-50 border border-blue-100 text-blue-600 mb-4">
               {meta.icon}
             </div>
             <DialogHeader>
-              <DialogTitle className="text-2xl font-bold text-white tracking-tight">
+              <DialogTitle className="text-2xl font-bold text-slate-900 tracking-tight">
                 {meta.title}
               </DialogTitle>
-              <DialogDescription className="text-zinc-500 text-sm mt-1">
+              <DialogDescription className="text-slate-500 text-sm mt-1">
                 {meta.desc}
               </DialogDescription>
             </DialogHeader>
@@ -735,7 +734,7 @@ export function ProfileCompletionModal() {
                 key={s}
                 className={cn(
                   "h-1.5 rounded-full transition-all duration-300",
-                  step === s ? "w-6 bg-blue-500" : "w-1.5 bg-zinc-800"
+                  step === s ? "w-6 bg-blue-500" : "w-1.5 bg-slate-300"
                 )}
               />
             ))}

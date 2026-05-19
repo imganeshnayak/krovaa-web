@@ -12,6 +12,21 @@ const upload = multer({
     limits: { fileSize: 50 * 1024 * 1024 }, // 50MB for videos
 });
 
+async function resolveSenderLabel(userId) {
+    const sender = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { displayName: true, username: true, role: true }
+    });
+
+    if (!sender) {
+        return 'Krovaa';
+    }
+
+    return (sender.role === 'admin' || sender.role === 'staff')
+        ? 'Krovaa'
+        : (sender.displayName || sender.username || 'Krovaa');
+}
+
 // ─── Admin: Create ad ────────────────────────────────────────────
 // POST /api/ads
 router.post('/', auth, adminOnly, upload.single('file'), async (req, res) => {
@@ -60,14 +75,14 @@ router.post('/', auth, adminOnly, upload.single('file'), async (req, res) => {
                 targetProfessions: parsedProfessions,
                 status: 'active',
                 sentBy: req.user.id
-            },
-            include: {
-                admin: { select: { displayName: true, username: true } },
-                _count: { select: { clicks: true } }
             }
         });
 
-        res.status(201).json(ad);
+        res.status(201).json({
+            ...ad,
+            sentByLabel: await resolveSenderLabel(req.user.id),
+            clickCount: 0
+        });
     } catch (err) {
         console.error('Create ad error:', err);
         res.status(500).json({ error: 'Server error.' });
@@ -81,15 +96,26 @@ router.get('/', auth, adminOnly, async (req, res) => {
         const ads = await prisma.ad.findMany({
             orderBy: { createdAt: 'desc' },
             include: {
-                admin: { select: { displayName: true, username: true } },
                 _count: { select: { clicks: true } }
             }
         });
 
+        const senderIds = [...new Set(ads.map((ad) => ad.sentBy).filter(Boolean))];
+        const senders = senderIds.length > 0
+            ? await prisma.user.findMany({
+                where: { id: { in: senderIds } },
+                select: { id: true, displayName: true, username: true, role: true }
+            })
+            : [];
+        const senderMap = new Map(senders.map((user) => [user.id, user]));
+
         const adsWithStats = ads.map(ad => ({
             ...ad,
             clickCount: ad._count.clicks,
-            ctr: ad.impressions > 0 ? ((ad._count.clicks / ad.impressions) * 100).toFixed(1) : '0.0'
+            ctr: ad.impressions > 0 ? ((ad._count.clicks / ad.impressions) * 100).toFixed(1) : '0.0',
+            sentByLabel: ad.sentBy ? ((senderMap.get(ad.sentBy)?.role === 'admin' || senderMap.get(ad.sentBy)?.role === 'staff')
+                ? 'Krovaa'
+                : (senderMap.get(ad.sentBy)?.displayName || senderMap.get(ad.sentBy)?.username || 'Krovaa')) : 'Krovaa'
         }));
 
         res.json(adsWithStats);
@@ -144,14 +170,14 @@ router.put('/:id', auth, adminOnly, upload.single('file'), async (req, res) => {
                 type: type ?? existing.type,
                 targetProfessions: parsedProfessions,
                 status: status ?? existing.status
-            },
-            include: {
-                admin: { select: { displayName: true, username: true } },
-                _count: { select: { clicks: true } }
             }
         });
 
-        res.json(ad);
+        res.json({
+            ...ad,
+            sentByLabel: await resolveSenderLabel(ad.sentBy || req.user.id),
+            clickCount: await prisma.adClick.count({ where: { adId } })
+        });
     } catch (err) {
         console.error('Update ad error:', err);
         res.status(500).json({ error: 'Server error.' });
@@ -241,8 +267,7 @@ router.post('/:id/push', auth, adminOnly, async (req, res) => {
     try {
         const adId = parseInt(req.params.id);
         const ad = await prisma.ad.findUnique({
-            where: { id: adId },
-            include: { admin: true }
+            where: { id: adId }
         });
 
         if (!ad) return res.status(404).json({ error: 'Ad not found.' });
@@ -272,6 +297,8 @@ router.post('/:id/push', auth, adminOnly, async (req, res) => {
             }
         });
 
+        const sentByLabel = await resolveSenderLabel(req.user.id);
+
         // Socket emit
         const io = req.app.get('io');
         if (io) {
@@ -281,7 +308,7 @@ router.post('/:id/push', auth, adminOnly, async (req, res) => {
                 message: notification.message,
                 type: notification.type,
                 createdAt: notification.createdAt,
-                sentBy: 'Krovaa',
+                sentBy: sentByLabel,
                 metadata: notification.metadata
             };
 

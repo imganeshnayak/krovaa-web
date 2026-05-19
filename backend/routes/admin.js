@@ -326,9 +326,6 @@ router.get('/activity-logs', auth, adminOnly, checkPermission('activity'), async
 
         const [activities, total] = await Promise.all([
             prisma.activityLog.findMany({
-                include: {
-                    user: { select: { displayName: true, username: true, avatarUrl: true } }
-                },
                 orderBy: { createdAt: 'desc' },
                 skip,
                 take: parseInt(limit)
@@ -336,8 +333,22 @@ router.get('/activity-logs', auth, adminOnly, checkPermission('activity'), async
             prisma.activityLog.count()
         ]);
 
+        const userIds = [...new Set(activities.map((activity) => activity.userId).filter(Boolean))];
+        const users = userIds.length > 0
+            ? await prisma.user.findMany({
+                where: { id: { in: userIds } },
+                select: { id: true, displayName: true, username: true, avatarUrl: true }
+            })
+            : [];
+        const userMap = new Map(users.map((user) => [user.id, user]));
+
+        const activitiesWithUsers = activities.map((activity) => ({
+            ...activity,
+            user: activity.userId ? (userMap.get(activity.userId) || null) : null
+        }));
+
         res.json({
-            activities,
+            activities: activitiesWithUsers,
             total,
             page: parseInt(page),
             totalPages: Math.ceil(total / parseInt(limit))
