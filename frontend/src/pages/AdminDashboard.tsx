@@ -1426,9 +1426,6 @@ const AdminDashboard = () => {
                                   </>
                                 )}
 
-                                <span className="text-muted-foreground">Account Name:</span>
-                                <span className="font-medium">{payout.accountName}</span>
-
                                 <span className="text-muted-foreground font-semibold">User Details:</span>
                                 <div className="flex flex-col">
                                   <span className="font-medium">{payout.user?.displayName}</span>
@@ -1930,7 +1927,7 @@ const AdminDashboard = () => {
                         </div>
 
                         <div className="space-y-3">
-                          <label className="text-sm font-semibold text-foreground/80 block uppercase tracking-wider">Daily Limit (Images/Day)</label>
+                          <label className="text-sm font-semibold text-foreground/80 block uppercase tracking-widest">Daily Limit (Images/Day)</label>
                           <div className="relative group">
                             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                               <Zap className="h-4 w-4 text-muted-foreground group-focus-within:text-purple-500 transition-colors" />
@@ -1975,6 +1972,7 @@ const AdminDashboard = () => {
                       </Button>
                     </CardContent>
                   </Card>
+                </div>
               </div>
             )}
 
@@ -2063,7 +2061,7 @@ const AdminDashboard = () => {
             )}
           </ScrollArea>
         </div>
-      </div >
+      </div>
 
       <AdminUserDetailDialog
         userId={detailUserId}
@@ -2088,7 +2086,7 @@ const AdminDashboard = () => {
             {/* Professional Templates */}
             {!editingAd && (
               <div>
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Quick Templates</p>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-2">Quick Templates</p>
                 <div className="grid grid-cols-2 gap-2">
                   {[
                     { label: "🚀 New Product Launch", title: "Exciting New Product!", description: "We've launched something amazing. Be the first to check it out!", cta: "Discover Now" },
@@ -2111,7 +2109,7 @@ const AdminDashboard = () => {
 
             {/* Ad Type */}
             <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Ad Type</p>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-2">Ad Type</p>
               <div className="flex gap-2">
                 {(["text", "image", "video"] as const).map(t => (
                   <button
@@ -2131,19 +2129,19 @@ const AdminDashboard = () => {
 
             {/* Title */}
             <div>
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block mb-1">Title *</label>
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-widest block mb-1">Title *</label>
               <Input placeholder="Ad headline" value={adForm.title} onChange={e => setAdForm(p => ({ ...p, title: e.target.value }))} />
             </div>
 
             {/* Description */}
             <div>
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block mb-1">Description</label>
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-widest block mb-1">Description</label>
               <Textarea placeholder="Short ad description..." rows={2} value={adForm.description} onChange={e => setAdForm(p => ({ ...p, description: e.target.value }))} />
             </div>
 
             {/* External Link */}
             <div>
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block mb-1">External Link (URL)</label>
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-widest block mb-1">External Link (URL)</label>
               <div className="relative">
                 <ExternalLink className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                 <Input className="pl-9" placeholder="https://yourwebsite.com/landing-page" value={adForm.externalUrl} onChange={e => setAdForm(p => ({ ...p, externalUrl: e.target.value }))} />
@@ -2152,14 +2150,14 @@ const AdminDashboard = () => {
 
             {/* CTA Text */}
             <div>
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block mb-1">Button Text</label>
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-widest block mb-1">Button Text</label>
               <Input placeholder="More Details" value={adForm.ctaText} onChange={e => setAdForm(p => ({ ...p, ctaText: e.target.value }))} />
             </div>
 
             {/* Media Upload */}
             {(adForm.type === "image" || adForm.type === "video") && (
               <div>
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block mb-1">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-widest block mb-1">
                   {adForm.type === "image" ? "Image / Poster" : "Video"}
                 </label>
                 <div
@@ -2206,7 +2204,7 @@ const AdminDashboard = () => {
 
             {/* Target Audience */}
             <div>
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block mb-2">Target Audience</label>
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-widest block mb-2">Target Audience</label>
               <p className="text-[11px] text-muted-foreground mb-2">Select professions to target (leave empty to show to everyone)</p>
               <div className="grid grid-cols-2 gap-1.5 max-h-44 overflow-y-auto pr-1">
                 {[
@@ -2298,7 +2296,7 @@ const AdminDashboard = () => {
               {!editingStaffId && (
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">Username</label>
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">Username</label>
                     <Input
                       placeholder="john_staff"
                       value={newStaffUsername}
@@ -2307,7 +2305,7 @@ const AdminDashboard = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">Display Name</label>
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">Display Name</label>
                     <Input
                       placeholder="John Doe"
                       value={newStaffDisplayName}
@@ -2316,7 +2314,7 @@ const AdminDashboard = () => {
                     />
                   </div>
                   <div className="space-y-2 col-span-2">
-                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">Email Address</label>
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">Email Address</label>
                     <Input
                       placeholder="staff@krovaa.com"
                       value={newStaffEmail}
@@ -2325,7 +2323,7 @@ const AdminDashboard = () => {
                     />
                   </div>
                   <div className="space-y-2 col-span-2">
-                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">Password</label>
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">Password</label>
                     <Input
                       type="password"
                       placeholder="••••••••"
@@ -2338,7 +2336,7 @@ const AdminDashboard = () => {
               )}
 
               <div className="space-y-3">
-                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">Assign Permissions</label>
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">Assign Permissions</label>
                 <div className="grid grid-cols-2 gap-3 bg-secondary/10 p-4 rounded-2xl border border-border/40">
                   {adminPermissions.map((permission) => (
                     <div key={permission.id} className="flex items-center space-x-2 group">
@@ -2406,7 +2404,7 @@ const AdminDashboard = () => {
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">
                   Type <span className="text-destructive">DELETE</span> to confirm
                 </label>
                 <Input
