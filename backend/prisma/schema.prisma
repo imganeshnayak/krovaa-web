@@ -338,6 +338,7 @@ model Application {
   jobId     Int      @map("job_id")
   userId    Int      @map("user_id")
   status    String   @default("pending")
+  terms     String?
   createdAt DateTime @default(now()) @map("created_at")
   job       Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
   user      User     @relation("UserApplications", fields: [userId], references: [id], onDelete: Cascade)

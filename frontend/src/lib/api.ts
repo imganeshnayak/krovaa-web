@@ -1109,9 +1109,10 @@ export function postJob(data: {
   });
 }
 
-export function applyJob(jobId: number): Promise<{ message: string; application: any }> {
+export function applyJob(jobId: number, termsAndConditions?: string): Promise<{ message: string; application: any }> {
   return apiFetch<{ message: string; application: any }>(`/api/jobs/${jobId}/apply`, {
     method: 'POST',
+    body: JSON.stringify({ termsAndConditions }),
   });
 }
 

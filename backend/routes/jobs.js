@@ -141,6 +141,7 @@ router.post('/:id/apply', auth, async (req, res) => {
         }
 
         const userId = req.user.id;
+        const { termsAndConditions } = req.body;
 
         // Check if job exists
         const job = await prisma.job.findUnique({
@@ -175,13 +176,17 @@ router.post('/:id/apply', auth, async (req, res) => {
             data: {
                 jobId,
                 userId,
-                status: 'pending'
+                status: 'pending',
+                terms: termsAndConditions
             }
         });
 
         // Send a message to the job poster automatically
         const chatId = `chat_${userId}_${job.postedById}_${Date.now()}`;
-        const applicationMessage = `Hi, I just applied for your job: **${job.title}** at ${job.company}.`;
+        let applicationMessage = `Hi, I just applied for your job: **${job.title}** at ${job.company}.`;
+        if (termsAndConditions) {
+            applicationMessage += `\n\n**Terms and Conditions:**\n${termsAndConditions}`;
+        }
 
         const message = await prisma.message.create({
             data: {

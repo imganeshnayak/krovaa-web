@@ -24,6 +24,7 @@ const JobDetailsPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showConfirmation, setShowConfirmation] = useState(false);
+  const [termsAndConditions, setTermsAndConditions] = useState("");
   const [showBidDialog, setShowBidDialog] = useState(false);
   const [bidAmount, setBidAmount] = useState("");
   const [bidMessage, setBidMessage] = useState("");
@@ -377,6 +378,16 @@ const JobDetailsPage = () => {
                   <p className="text-center text-sm font-bold text-slate-900">
                     Are you sure you want to apply?
                   </p>
+                  <label className="space-y-2 text-sm text-slate-700">
+                    <span className="font-semibold">Terms and Conditions</span>
+                    <textarea
+                      value={termsAndConditions}
+                      onChange={(event) => setTermsAndConditions(event.target.value)}
+                      rows={3}
+                      placeholder="Enter any terms and conditions for this application..."
+                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+                    />
+                  </label>
                   <div className="flex gap-3">
                     <Button
                       variant="outline"
@@ -392,7 +403,7 @@ const JobDetailsPage = () => {
                         if (!job) return;
                         setIsSubmitting(true);
                         try {
-                          await applyJob(job.id);
+                          await applyJob(job.id, termsAndConditions);
                           setIsApplied(true);
                           toast.success("Application submitted and message sent to poster!");
                           // Keep isApplied true so it stays in the success state
