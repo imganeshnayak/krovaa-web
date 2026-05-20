@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
+import { remoteUrl } from "@/lib/config";
 
 interface PostItemProps {
   post: Post;
@@ -27,9 +28,7 @@ export default function PostItem({ post, onPostDeleted }: PostItemProps) {
   };
 
   const getMediaUrl = (url: string) => {
-    if (url.startsWith("http")) return url;
-    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
-    return `${API_URL}${url.startsWith("/") ? "" : "/"}${url}`;
+    return remoteUrl(url);
   };
 
   const handleLike = async () => {

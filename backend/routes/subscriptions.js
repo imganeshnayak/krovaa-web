@@ -9,8 +9,63 @@ const router = express.Router();
 const PLANS = {
   free: { id: 'free', name: 'Starter', monthlyLimit: 5, monthlyPrice: 0, annualPrice: 0 },
   pro: { id: 'pro', name: 'Pro', monthlyLimit: 100, monthlyPrice: 299, annualPrice: 2390 },
-  enterprise: { id: 'enterprise', name: 'Ultra', monthlyLimit: 999999, monthlyPrice: 799, annualPrice: 6390 },
+  enterprise: { id: 'enterprise', name: 'Extra', monthlyLimit: 999999, monthlyPrice: 799, annualPrice: 6390 },
 };
+
+function parsePriceValue(value, fallback) {
+  const price = parseFloat(value);
+  return Number.isFinite(price) ? price : fallback;
+}
+
+async function loadSubscriptionPricingSettings() {
+  const settings = await prisma.systemSetting.findMany({
+    where: {
+      key: {
+        in: [
+          'image_generator_plan_starter_monthly_price',
+          'image_generator_plan_pro_monthly_price',
+          'image_generator_plan_extra_monthly_price'
+        ]
+      }
+    }
+  });
+
+  const settingsMap = settings.reduce((acc, curr) => {
+    acc[curr.key] = curr.value;
+    return acc;
+  }, {});
+
+  return {
+    starterMonthlyPrice: parsePriceValue(settingsMap.image_generator_plan_starter_monthly_price, PLANS.free.monthlyPrice),
+    proMonthlyPrice: parsePriceValue(settingsMap.image_generator_plan_pro_monthly_price, PLANS.pro.monthlyPrice),
+    extraMonthlyPrice: parsePriceValue(settingsMap.image_generator_plan_extra_monthly_price, PLANS.enterprise.monthlyPrice),
+  };
+}
+
+async function getSubscriptionPlan(planId) {
+  const plan = PLANS[planId];
+  if (!plan) return null;
+  if (planId === 'free') {
+    return plan;
+  }
+
+  const pricingSettings = await loadSubscriptionPricingSettings();
+  let monthlyPrice = plan.monthlyPrice;
+
+  if (planId === 'pro') {
+    monthlyPrice = pricingSettings.proMonthlyPrice;
+  } else if (planId === 'enterprise') {
+    monthlyPrice = pricingSettings.extraMonthlyPrice;
+  }
+
+  const annualPrice = Math.round(monthlyPrice * 12 * 0.67);
+
+  return {
+    ...plan,
+    monthlyPrice,
+    annualPrice,
+  };
+}
 
 router.get('/status', auth, async (req, res) => {
   try {
@@ -68,7 +123,10 @@ router.post('/subscribe', auth, async (req, res) => {
       return res.status(400).json({ error: 'Invalid plan ID' });
     }
 
-    const plan = PLANS[planId];
+    const plan = await getSubscriptionPlan(planId);
+    if (!plan) {
+      return res.status(400).json({ error: 'Invalid plan ID' });
+    }
 
     if (planId === 'free') {
       const now = new Date();
@@ -137,6 +195,26 @@ router.post('/subscribe', auth, async (req, res) => {
   }
 });
 
+router.get('/pricing', async (req, res) => {
+  try {
+    const pricingPlans = await Promise.all(Object.keys(PLANS).map(async (planId) => {
+      const plan = await getSubscriptionPlan(planId);
+      return {
+        id: plan.id,
+        name: plan.name,
+        monthlyLimit: plan.monthlyLimit,
+        monthlyPrice: plan.monthlyPrice,
+        annualPrice: plan.annualPrice,
+        monthlyEquivalent: plan.annualPrice ? Math.round(plan.annualPrice / 12) : 0,
+      };
+    }));
+    res.json({ plans: pricingPlans });
+  } catch (error) {
+    console.error('Get pricing error:', error);
+    res.status(500).json({ error: 'Failed to fetch pricing' });
+  }
+});
+
 router.post('/wallet', auth, async (req, res) => {
   try {
     const { planId, isAnnual = false } = req.body;
@@ -145,7 +223,10 @@ router.post('/wallet', auth, async (req, res) => {
       return res.status(400).json({ error: 'Invalid plan ID' });
     }
 
-    const plan = PLANS[planId];
+    const plan = await getSubscriptionPlan(planId);
+    if (!plan) {
+      return res.status(400).json({ error: 'Invalid plan ID' });
+    }
     const amount = isAnnual ? plan.annualPrice : plan.monthlyPrice;
 
     if (amount <= 0) {

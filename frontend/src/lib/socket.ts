@@ -1,6 +1,5 @@
 import { io, Socket } from "socket.io-client";
-
-const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:5000";
+import { SOCKET_URL } from "./config";
 
 class SocketService {
     private socket: Socket | null = null;
@@ -8,7 +7,7 @@ class SocketService {
     connect(userId: number) {
         if (this.socket) return;
 
-        this.socket = io(API_URL, {
+        this.socket = io(SOCKET_URL, {
             withCredentials: true,
             transports: ["websocket", "polling"],
             reconnectionAttempts: 5,
