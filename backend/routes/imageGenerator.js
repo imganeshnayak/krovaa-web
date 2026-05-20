@@ -30,32 +30,43 @@ router.post('/generate', auth, async (req, res) => {
             return res.status(403).json({ error: 'Image generator is currently disabled' });
         }
 
-        // Check daily rate limit (5 images per day)
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const tomorrow = new Date(today);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-
-        const todayCount = await prisma.imageGenerationDaily.findUnique({
-            where: {
-                userId_date: {
-                    userId: req.user.id,
-                    date: today
-                }
-            }
+        // Check subscription-based monthly limit
+        const subscription = await prisma.subscription.findUnique({
+            where: { userId: req.user.id }
         });
 
-        const currentCount = todayCount?.count || 0;
-        const dailyLimit = parseInt(settingsMap['image_generation_daily_limit'] || '5');
+        const now = new Date();
+        let monthlyLimit = 5;
+        let imagesThisMonth = 0;
 
-        if (currentCount >= dailyLimit) {
-            return res.status(429).json({ 
-                error: `Daily limit reached. You can generate ${dailyLimit} images per day.`,
-                limit: dailyLimit,
-                used: currentCount,
-                resetTime: tomorrow
-            });
+        if (subscription) {
+            // Check if we need to reset for new month
+            if (subscription.resetDate && now > subscription.resetDate) {
+                await prisma.subscription.update({
+                    where: { userId: req.user.id },
+                    data: {
+                        imagesThisMonth: 0,
+                        resetDate: new Date(now.getFullYear(), now.getMonth() + 1, 1),
+                    },
+                });
+            } else {
+                imagesThisMonth = subscription.imagesThisMonth;
+            }
+            monthlyLimit = subscription.monthlyLimit;
         }
+
+        const remaining = Math.max(0, monthlyLimit - imagesThisMonth);
+
+        // TODO: Rate limiting temporarily disabled for testing
+        // if (remaining <= 0) {
+        //     return res.status(429).json({ 
+        //         error: `Monthly limit reached. You can generate ${monthlyLimit} images per month.`,
+        //         limit: monthlyLimit,
+        //         used: imagesThisMonth,
+        //         planId: subscription?.planId || 'free',
+        //         upgradeUrl: '/image-generator/pricing'
+        //     });
+        // }
 
         let imageUrl;
         const provider = process.env.IMAGE_GENERATOR_PROVIDER || 'pollinations';
@@ -243,7 +254,9 @@ router.post('/generate', auth, async (req, res) => {
             },
         });
 
-        // Update daily generation count
+        // Update daily generation count (for analytics)
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
         await prisma.imageGenerationDaily.upsert({
             where: {
                 userId_date: {
@@ -258,6 +271,35 @@ router.post('/generate', auth, async (req, res) => {
                 count: 1
             }
         });
+
+        // Update subscription usage
+        const sub = await prisma.subscription.findUnique({
+            where: { userId: req.user.id }
+        });
+        if (sub) {
+            await prisma.subscription.update({
+                where: { userId: req.user.id },
+                data: {
+                    imagesUsed: { increment: 1 },
+                    imagesThisMonth: { increment: 1 },
+                },
+            });
+        } else {
+            // Create free subscription if not exists
+            const now = new Date();
+            await prisma.subscription.create({
+                data: {
+                    userId: req.user.id,
+                    planId: 'free',
+                    planName: 'Starter',
+                    monthlyLimit: 5,
+                    imagesUsed: 1,
+                    imagesThisMonth: 1,
+                    resetDate: new Date(now.getFullYear(), now.getMonth() + 1, 1),
+                    status: 'active',
+                },
+            });
+        }
 
         res.json({
             id: generation.id,

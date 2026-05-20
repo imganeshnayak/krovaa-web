@@ -266,6 +266,7 @@ export interface Chat {
   unread_count: number;
   verified: boolean;
   isOfficial?: boolean;
+  isKrovAI?: boolean;
 }
 
 // ============ Moderation API ============
@@ -948,6 +949,33 @@ export function initiateWalletTopup(amount: number): Promise<PaymentOrder> {
   });
 }
 
+export function initiateSubscriptionPayment(planId: string, isAnnual: boolean): Promise<PaymentOrder & { free?: boolean }> {
+  return apiFetch<PaymentOrder & { free?: boolean }>("/api/payments/subscription/initiate", {
+    method: "POST",
+    body: JSON.stringify({ planId, isAnnual }),
+  });
+}
+
+export function verifySubscriptionPayment(data: {
+  orderId: string;
+  paymentId: string;
+  signature: string;
+  planId: string;
+  isAnnual: boolean;
+}): Promise<{ message: string }> {
+  return apiFetch<{ message: string }>("/api/payments/subscription/verify", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export function paySubscriptionWithWallet(planId: string, isAnnual: boolean): Promise<{ success: boolean; message: string }> {
+  return apiFetch<{ success: boolean; message: string }>("/api/subscriptions/wallet", {
+    method: "POST",
+    body: JSON.stringify({ planId, isAnnual }),
+  });
+}
+
 export function verifyPayment(data: {
   orderId: string;
   paymentId: string;
@@ -1297,4 +1325,30 @@ export function shareImageToChat(imageId: number, data: {
     method: "POST",
     body: JSON.stringify(data),
   });
+}
+
+export interface SubscriptionStatus {
+  planId: string;
+  planName: string;
+  billingCycle: string;
+  monthlyLimit: number;
+  imagesUsed: number;
+  imagesThisMonth: number;
+  status: string;
+  hasSubscription: boolean;
+  expiresAt?: string;
+}
+
+export function getSubscriptionStatus(): Promise<SubscriptionStatus> {
+  return apiFetch<SubscriptionStatus>("/api/subscriptions/status");
+}
+
+export function checkImageGenerationUsage(): Promise<{
+  canGenerate: boolean;
+  remaining: number;
+  monthlyLimit: number;
+  imagesThisMonth: number;
+  planId: string;
+}> {
+  return apiFetch("/api/subscriptions/check-usage");
 }

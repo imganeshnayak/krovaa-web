@@ -5,13 +5,14 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
 import {
   Send, Sparkles, Image, Download, Trash2, Loader2, Wand2,
-  Maximize2, History, ArrowLeft, X, Plus,
+  Maximize2, History, ArrowLeft, X, Plus, Zap, Crown,
 } from "lucide-react";
 import {
   generateImage, getImageHistory, deleteGeneratedImage,
-  GeneratedImage,
+  GeneratedImage, getSubscriptionStatus,
 } from "@/lib/api";
 import {
   Dialog,
@@ -49,6 +50,7 @@ const ImageGeneratorPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [subscription, setSubscription] = useState<any>(null);
   const [prompt, setPrompt] = useState("");
   const [sessions, setSessions] = useState<ChatSession[]>(() => {
     try {
@@ -163,6 +165,14 @@ const ImageGeneratorPage = () => {
     }
   }, [showHistory, loadHistory]);
 
+  useEffect(() => {
+    if (user) {
+      getSubscriptionStatus()
+        .then(setSubscription)
+        .catch(console.error);
+    }
+  }, [user]);
+
   const handleGenerate = async (promptText?: string) => {
     const textToGenerate = promptText || prompt;
     if (!textToGenerate.trim() || isLoading) return;
@@ -189,13 +199,27 @@ const ImageGeneratorPage = () => {
         timestamp: new Date(),
         generatedImage: result,
       }]);
-    } catch (error) {
-      setMessages(prev => [...prev, {
-        id: `error-${Date.now()}`,
-        type: "error",
-        content: error instanceof Error ? error.message : "Failed to generate image",
-        timestamp: new Date(),
-      }]);
+    } catch (error: any) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to generate image";
+      const isLimitError = error?.status === 429 || errorMessage.includes("limit");
+      
+      if (isLimitError) {
+        setMessages(prev => [...prev, {
+          id: `error-${Date.now()}`,
+          type: "error",
+          content: "You've reached your monthly image limit. Upgrade to continue creating!",
+          timestamp: new Date(),
+        }]);
+        // Refresh subscription status
+        getSubscriptionStatus().then(setSubscription).catch(console.error);
+      } else {
+        setMessages(prev => [...prev, {
+          id: `error-${Date.now()}`,
+          type: "error",
+          content: errorMessage,
+          timestamp: new Date(),
+        }]);
+      }
     } finally {
       setIsLoading(false);
       setTimeout(() => inputRef.current?.focus(), 100);
@@ -244,17 +268,18 @@ const ImageGeneratorPage = () => {
 
   return (
     <div
-      style={{ fontFamily: "'DM Sans', sans-serif" }}
-      className="min-h-screen bg-[#F5F5F5] text-[#1C1C1C]"
+      style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+      className="min-h-screen bg-[#FDF4FF] text-[#1C1C1C]"
     >
       {/* Ambient Background */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] rounded-full bg-[#00A4EF]/5 blur-[120px]" />
-        <div className="absolute bottom-1/3 right-0 w-[400px] h-[400px] rounded-full bg-[#00A4EF]/3 blur-[100px]" />
+        <div className="absolute top-0 left-1/4 w-[500px] h-[500px] rounded-full bg-[#D946EF]/10 blur-[150px]" />
+        <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] rounded-full bg-[#F97316]/10 blur-[120px]" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full bg-gradient-to-br from-[#D946EF]/5 to-[#F97316]/5 blur-[180px]" />
       </div>
 
       {/* Sticky Header */}
-      <div className="sticky top-0 z-50 border-b border-[#E0E0E0] backdrop-blur-xl bg-white/80">
+      <div className="sticky top-0 z-50 border-b border-white/20 backdrop-blur-xl bg-white/60">
         <div className="max-w-3xl mx-auto px-4 py-3.5 flex items-center justify-between">
           <button
             onClick={() => navigate(-1)}
@@ -263,8 +288,20 @@ const ImageGeneratorPage = () => {
             <ArrowLeft className="h-4 w-4" />
             Back
           </button>
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-[#00A4EF] to-[#7C3AED] flex items-center justify-center">
+          <div className="flex items-center gap-3">
+            {subscription && (
+              <button
+                onClick={() => navigate("/image-generator/pricing")}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/60 border border-[#D946EF]/20 hover:bg-[#D946EF]/10 transition-colors text-xs"
+              >
+                {subscription.planId === 'pro' && <Zap className="h-3 w-3 text-[#D946EF]" />}
+                {subscription.planId === 'enterprise' && <Crown className="h-3 w-3 text-[#D946EF]" />}
+                <span className="font-medium text-[#1C1C1C]/70">
+                  {subscription.imagesThisMonth}/{subscription.monthlyLimit}
+                </span>
+              </button>
+            )}
+            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-[#D946EF] to-[#E879F9] flex items-center justify-center">
               <Sparkles className="h-4 w-4 text-white" />
             </div>
             <span className="font-bold text-[#1C1C1C]">KrovAI</span>
@@ -279,17 +316,25 @@ const ImageGeneratorPage = () => {
                 setTimeout(() => inputRef.current?.focus(), 100);
               }}
               title="New Chat"
-              className="p-2 hover:bg-[#E0E0E0]/50 rounded-lg transition-colors text-[#1C1C1C]/40 hover:text-[#1C1C1C]"
+              className="p-2 hover:bg-[#D946EF]/10 rounded-lg transition-colors text-[#1C1C1C]/40 hover:text-[#D946EF]"
             >
               <Plus className="h-5 w-5" />
             </button>
             <button
               onClick={() => setShowHistory(!showHistory)}
               title="History"
-              className="p-2 hover:bg-[#E0E0E0]/50 rounded-lg transition-colors text-[#1C1C1C]/40 hover:text-[#1C1C1C]"
+              className="p-2 hover:bg-[#D946EF]/10 rounded-lg transition-colors text-[#1C1C1C]/40 hover:text-[#D946EF]"
             >
               <History className="h-5 w-5" />
             </button>
+            <Button
+              onClick={() => navigate('/image-generator/pricing')}
+              className="h-8 px-3 rounded-full bg-gradient-to-r from-[#D946EF] to-[#F97316] hover:opacity-90 text-white font-semibold text-xs flex items-center gap-1.5 whitespace-nowrap"
+              size="sm"
+            >
+              <Crown className="h-3.5 w-3.5" />
+              <span>Upgrade</span>
+            </Button>
           </div>
         </div>
       </div>
@@ -299,11 +344,11 @@ const ImageGeneratorPage = () => {
         {/* Page Header */}
         <div className="mb-8 mt-8">
           <div className="flex items-center gap-3 mb-3">
-            <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-[#00A4EF] to-[#7C3AED] flex items-center justify-center shadow-lg shadow-[#00A4EF]/20">
+            <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-[#D946EF] to-[#F97316] flex items-center justify-center shadow-lg shadow-[#D946EF]/20">
               <Wand2 className="h-6 w-6 text-white" />
             </div>
             <div>
-              <h1 style={{ fontFamily: "'Syne', sans-serif" }} className="text-3xl font-bold text-[#1C1C1C]">
+              <h1 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }} className="text-3xl font-bold text-[#1C1C1C]">
                 Image Generator
               </h1>
               <p className="text-sm text-[#1C1C1C]/50">Describe any image and AI will bring it to life</p>
@@ -316,7 +361,7 @@ const ImageGeneratorPage = () => {
           {messages.map((msg) => (
             <div key={msg.id} className={`flex ${msg.type === "prompt" ? "justify-end" : "justify-start"}`}>
               {msg.type === "prompt" && (
-                <div className="max-w-[80%] bg-[#00A4EF] text-white rounded-2xl rounded-br-md px-4 py-3 shadow-md shadow-[#00A4EF]/10">
+                <div className="max-w-[80%] bg-gradient-to-r from-[#D946EF] to-[#F97316] text-white rounded-2xl rounded-br-md px-4 py-3 shadow-lg shadow-[#D946EF]/20">
                   <p className="text-sm">{msg.content}</p>
                   <p className="text-[10px] text-white/60 mt-1">
                     {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -326,7 +371,7 @@ const ImageGeneratorPage = () => {
 
               {msg.type === "image" && (
                 <div className="max-w-[85%] space-y-2">
-                  <div className="relative group rounded-2xl overflow-hidden bg-white border border-[#E0E0E0] shadow-sm">
+                  <div className="relative group rounded-2xl overflow-hidden bg-white/60 border border-white/40 shadow-sm">
                     <img
                       src={msg.imageUrl}
                       alt={msg.content || "Generated image"}
@@ -366,8 +411,15 @@ const ImageGeneratorPage = () => {
               )}
 
               {msg.type === "error" && (
-                <div className="max-w-[80%] bg-[#FFF0EB] border border-[#FF9800]/20 rounded-2xl px-4 py-3">
-                  <p className="text-sm text-[#C43E00]">{msg.content}</p>
+                <div className="max-w-[80%] bg-[#FDF4FF] border border-[#D946EF]/20 rounded-2xl px-4 py-3">
+                  <p className="text-sm text-[#86198F]">{msg.content}</p>
+                  <button
+                    onClick={() => navigate("/image-generator/pricing")}
+                    className="mt-3 flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-[#D946EF] to-[#F97316] text-white text-sm font-semibold hover:opacity-90 transition-opacity"
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    Upgrade Now
+                  </button>
                 </div>
               )}
             </div>
@@ -376,8 +428,8 @@ const ImageGeneratorPage = () => {
           {/* Loading indicator */}
           {isLoading && (
             <div className="flex justify-start">
-              <div className="bg-white border border-[#E0E0E0] rounded-2xl px-4 py-3 flex items-center gap-3 shadow-sm">
-                <Loader2 className="h-5 w-5 text-[#00A4EF] animate-spin" />
+              <div className="bg-white/60 backdrop-blur-xl border border-white/40 rounded-2xl px-4 py-3 flex items-center gap-3">
+                <Loader2 className="h-5 w-5 text-[#D946EF] animate-spin" />
                 <span className="text-sm text-[#1C1C1C]/60">Creating your image...</span>
               </div>
             </div>
@@ -387,11 +439,11 @@ const ImageGeneratorPage = () => {
           {messages.length === 0 && !isLoading && (
             <div className="py-16 text-center animate-in fade-in duration-500">
               <div className="mb-6 flex justify-center">
-                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#00A4EF]/20 to-[#7C3AED]/10 flex items-center justify-center">
-                  <Sparkles className="h-10 w-10 text-[#00A4EF]" />
+                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#D946EF]/20 to-[#F97316]/10 flex items-center justify-center">
+                  <Sparkles className="h-10 w-10 text-[#D946EF]" />
                 </div>
               </div>
-              <h3 style={{ fontFamily: "'Syne', sans-serif" }} className="text-2xl font-bold text-[#1C1C1C] mb-2">
+              <h3 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }} className="text-2xl font-bold text-[#1C1C1C] mb-2">
                 What will you create?
               </h3>
               <p className="text-[#1C1C1C]/60 text-base mb-8 max-w-sm mx-auto leading-relaxed">
@@ -406,7 +458,7 @@ const ImageGeneratorPage = () => {
                     <button
                       key={i}
                       onClick={() => handleSuggestedPrompt(p)}
-                      className="px-3 py-2 bg-white border border-[#E0E0E0] rounded-full text-xs text-[#1C1C1C]/60 hover:bg-[#00A4EF]/5 hover:text-[#00A4EF] hover:border-[#00A4EF]/30 transition-all"
+                      className="px-3 py-2 bg-white/60 backdrop-blur-xl border border-white/40 rounded-full text-xs text-[#1C1C1C]/60 hover:bg-[#D946EF]/10 hover:text-[#D946EF] hover:border-[#D946EF]/30 transition-all"
                     >
                       {p}
                     </button>
@@ -424,21 +476,21 @@ const ImageGeneratorPage = () => {
       {showHistory && (
         <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm" onClick={() => setShowHistory(false)}>
           <div
-            className="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl max-h-[85vh] h-[85vh] flex flex-col overflow-hidden"
+            className="absolute bottom-0 left-0 right-0 bg-white/80 backdrop-blur-xl rounded-t-3xl max-h-[85vh] h-[85vh] flex flex-col overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="bg-white border-b border-[#E0E0E0] p-4 flex items-center justify-between">
+            <div className="bg-white/60 border-b border-white/20 p-4 flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <h3 className="font-bold text-[#1C1C1C]">History</h3>
-                <div className="flex bg-[#F5F5F5] rounded-lg p-1">
+                <div className="flex bg-[#FDF4FF] rounded-lg p-1">
                   <button
-                    className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${historyTab === 'chats' ? 'bg-white shadow-sm text-[#00A4EF]' : 'text-[#1C1C1C]/40 hover:text-[#1C1C1C]'}`}
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${historyTab === 'chats' ? 'bg-white shadow-sm text-[#D946EF]' : 'text-[#1C1C1C]/40 hover:text-[#1C1C1C]'}`}
                     onClick={() => setHistoryTab('chats')}
                   >
                     Chats
                   </button>
                   <button
-                    className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${historyTab === 'images' ? 'bg-white shadow-sm text-[#00A4EF]' : 'text-[#1C1C1C]/40 hover:text-[#1C1C1C]'}`}
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${historyTab === 'images' ? 'bg-white shadow-sm text-[#D946EF]' : 'text-[#1C1C1C]/40 hover:text-[#1C1C1C]'}`}
                     onClick={() => setHistoryTab('images')}
                   >
                     All Images
@@ -447,7 +499,7 @@ const ImageGeneratorPage = () => {
               </div>
               <button
                 onClick={() => setShowHistory(false)}
-                className="p-2 hover:bg-[#E0E0E0]/50 rounded-lg transition-colors text-[#1C1C1C]/40 hover:text-[#1C1C1C]"
+                className="p-2 hover:bg-[#D946EF]/10 rounded-lg transition-colors text-[#1C1C1C]/40 hover:text-[#D946EF]"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -463,10 +515,10 @@ const ImageGeneratorPage = () => {
                         setShowHistory(false);
                         setTimeout(() => scrollToBottom(), 100);
                       }}
-                      className={`w-full text-left p-4 rounded-xl border transition-all flex items-center justify-between group ${session.id === currentSessionId ? 'border-[#00A4EF] bg-[#00A4EF]/5' : 'border-[#E0E0E0] bg-white hover:bg-[#F5F5F5]'}`}
+                      className={`w-full text-left p-4 rounded-xl border transition-all flex items-center justify-between group ${session.id === currentSessionId ? 'border-[#D946EF] bg-[#FDF4FF]' : 'border-white/40 bg-white/60 hover:bg-white/80'}`}
                     >
                       <div>
-                        <h4 className={`font-semibold text-sm ${session.id === currentSessionId ? 'text-[#00A4EF]' : 'text-[#1C1C1C]'}`}>
+                        <h4 className={`font-semibold text-sm ${session.id === currentSessionId ? 'text-[#D946EF]' : 'text-[#1C1C1C]'}`}>
                           {session.title}
                         </h4>
                         <div className="flex gap-2 mt-1">
@@ -491,7 +543,7 @@ const ImageGeneratorPage = () => {
                 <div className="p-4">
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     {history.map((img) => (
-                      <div key={img.id} className="relative group rounded-xl overflow-hidden bg-[#F5F5F5] border border-[#E0E0E0]">
+                      <div key={img.id} className="relative group rounded-xl overflow-hidden bg-white/60 border border-white/40">
                         <img
                           src={img.imageUrl}
                           alt={img.prompt}
@@ -541,7 +593,7 @@ const ImageGeneratorPage = () => {
       )}
 
       {/* Input Bar - Fixed Bottom */}
-      <div className="fixed bottom-16 left-0 right-0 border-t border-[#E0E0E0] bg-white/80 backdrop-blur-xl z-40">
+      <div className="fixed bottom-16 left-0 right-0 border-t border-white/20 bg-white/60 backdrop-blur-xl z-40">
         <div className="max-w-3xl mx-auto px-4 py-3">
           <div className="flex items-center gap-2">
             <div className="flex-1 relative">
@@ -551,13 +603,13 @@ const ImageGeneratorPage = () => {
                 onChange={(e) => setPrompt(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleGenerate()}
                 placeholder="Describe the image you want..."
-                className="h-11 bg-[#F5F5F5] border-[#E0E0E0] text-[#1C1C1C] placeholder:text-[#1C1C1C]/40 rounded-full pr-12 focus-visible:ring-[#00A4EF]/30"
+                className="h-11 bg-white/60 border-white/40 text-[#1C1C1C] placeholder:text-[#1C1C1C]/40 rounded-full pr-12 focus-visible:ring-[#D946EF]/30 backdrop-blur-xl"
                 disabled={isLoading}
               />
               <Button
                 onClick={() => handleGenerate()}
                 disabled={!prompt.trim() || isLoading}
-                className="absolute right-1 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full bg-[#00A4EF] hover:bg-[#007BB5] text-white disabled:opacity-50"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full bg-gradient-to-r from-[#D946EF] to-[#F97316] hover:opacity-90 text-white disabled:opacity-50"
                 size="icon"
               >
                 {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
@@ -572,16 +624,16 @@ const ImageGeneratorPage = () => {
 
       {/* Image Preview Dialog */}
       <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>
-        <DialogContent className="max-w-4xl bg-white border-[#E0E0E0] rounded-2xl">
+        <DialogContent className="max-w-4xl bg-white/80 backdrop-blur-xl border-white/40 rounded-2xl">
           <DialogHeader>
             <DialogTitle className="text-[#1C1C1C] flex items-center gap-2">
-              <Image className="h-5 w-5 text-[#00A4EF]" />
+              <Image className="h-5 w-5 text-[#D946EF]" />
               Generated Image
             </DialogTitle>
           </DialogHeader>
           {previewImage && (
             <div className="space-y-4">
-              <div className="rounded-xl overflow-hidden bg-[#F5F5F5]">
+              <div className="rounded-xl overflow-hidden bg-[#FDF4FF]">
                 <img
                   src={previewImage.imageUrl}
                   alt={previewImage.prompt}
@@ -598,7 +650,7 @@ const ImageGeneratorPage = () => {
               </div>
               <div className="flex gap-2">
                 <Button
-                  className="flex-1 bg-[#00A4EF] hover:bg-[#007BB5] text-white rounded-xl"
+                  className="flex-1 bg-gradient-to-r from-[#D946EF] to-[#F97316] hover:opacity-90 text-white rounded-xl"
                   onClick={() => handleDownload(previewImage!.imageUrl, previewImage!.prompt)}
                 >
                   <Download className="h-4 w-4 mr-2" />
@@ -606,7 +658,7 @@ const ImageGeneratorPage = () => {
                 </Button>
                 <Button
                   variant="outline"
-                  className="flex-1 border-[#E0E0E0] text-[#1C1C1C] hover:bg-[#F5F5F5] rounded-xl"
+                  className="flex-1 border-white/40 bg-white/60 hover:bg-white/80 text-[#1C1C1C] rounded-xl"
                   onClick={() => {
                     setPrompt(previewImage!.prompt);
                     setPreviewImage(null);
@@ -618,7 +670,7 @@ const ImageGeneratorPage = () => {
                 </Button>
                 <Button
                   variant="outline"
-                  className="border-[#E0E0E0] text-[#C43E00] hover:bg-[#FFF0EB] rounded-xl"
+                  className="border-white/40 bg-white/60 hover:bg-[#FFF0EB] text-[#D946EF] hover:text-[#D946EF] rounded-xl"
                   onClick={() => {
                     handleDeleteImage(previewImage!.id);
                     setPreviewImage(null);

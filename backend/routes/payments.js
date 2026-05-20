@@ -125,6 +125,143 @@ router.post('/wallet/initiate', auth, async (req, res) => {
     }
 });
 
+router.post('/subscription/initiate', auth, async (req, res) => {
+    try {
+        const { planId, isAnnual = false } = req.body;
+
+        if (!planId || !SUBSCRIPTION_PLANS[planId]) {
+            return res.status(400).json({ error: 'Invalid subscription plan selected.' });
+        }
+
+        const plan = SUBSCRIPTION_PLANS[planId];
+        const amount = getSubscriptionAmount(planId, isAnnual);
+
+        if (amount <= 0) {
+            return res.json({ free: true, message: `Subscribed to ${plan.name} plan.` });
+        }
+
+        const order = await createOrder(
+            amount,
+            'INR',
+            {
+                type: 'subscription',
+                planId: plan.id,
+                billingCycle: isAnnual ? 'annual' : 'monthly',
+                userId: req.user.id
+            }
+        );
+
+        await prisma.paymentLog.create({
+            data: {
+                type: 'subscription',
+                entityId: req.user.id,
+                razorpayOrderId: order.id,
+                amount: amount,
+                currency: 'INR',
+                status: 'created',
+                metadata: {
+                    orderId: order.id,
+                    planId: plan.id,
+                    billingCycle: isAnnual ? 'annual' : 'monthly'
+                }
+            }
+        });
+
+        res.json({
+            orderId: order.id,
+            amount: order.amount,
+            currency: order.currency,
+            key_id: process.env.RAZORPAY_KEY_ID,
+            planId: plan.id,
+            planName: plan.name,
+        });
+    } catch (err) {
+        console.error('Initiate subscription payment error:', err);
+        res.status(500).json({ error: 'Failed to initiate subscription payment.' });
+    }
+});
+
+router.post('/subscription/verify', auth, async (req, res) => {
+    try {
+        const { orderId, paymentId, signature, planId, isAnnual = false } = req.body;
+
+        if (!orderId || !paymentId || !signature || !planId || !SUBSCRIPTION_PLANS[planId]) {
+            return res.status(400).json({ error: 'Missing required subscription verification fields.' });
+        }
+
+        const isValid = verifyPaymentSignature(orderId, paymentId, signature);
+        if (!isValid) {
+            return res.status(400).json({ error: 'Invalid payment signature.' });
+        }
+
+        const payment = await fetchPayment(paymentId);
+        if (payment.status !== 'captured' && payment.status !== 'authorized') {
+            return res.status(400).json({ error: 'Payment was not successful.' });
+        }
+
+        const expectedAmount = getSubscriptionAmount(planId, isAnnual);
+        const paidAmount = payment.amount / 100;
+        if (paidAmount !== expectedAmount) {
+            return res.status(400).json({ error: 'Payment amount mismatch.' });
+        }
+
+        const plan = SUBSCRIPTION_PLANS[planId];
+        const billingCycle = isAnnual ? 'annual' : 'monthly';
+        const now = new Date();
+        const resetDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+        const expiresAt = new Date(now.getFullYear() + (isAnnual ? 1 : 0), now.getMonth(), now.getDate());
+
+        await prisma.$transaction(async (tx) => {
+            await tx.subscription.upsert({
+                where: { userId: req.user.id },
+                create: {
+                    userId: req.user.id,
+                    planId: plan.id,
+                    planName: plan.name,
+                    billingCycle,
+                    monthlyLimit: plan.monthlyLimit,
+                    imagesUsed: 0,
+                    imagesThisMonth: 0,
+                    resetDate,
+                    status: 'active',
+                    expiresAt,
+                    razorpayOrderId: orderId,
+                    razorpayPaymentId: paymentId
+                },
+                update: {
+                    planId: plan.id,
+                    planName: plan.name,
+                    billingCycle,
+                    monthlyLimit: plan.monthlyLimit,
+                    status: 'active',
+                    resetDate,
+                    expiresAt,
+                    razorpayOrderId: orderId,
+                    razorpayPaymentId: paymentId
+                }
+            });
+
+            await tx.paymentLog.create({
+                data: {
+                    type: 'subscription',
+                    entityId: req.user.id,
+                    razorpayOrderId: orderId,
+                    razorpayPaymentId: paymentId,
+                    amount: expectedAmount,
+                    currency: 'INR',
+                    status: 'paid',
+                    metadata: payment
+                }
+            });
+        });
+
+        res.json({ message: `Subscribed to ${plan.name} successfully.` });
+    } catch (err) {
+        console.error('Verify subscription payment error:', err);
+        res.status(500).json({ error: 'Failed to verify subscription payment.' });
+    }
+});
+
 router.post('/verification/initiate', auth, async (req, res) => {
     try {
         let VERIFICATION_FEE = 109; // Default
@@ -542,3 +679,4 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
 });
 
 export default router;
+

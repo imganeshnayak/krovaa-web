@@ -22,6 +22,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import AdminChatView from "./pages/AdminChatView";
 import SettingsPage from "./pages/SettingsPage";
 import ImageGeneratorPage from "./pages/ImageGeneratorPage";
+import ImageGeneratorPricingPage from "./pages/ImageGeneratorPricingPage";
 import BlockedUsersPage from "./pages/BlockedUsersPage";
 import ForgotPassword from "./pages/ForgotPassword";
 import Terms from "./pages/legal/Terms";
@@ -91,6 +92,7 @@ const MainContent = () => {
         <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
         <Route path="/chat" element={<ClientRoute><ChatPage /></ClientRoute>} />
         <Route path="/image-generator" element={<ClientRoute><ImageGeneratorPage /></ClientRoute>} />
+        <Route path="/image-generator/pricing" element={<ImageGeneratorPricingPage />} />
         <Route path="/posts" element={<ClientRoute><PostsPage /></ClientRoute>} />
         <Route path="/explore" element={<ClientRoute><ExplorePage /></ClientRoute>} />
         <Route path="/post-job" element={<ClientRoute><PostJobPage /></ClientRoute>} />

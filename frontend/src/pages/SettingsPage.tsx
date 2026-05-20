@@ -78,10 +78,10 @@ const SettingsPage = () => {
         setIsImageGeneratorEnabled(checked);
         localStorage.setItem("image_generator_enabled", checked ? "true" : "false");
         toast({
-            title: checked ? "KrovAI Enabled" : "KrovAI Disabled",
+            title: checked ? "KrovAI Chat Enabled" : "KrovAI Chat Disabled",
             description: checked
-                ? "AI Image Generator is now available in the navigation bar"
-                : "AI Image Generator has been hidden from the navigation bar",
+                ? "The AI image generator chat assistant is now visible in your chats."
+                : "The AI image generator chat assistant has been hidden from your chat list.",
         });
         if (checked) {
             loadDailyLimitInfo();

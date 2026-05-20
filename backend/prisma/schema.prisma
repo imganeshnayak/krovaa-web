@@ -36,6 +36,7 @@ model User {
   userGoal             String?               @map("user_goal")
   skills               Json?                 @default("[]")
   imageGenerations     ImageGeneration[]
+  subscription         Subscription?
   posts                Post[]                @relation("UserPosts")
   postLikes            Post_Like[]           @relation("UserPostLikes")
   postComments         Post_Comment[]        @relation("UserPostComments")
@@ -406,4 +407,26 @@ model ImageGenerationDaily {
 
   @@unique([userId, date])
   @@map("image_generation_daily")
+}
+
+model Subscription {
+  id                Int      @id @default(autoincrement())
+  userId            Int      @map("user_id")
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId            String   @map("plan_id")
+  planName          String   @map("plan_name")
+  billingCycle      String   @default("monthly") @map("billing_cycle")
+  monthlyLimit      Int      @default(5) @map("monthly_limit")
+  imagesUsed        Int      @default(0) @map("images_used")
+  imagesThisMonth   Int      @default(0) @map("images_this_month")
+  resetDate         DateTime @map("reset_date")
+  razorpayOrderId   String?  @map("razorpay_order_id")
+  razorpayPaymentId String?  @map("razorpay_payment_id")
+  status            String   @default("active")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+  expiresAt         DateTime? @map("expires_at")
+
+  @@unique([userId])
+  @@map("subscriptions")
 }
