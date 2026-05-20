@@ -19,6 +19,7 @@ import {
   deleteAvatar, deleteCoverPhoto
 } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import { remoteUrl } from "@/lib/config";
 import { Textarea } from "@/components/ui/textarea";
 import LoadingScreen from "@/components/ui/LoadingScreen";
 import {
@@ -170,12 +171,7 @@ const ProfilePage = () => {
     if (!effectiveUrl) return "";
     if (effectiveUrl.startsWith('blob:') || effectiveUrl.startsWith('data:')) return effectiveUrl;
     
-    let finalUrl = effectiveUrl;
-    if (!effectiveUrl.startsWith('http')) {
-      const baseApiUrl = (import.meta.env.VITE_API_URL || "http://localhost:5000").replace(/\/$/, "");
-      finalUrl = `${baseApiUrl}${effectiveUrl.startsWith('/') ? '' : '/'}${effectiveUrl}`;
-    }
-    
+    const finalUrl = remoteUrl(effectiveUrl);
     return `${finalUrl}${finalUrl.includes('?') ? '&' : '?'}v=${imageVersion}`;
   };
 

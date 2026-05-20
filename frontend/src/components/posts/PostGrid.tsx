@@ -1,4 +1,5 @@
 import { Post } from "@/lib/api";
+import { remoteUrl } from "@/lib/config";
 import { Heart, MessageCircle } from "lucide-react";
 import { useState } from "react";
 import PostDetailModal from "./PostDetailModal";
@@ -18,9 +19,7 @@ export default function PostGrid({ posts, isLoading, isOwnProfile, onPostDeleted
       return ""; // Fallback for text-only posts
     }
     const firstMedia = post.media[0];
-    if (firstMedia.url.startsWith("http")) return firstMedia.url;
-    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
-    return `${API_URL}${firstMedia.url.startsWith("/") ? "" : "/"}${firstMedia.url}`;
+    return remoteUrl(firstMedia.url);
   };
 
   if (isLoading) {

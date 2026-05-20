@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { apiFetch, getWalletBalance, paySubscriptionWithWallet } from "@/lib/api";
+import { apiFetch, getImageGeneratorPricing, getWalletBalance, paySubscriptionWithWallet } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -23,7 +23,7 @@ interface Plan {
   icon: React.ReactNode;
 }
 
-const PLANS: Plan[] = [
+const DEFAULT_PLANS: Plan[] = [
   {
     id: "free",
     name: "Starter",
@@ -61,7 +61,7 @@ const PLANS: Plan[] = [
   },
   {
     id: "enterprise",
-    name: "Ultra",
+    name: "Extra",
     description: "For power users and teams",
     monthlyPrice: 799,
     annualPrice: 6390,
@@ -92,15 +92,20 @@ const ImageGeneratorPricingPage = () => {
   const { user } = useAuth();
   const isAuthenticated = !!user;
   const { toast } = useToast();
-  const [isAnnual, setIsAnnual] = useState(true);
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
   const [userSubscription, setUserSubscription] = useState<any>(null);
   const [walletBalance, setWalletBalance] = useState(0);
+  const [plans, setPlans] = useState<Plan[]>(DEFAULT_PLANS);
+  const [pricingLoading, setPricingLoading] = useState(false);
 
   useEffect(() => {
     document.title = "Pricing - KrovAI Image Generator";
+  }, []);
+
+  useEffect(() => {
+    loadPricing();
   }, []);
 
   useEffect(() => {
@@ -109,6 +114,29 @@ const ImageGeneratorPricingPage = () => {
       loadWalletBalance();
     }
   }, [isAuthenticated]);
+
+  const loadPricing = async () => {
+    try {
+      setPricingLoading(true);
+      const data = await getImageGeneratorPricing();
+      const updatedPlans = DEFAULT_PLANS.map((plan) => {
+        const override = data.plans.find((item) => item.id === plan.id);
+        if (!override) return plan;
+        return {
+          ...plan,
+          name: override.name,
+          monthlyPrice: override.monthlyPrice,
+          annualPrice: override.annualPrice,
+          monthlyEquivalent: override.monthlyEquivalent,
+        };
+      });
+      setPlans(updatedPlans);
+    } catch (error) {
+      console.error("Failed to load pricing:", error);
+    } finally {
+      setPricingLoading(false);
+    }
+  };
 
   const fetchUserSubscription = async () => {
     try {
@@ -162,7 +190,7 @@ const ImageGeneratorPricingPage = () => {
     setLoadingPlan(selectedPlan.id);
 
     try {
-      await paySubscriptionWithWallet(selectedPlan.id, isAnnual);
+      await paySubscriptionWithWallet(selectedPlan.id, false);
       toast({ title: "Success!", description: `You now have the ${selectedPlan.name} plan!` });
       setShowPaymentDialog(false);
       fetchUserSubscription();
@@ -238,33 +266,15 @@ const ImageGeneratorPricingPage = () => {
 
           {/* Billing Toggle */}
           <div className="inline-flex items-center gap-4 px-1 py-1 rounded-full bg-white/60 border border-[#D946EF]/20 backdrop-blur-sm">
-            <button
-              onClick={() => setIsAnnual(false)}
-              className={`px-4 py-2 rounded-full text-sm font-semibold transition-all ${
-                !isAnnual
-                  ? "bg-[#D946EF] text-white shadow-lg shadow-[#D946EF]/20"
-                  : "text-[#1C1C1C]/60 hover:text-[#1C1C1C]"
-              }`}
-            >
-              Monthly
-            </button>
-            <button
-              onClick={() => setIsAnnual(true)}
-              className={`px-4 py-2 rounded-full text-sm font-semibold transition-all flex items-center gap-2 ${
-                isAnnual
-                  ? "bg-[#D946EF] text-white shadow-lg shadow-[#D946EF]/20"
-                  : "text-[#1C1C1C]/60 hover:text-[#1C1C1C]"
-              }`}
-            >
-              Annual
-              <span className="text-xs bg-[#F97316] text-white px-2 py-0.5 rounded-full">Save 33%</span>
-            </button>
+            <span className="px-4 py-2 rounded-full bg-[#D946EF] text-white shadow-lg shadow-[#D946EF]/20 text-sm font-semibold">
+              Monthly billing only
+            </span>
           </div>
         </div>
 
         {/* Pricing Cards */}
         <div className="grid md:grid-cols-3 gap-6 mb-16">
-          {PLANS.map((plan) => (
+          {plans.map((plan) => (
             <Card
               key={plan.id}
               className={`relative overflow-hidden transition-all duration-300 hover:scale-[1.02] ${
@@ -294,16 +304,10 @@ const ImageGeneratorPricingPage = () => {
               <CardContent className="text-center">
                 <div className="mb-6">
                   <span className="text-4xl font-bold text-[#1C1C1C]">
-                    ₹{isAnnual ? plan.monthlyEquivalent : plan.monthlyPrice}
+                    ₹{plan.monthlyPrice}
                   </span>
                   <span className="text-[#1C1C1C]/50">/month</span>
                 </div>
-
-                {isAnnual && plan.monthlyPrice > 0 && (
-                  <div className="text-sm text-[#1C1C1C]/40 mb-4">
-                    ₹{plan.annualPrice}/year (save 33%)
-                  </div>
-                )}
 
                 <div className="space-y-3">
                   {plan.features.map((feature, idx) => (
@@ -410,13 +414,7 @@ const ImageGeneratorPricingPage = () => {
             <DialogTitle className="text-[#1C1C1C]">Subscribe to {selectedPlan?.name}</DialogTitle>
             <DialogDescription className="text-[#1C1C1C]/50">
               {selectedPlan && (
-                <>
-                  {isAnnual ? (
-                    <span>Annual billing: ₹{selectedPlan.annualPrice}/year</span>
-                  ) : (
-                    <span>Monthly billing: ₹{selectedPlan.monthlyPrice}/month</span>
-                  )}
-                </>
+                <span>Monthly billing: ₹{selectedPlan.monthlyPrice}/month</span>
               )}
             </DialogDescription>
           </DialogHeader>
@@ -441,9 +439,9 @@ const ImageGeneratorPricingPage = () => {
                 <p className="font-medium text-[#1C1C1C]">Wallet Balance</p>
                 <p className="text-lg font-semibold text-[#1C1C1C]">₹{walletBalance.toLocaleString('en-IN')}</p>
                 <p className="text-sm text-muted-foreground">
-                  {walletBalance >= (isAnnual ? selectedPlan.annualPrice : selectedPlan.monthlyPrice)
+                  {walletBalance >= selectedPlan.monthlyPrice
                     ? "You have enough balance to pay with your wallet."
-                    : `Add ₹${Math.max(0, (isAnnual ? selectedPlan.annualPrice : selectedPlan.monthlyPrice) - walletBalance).toLocaleString('en-IN')} to use wallet payment.`}
+                    : `Add ₹${Math.max(0, selectedPlan.monthlyPrice - walletBalance).toLocaleString('en-IN')} to use wallet payment.`}
                 </p>
               </div>
             )}

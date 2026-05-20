@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { X, Heart, MessageCircle, Trash2, Send } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { formatDistanceToNow } from "date-fns";
+import { remoteUrl } from "@/lib/config";
 
 interface PostDetailModalProps {
   post: Post;
@@ -35,9 +36,7 @@ export default function PostDetailModal({
   if (!isOpen) return null;
 
   const getMediaUrl = (url: string) => {
-    if (url.startsWith("http")) return url;
-    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
-    return `${API_URL}${url.startsWith("/") ? "" : "/"}${url}`;
+    return remoteUrl(url);
   };
 
   const handleLike = async () => {
