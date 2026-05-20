@@ -324,7 +324,7 @@ model Job {
   budget      String
   mode        String        @default("Remote")
   description String
-  terms       String?
+  terms       Json?         @default("[]")
   postedById  Int      @map("posted_by_id")
   createdAt   DateTime @default(now()) @map("created_at")
   postedBy    User     @relation("PostedJobs", fields: [postedById], references: [id], onDelete: Cascade)

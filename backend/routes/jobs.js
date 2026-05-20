@@ -1,5 +1,6 @@
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
+import jwt from 'jsonwebtoken';
 import { auth } from '../middleware/auth.js';
 import { sendUserNotification } from './notifications.js';
 
@@ -57,19 +58,34 @@ router.get('/:id', async (req, res) => {
             applications: []
         };
 
+        // Parse optional auth token to detect ownership and application status
+        let reqUser = req.user;
+        if (!reqUser) {
+            const authHeader = req.header('Authorization');
+            const token = authHeader?.replace('Bearer ', '');
+            if (token) {
+                try {
+                    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+                    reqUser = decoded;
+                } catch (err) {
+                    // Ignore invalid token
+                }
+            }
+        }
+
         // If user is authenticated, check their application status and if they own it
-        if (req.user) {
+        if (reqUser) {
             const application = await prisma.application.findUnique({
                 where: {
                     jobId_userId: {
                         jobId,
-                        userId: req.user.id
+                        userId: reqUser.id
                     }
                 }
             });
 
             jobWithStatus.hasApplied = !!application;
-            jobWithStatus.isOwner = job.postedById === req.user.id;
+            jobWithStatus.isOwner = job.postedById === reqUser.id;
 
             // If owner, fetch and include applications
             if (jobWithStatus.isOwner) {
@@ -102,7 +118,7 @@ router.get('/:id', async (req, res) => {
 // POST /api/jobs
 router.post('/', auth, async (req, res) => {
     try {
-        const { title, company, location, budget, mode, description } = req.body;
+        const { title, company, location, budget, mode, description, terms, termsAndConditions } = req.body;
         if (!title || !company || !location || !budget || !description) {
             return res.status(400).json({ error: 'Title, company, location, budget, and description are required.' });
         }
@@ -113,6 +129,11 @@ router.post('/', auth, async (req, res) => {
             return res.status(400).json({ error: `Mode must be one of: ${validModes.join(', ')}.` });
         }
 
+        const termsData = terms || termsAndConditions;
+        const termsArray = Array.isArray(termsData)
+            ? termsData.map(t => typeof t === 'string' ? t.trim() : '').filter(Boolean)
+            : (typeof termsData === 'string' && termsData.trim() ? [termsData.trim()] : []);
+
         const job = await prisma.job.create({
             data: {
                 title: title.trim(),
@@ -121,6 +142,7 @@ router.post('/', auth, async (req, res) => {
                 budget: budget.trim(),
                 mode: normalizedMode,
                 description: description.trim(),
+                terms: termsArray,
                 postedById: req.user.id,
             },
         });
@@ -171,21 +193,27 @@ router.post('/:id/apply', auth, async (req, res) => {
             return res.status(400).json({ error: 'You have already applied for this job.' });
         }
 
+        const termsString = Array.isArray(termsAndConditions)
+            ? termsAndConditions.join('\n')
+            : typeof termsAndConditions === 'string'
+                ? termsAndConditions
+                : '';
+
         // Create application
         const application = await prisma.application.create({
             data: {
                 jobId,
                 userId,
                 status: 'pending',
-                terms: termsAndConditions
+                terms: termsString || null
             }
         });
 
         // Send a message to the job poster automatically
         const chatId = `chat_${userId}_${job.postedById}_${Date.now()}`;
         let applicationMessage = `Hi, I just applied for your job: **${job.title}** at ${job.company}.`;
-        if (termsAndConditions) {
-            applicationMessage += `\n\n**Terms and Conditions:**\n${termsAndConditions}`;
+        if (termsString) {
+            applicationMessage += `\n\n**Terms and Conditions Agreed to:**\n${termsString}`;
         }
 
         const message = await prisma.message.create({
@@ -233,6 +261,47 @@ router.post('/:id/apply', auth, async (req, res) => {
     } catch (err) {
         console.error('Apply for job error:', err);
         res.status(500).json({ error: 'Failed to submit application.' });
+    }
+});
+
+// PUT /api/jobs/:id/terms
+router.put('/:id/terms', auth, async (req, res) => {
+    try {
+        const jobId = Number(req.params.id);
+        if (Number.isNaN(jobId)) {
+            return res.status(400).json({ error: 'Invalid job ID.' });
+        }
+
+        const { terms } = req.body;
+        if (!Array.isArray(terms)) {
+            return res.status(400).json({ error: 'Terms must be an array of strings.' });
+        }
+
+        const job = await prisma.job.findUnique({
+            where: { id: jobId }
+        });
+
+        if (!job) {
+            return res.status(404).json({ error: 'Job not found.' });
+        }
+
+        if (job.postedById !== req.user.id) {
+            return res.status(403).json({ error: 'You are not authorized to update this job\'s terms.' });
+        }
+
+        const filteredTerms = terms.map(t => typeof t === 'string' ? t.trim() : '').filter(Boolean);
+
+        const updatedJob = await prisma.job.update({
+            where: { id: jobId },
+            data: {
+                terms: filteredTerms
+            }
+        });
+
+        res.json(updatedJob);
+    } catch (err) {
+        console.error('Update job terms error:', err);
+        res.status(500).json({ error: 'Failed to update job terms.' });
     }
 });
 
