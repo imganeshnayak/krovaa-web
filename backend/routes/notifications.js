@@ -300,6 +300,7 @@ export async function sendUserNotification(io, targetUserId, title, message, typ
     try {
         const sanitizedTitle = sanitizeNotificationText(title);
         const sanitizedMessage = sanitizeNotificationText(message);
+        const parsedMetadata = metadata ? (typeof metadata === 'string' ? JSON.parse(metadata) : metadata) : null;
 
         const notification = await prisma.notification.create({
             data: {
@@ -307,7 +308,7 @@ export async function sendUserNotification(io, targetUserId, title, message, typ
                 message: sanitizedMessage,
                 type,
                 targetUserId,
-                metadata: metadata ? (typeof metadata === 'string' ? JSON.parse(metadata) : metadata) : null
+                metadata: parsedMetadata
             }
         });
 
@@ -325,7 +326,11 @@ export async function sendUserNotification(io, targetUserId, title, message, typ
             });
         }
 
-        // Mirror to Help Center chat
+        // Mirror to Help Center chat unless explicitly disabled by caller.
+        if (parsedMetadata?.skipChatMirror) {
+            return notification;
+        }
+
         try {
             // Find an admin to be the sender (or use a fixed system ID if valid)
             const admin = await prisma.user.findFirst({
@@ -333,25 +338,26 @@ export async function sendUserNotification(io, targetUserId, title, message, typ
                 select: { id: true, avatarUrl: true }
             });
 
-            if (admin) {
-                const chatId = `support_${targetUserId}`;
-                const msg = await prisma.message.create({
-                    data: {
-                        chatId,
-                        senderId: admin.id,
-                        receiverId: targetUserId,
-                        content: `🔔 **${sanitizedTitle}**\n\n${sanitizedMessage}`,
-                        messageType: 'notification'
-                    }
-                });
-
-                if (io) {
-                    io.to(chatId).emit('newMessage', {
-                        ...msg,
-                        sender_name: "Krovaa",
-                        sender_avatar: null // Use default system avatar
-                    });
+            const chatId = `support_${targetUserId}`;
+            const msg = await prisma.message.create({
+                data: {
+                    chatId,
+                    senderId: admin?.id || targetUserId,
+                    receiverId: targetUserId,
+                    content: `🔔 **${sanitizedTitle}**\n\n${sanitizedMessage}`,
+                    messageType: 'notification'
                 }
+            });
+
+            if (io) {
+                const socketPayload = {
+                    ...msg,
+                    sender_name: "Krovaa",
+                    sender_avatar: null // Use default system avatar
+                };
+
+                io.to(chatId).emit('newMessage', socketPayload);
+                io.to(`user_${targetUserId}`).emit('newMessage', socketPayload);
             }
         } catch (msgErr) {
             console.error('Failed to mirror notification to Admin chat:', msgErr);

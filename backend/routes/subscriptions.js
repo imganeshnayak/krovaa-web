@@ -2,6 +2,7 @@ import express from 'express';
 import { PrismaClient } from '@prisma/client';
 import { auth } from '../middleware/auth.js';
 import { createOrder } from '../config/razorpay.js';
+import { sendSubscriptionSuccessArtifacts } from '../services/subscriptionFulfillment.js';
 
 const prisma = new PrismaClient();
 const router = express.Router();
@@ -69,10 +70,19 @@ router.post('/subscribe', auth, async (req, res) => {
     }
 
     const plan = PLANS[planId];
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: { id: true, email: true, displayName: true, username: true, walletBalance: true }
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
 
     if (planId === 'free') {
       const now = new Date();
       const resetDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+      const expiresAt = new Date(now.getFullYear(), now.getMonth() + 1, now.getDate());
 
       await prisma.subscription.upsert({
         where: { userId: req.user.id },
@@ -97,6 +107,20 @@ router.post('/subscribe', auth, async (req, res) => {
           resetDate,
           status: 'active',
         },
+      });
+
+      const io = req.app.get('io');
+      await sendSubscriptionSuccessArtifacts({
+        io,
+        user,
+        plan,
+        billingCycle: 'monthly',
+        amount: 0,
+        monthlyLimit: plan.monthlyLimit,
+        expiresAt,
+        receiptReference: `free_${req.user.id}_${Date.now()}`,
+        paymentReference: 'free-plan',
+        paymentMethod: 'free',
       });
 
       return res.json({ success: true, message: 'Subscribed to Starter plan' });
@@ -154,7 +178,7 @@ router.post('/wallet', auth, async (req, res) => {
 
     const user = await prisma.user.findUnique({
       where: { id: req.user.id },
-      select: { walletBalance: true }
+      select: { id: true, walletBalance: true, email: true, displayName: true, username: true }
     });
 
     if (!user) {
@@ -224,6 +248,20 @@ router.post('/wallet', auth, async (req, res) => {
       });
 
       return updated;
+    });
+
+    const io = req.app.get('io');
+    await sendSubscriptionSuccessArtifacts({
+      io,
+      user,
+      plan,
+      billingCycle,
+      amount,
+      monthlyLimit: plan.monthlyLimit,
+      expiresAt,
+      receiptReference: `wallet_${req.user.id}_${Date.now()}`,
+      paymentReference: `subscription_${plan.id}_${Date.now()}`,
+      paymentMethod: 'wallet',
     });
 
     res.json({ success: true, message: `Subscribed to ${plan.name} plan using wallet.` });
