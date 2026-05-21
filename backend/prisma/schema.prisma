@@ -330,6 +330,17 @@ model AdClick {
 }
 
 model Job {
+  id          Int           @id @default(autoincrement())
+  title       String
+  company     String
+  location    String
+  budget      String
+  mode        String        @default("Remote")
+  description String
+  terms       Json?         @default("[]")
+  postedById  Int      @map("posted_by_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  postedBy    User     @relation("PostedJobs", fields: [postedById], references: [id], onDelete: Cascade)
   id           Int           @id @default(autoincrement())
   title        String
   company      String
@@ -346,6 +357,16 @@ model Job {
 }
 
 model Application {
+  id        Int      @id @default(autoincrement())
+  jobId     Int      @map("job_id")
+  userId    Int      @map("user_id")
+  status    String   @default("pending")
+  terms     String?
+  createdAt DateTime @default(now()) @map("created_at")
+  job       Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  user      User     @relation("UserApplications", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, userId])
   id           Int      @id @default(autoincrement())
   jobId        Int      @map("job_id")
   userId       Int?     @map("user_id")

@@ -1944,6 +1944,59 @@ const AdminDashboard = () => {
                           </div>
                           <p className="text-[10px] text-muted-foreground italic">Maximum number of images a user can generate per day</p>
                         </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="space-y-3">
+                            <label className="text-sm font-semibold text-foreground/80 block uppercase tracking-widest">Starter Price</label>
+                            <div className="relative group">
+                              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <IndianRupee className="h-4 w-4 text-muted-foreground group-focus-within:text-purple-500 transition-colors" />
+                              </div>
+                              <Input
+                                type="number"
+                                min="0"
+                                className="pl-10 h-12 bg-background/50 border-border/50 focus:border-purple-500/50 focus:ring-purple-500/20 rounded-xl transition-all"
+                                value={systemSettings.image_generator_plan_starter_monthly_price || '0'}
+                                onChange={(e) => setSystemSettings(prev => ({ ...prev, image_generator_plan_starter_monthly_price: e.target.value }))}
+                                placeholder="0"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="space-y-3">
+                            <label className="text-sm font-semibold text-foreground/80 block uppercase tracking-widest">Pro Price</label>
+                            <div className="relative group">
+                              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <IndianRupee className="h-4 w-4 text-muted-foreground group-focus-within:text-purple-500 transition-colors" />
+                              </div>
+                              <Input
+                                type="number"
+                                min="0"
+                                className="pl-10 h-12 bg-background/50 border-border/50 focus:border-purple-500/50 focus:ring-purple-500/20 rounded-xl transition-all"
+                                value={systemSettings.image_generator_plan_pro_monthly_price || '299'}
+                                onChange={(e) => setSystemSettings(prev => ({ ...prev, image_generator_plan_pro_monthly_price: e.target.value }))}
+                                placeholder="299"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="space-y-3">
+                            <label className="text-sm font-semibold text-foreground/80 block uppercase tracking-widest">Extra Price</label>
+                            <div className="relative group">
+                              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <IndianRupee className="h-4 w-4 text-muted-foreground group-focus-within:text-purple-500 transition-colors" />
+                              </div>
+                              <Input
+                                type="number"
+                                min="0"
+                                className="pl-10 h-12 bg-background/50 border-border/50 focus:border-purple-500/50 focus:ring-purple-500/20 rounded-xl transition-all"
+                                value={systemSettings.image_generator_plan_extra_monthly_price || '799'}
+                                onChange={(e) => setSystemSettings(prev => ({ ...prev, image_generator_plan_extra_monthly_price: e.target.value }))}
+                                placeholder="799"
+                              />
+                            </div>
+                          </div>
+                        </div>
                       </div>
 
                       <div className="bg-purple-500/5 border border-purple-500/10 rounded-lg p-3">

@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { auth } from '../middleware/auth.js';
 import { createOrder, verifyPaymentSignature, fetchPayment } from '../config/razorpay.js';
 import { sendUserNotification } from './notifications.js';
+import { sendSubscriptionSuccessArtifacts } from '../services/subscriptionFulfillment.js';
 
 const prisma = new PrismaClient();
 const router = express.Router();
@@ -210,6 +211,14 @@ router.post('/subscription/verify', auth, async (req, res) => {
         const now = new Date();
         const resetDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
         const expiresAt = new Date(now.getFullYear() + (isAnnual ? 1 : 0), now.getMonth(), now.getDate());
+        const subscriber = await prisma.user.findUnique({
+            where: { id: req.user.id },
+            select: { id: true, email: true, displayName: true, username: true }
+        });
+
+        if (!subscriber) {
+            return res.status(404).json({ error: 'User not found.' });
+        }
 
         await prisma.$transaction(async (tx) => {
             await tx.subscription.upsert({
@@ -253,6 +262,20 @@ router.post('/subscription/verify', auth, async (req, res) => {
                     metadata: payment
                 }
             });
+        });
+
+        const io = req.app.get('io');
+        await sendSubscriptionSuccessArtifacts({
+            io,
+            user: subscriber,
+            plan,
+            billingCycle,
+            amount: expectedAmount,
+            monthlyLimit: plan.monthlyLimit,
+            expiresAt,
+            receiptReference: paymentId,
+            paymentReference: orderId,
+            paymentMethod: 'razorpay',
         });
 
         res.json({ message: `Subscribed to ${plan.name} successfully.` });

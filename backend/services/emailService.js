@@ -2,10 +2,15 @@ import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
+import PDFDocument from 'pdfkit';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
+const backendEnvPath = path.join(__dirname, '..', '.env');
+const rootEnvPath = path.join(__dirname, '..', '..', '.env');
+const envPathToUse = fs.existsSync(backendEnvPath) ? backendEnvPath : rootEnvPath;
+dotenv.config({ path: envPathToUse });
 
 const smtpPort = Number.parseInt(process.env.EMAIL_PORT || '465', 10);
 const smtpSecure = process.env.EMAIL_SECURE
@@ -218,4 +223,122 @@ https://krovaa.com`;
 
 
   console.log(`Password reset OTP sent to ${email}`);
+}
+
+const escapeHtml = (value) => String(value ?? '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#039;');
+
+const formatCurrency = (amount, currency = 'INR') => new Intl.NumberFormat('en-IN', {
+  style: 'currency',
+  currency,
+  maximumFractionDigits: Number.isInteger(Number(amount || 0)) ? 0 : 2,
+}).format(Number(amount || 0));
+
+function buildReceiptPdf(details) {
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ size: 'A4', margin: 48 });
+    const chunks = [];
+
+    doc.on('data', (chunk) => chunks.push(chunk));
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+    doc.on('error', reject);
+
+    const accent = '#D946EF';
+    const dark = '#111827';
+    const muted = '#6B7280';
+    const border = '#E5E7EB';
+    const light = '#F9FAFB';
+
+    doc.rect(0, 0, doc.page.width, 18).fill(accent);
+    doc.moveDown(2);
+    doc.fillColor(dark).font('Helvetica-Bold').fontSize(22).text('Krovaa Subscription Receipt', { align: 'center' });
+    doc.moveDown(0.6);
+    doc.fillColor(muted).font('Helvetica').fontSize(10).text('This PDF confirms your subscription purchase and plan activation.', { align: 'center' });
+
+    const summaryTop = 140;
+    doc.roundedRect(48, summaryTop, doc.page.width - 96, 92, 12).lineWidth(1).strokeColor(border).stroke();
+    doc.fillColor(muted).font('Helvetica').fontSize(10).text('Customer', 64, summaryTop + 16);
+    doc.fillColor(dark).font('Helvetica-Bold').fontSize(12).text(details.customerName || 'Krovaa member', 64, summaryTop + 32);
+    doc.fillColor(muted).font('Helvetica').fontSize(10).text(details.email || '-', 64, summaryTop + 50);
+
+    doc.fillColor(muted).font('Helvetica').fontSize(10).text('Receipt ID', 330, summaryTop + 16);
+    doc.fillColor(dark).font('Helvetica-Bold').fontSize(12).text(details.receiptReference || '-', 330, summaryTop + 32);
+    doc.fillColor(muted).font('Helvetica').fontSize(10).text(`Issued ${new Date(details.issuedAt || Date.now()).toLocaleString()}`, 330, summaryTop + 50);
+
+    const rows = [
+      ['Plan', details.planName || '-'],
+      ['Billing cycle', details.billingCycle || '-'],
+      ['Amount paid', formatCurrency(details.amount, details.currency)],
+      ['Payment status', details.status || 'PAID'],
+      ['Monthly limit', details.monthlyLimit == null ? '-' : String(details.monthlyLimit)],
+      ['Activated on', new Date(details.issuedAt || Date.now()).toLocaleString()],
+      ['Valid until', details.expiresAt ? new Date(details.expiresAt).toLocaleDateString() : '-'],
+      ['Payment reference', details.paymentReference || '-'],
+      ['Payment method', details.paymentMethod || 'Razorpay'],
+    ];
+
+    const rowStart = summaryTop + 122;
+    rows.forEach(([label, value], index) => {
+      const rowY = rowStart + (index * 30);
+      doc.roundedRect(48, rowY, doc.page.width - 96, 24, 8).fillAndStroke(light, border);
+      doc.fillColor(muted).font('Helvetica').fontSize(10).text(label, 64, rowY + 8);
+      doc.fillColor(dark).font('Helvetica-Bold').fontSize(10).text(String(value), 260, rowY + 8, {
+        width: doc.page.width - 324,
+        align: 'right'
+      });
+    });
+
+    const footerTop = rowStart + (rows.length * 30) + 28;
+    doc.fillColor(muted).font('Helvetica').fontSize(10).text('Keep this receipt for your records. Contact support@krovaa.com if you need any billing help.', 48, footerTop, { width: doc.page.width - 96, align: 'center' });
+
+    doc.end();
+  });
+}
+
+export async function sendSubscriptionReceiptEmail(email, details) {
+  const customerName = details.customerName || 'Krovaa member';
+  const receiptReference = details.receiptReference || `receipt_${Date.now()}`;
+  const amountLabel = formatCurrency(details.amount, details.currency);
+  const senderEmail = process.env.EMAIL_USER || 'support@krovaa.com';
+  const pdfBuffer = await buildReceiptPdf({
+    ...details,
+    email,
+    receiptReference,
+  });
+
+  const subject = `Your Krovaa Payment Receipt (PDF)`;
+  const cycleText = details.billingCycle ? ` • ${details.billingCycle}` : '';
+  const bodyHtml = `
+    <div style="font-family:Arial,Helvetica,sans-serif;color:#E5E7EB;line-height:1.6;">
+      <p style="margin:0 0 12px;">Hi ${escapeHtml(customerName)},</p>
+      <p style="margin:0 0 18px;">Your payment was successful. Your paid receipt PDF is attached to this email.</p>
+      <div style="background:#111827;border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:18px 20px;margin:0 0 18px;">
+        <p style="margin:0 0 8px;color:#9CA3AF;font-size:12px;text-transform:uppercase;letter-spacing:.12em;">Payment receipt summary</p>
+        <p style="margin:0;color:#FFFFFF;font-size:18px;font-weight:700;">${escapeHtml(details.planName || 'Subscription')}</p>
+        <p style="margin:4px 0 0;color:#D946EF;font-size:14px;font-weight:700;">${escapeHtml(amountLabel + cycleText)}</p>
+      </div>
+      <p style="margin:0;color:#9CA3AF;font-size:13px;">Receipt ID: ${escapeHtml(receiptReference)}</p>
+      <p style="margin:4px 0 0;color:#9CA3AF;font-size:13px;">Payment Status: ${escapeHtml(details.status || 'PAID')}</p>
+    </div>
+  `;
+
+  await transporter.sendMail({
+    from: `"Krovaa Billing" <${senderEmail}>`,
+    to: email,
+    replyTo: 'support@krovaa.com',
+    subject,
+    text: `Hi ${customerName},\n\nYour payment was successful. Receipt ID: ${receiptReference}. Amount Paid: ${amountLabel}. Status: ${details.status || 'PAID'}.\n\nThe paid receipt PDF is attached to this email.`,
+    html: emailShell('#D946EF', 'Subscription Receipt', bodyHtml),
+    attachments: [{
+      filename: `Krovaa-Subscription-Receipt-${receiptReference}.pdf`,
+      content: pdfBuffer,
+      contentType: 'application/pdf',
+    }],
+  });
+
+  console.log(`Subscription receipt sent to ${email}`);
 }

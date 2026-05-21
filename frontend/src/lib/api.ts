@@ -1,8 +1,8 @@
+import { apiUrl } from "./config";
+
 // src/lib/api.ts
 
-const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:5000";
-
- export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
+export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const token = localStorage.getItem("authToken");
 
   const headers: Record<string, string> = {
@@ -15,7 +15,7 @@ const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:5000";
     headers['Content-Type'] = 'application/json';
   }
 
-  const fullUrl = `${API_URL}${path}`;
+  const fullUrl = apiUrl(path);
   console.log(`[API Request] ${options?.method || 'GET'} ${fullUrl}`);
   
   const res = await fetch(fullUrl, {
@@ -527,6 +527,24 @@ export function updateSystemSettings(settings: Record<string, string | number>):
     method: "POST",
     body: JSON.stringify({ settings }),
   });
+}
+
+export function getImageGeneratorPricing(): Promise<{ plans: Array<{
+  id: string;
+  name: string;
+  monthlyLimit: number;
+  monthlyPrice: number;
+  annualPrice: number;
+  monthlyEquivalent: number;
+}> }> {
+  return apiFetch<{ plans: Array<{
+    id: string;
+    name: string;
+    monthlyLimit: number;
+    monthlyPrice: number;
+    annualPrice: number;
+    monthlyEquivalent: number;
+  }> }>("/api/subscriptions/pricing");
 }
 
 export function updateReportStatus(reportId: number, status: string): Promise<any> {
@@ -1170,10 +1188,10 @@ export function postJob(data: {
   });
 }
 
-export function applyJob(jobId: number, data?: { bidAmount?: number; deliveryTime?: string; coverLetter?: string; teamId?: number }): Promise<{ message: string; application: any }> {
+export function applyJob(jobId: number, termsAndConditions?: string): Promise<{ message: string; application: any }> {
   return apiFetch<{ message: string; application: any }>(`/api/jobs/${jobId}/apply`, {
     method: 'POST',
-    body: data ? JSON.stringify(data) : undefined,
+    body: JSON.stringify({ termsAndConditions }),
   });
 }
 
@@ -1215,8 +1233,7 @@ export function deleteAd(id: number): Promise<{ success: boolean }> {
 
 export function createAd(formData: FormData): Promise<Ad> {
   const token = localStorage.getItem("authToken");
-  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
-  return fetch(`${API_URL}/api/ads`, {
+  return fetch(apiUrl("/api/ads"), {
     method: "POST",
     headers: { ...(token && { Authorization: `Bearer ${token}` }) },
     body: formData,
@@ -1232,8 +1249,7 @@ export function createAd(formData: FormData): Promise<Ad> {
 
 export function updateAd(id: number, formData: FormData): Promise<Ad> {
   const token = localStorage.getItem("authToken");
-  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
-  return fetch(`${API_URL}/api/ads/${id}`, {
+  return fetch(apiUrl(`/api/ads/${id}`), {
     method: "PUT",
     headers: { ...(token && { Authorization: `Bearer ${token}` }) },
     body: formData,
@@ -1283,12 +1299,11 @@ export interface Post {
 
 export function createPost(text: string, files: File[]): Promise<Post> {
   const token = localStorage.getItem("authToken");
-  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
   const formData = new FormData();
   if (text) formData.append("text", text);
   files.forEach((file) => formData.append("files", file));
 
-  return fetch(`${API_URL}/api/posts`, {
+  return fetch(apiUrl("/api/posts"), {
     method: "POST",
     headers: { ...(token && { Authorization: `Bearer ${token}` }) },
     body: formData,

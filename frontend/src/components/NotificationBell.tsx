@@ -4,6 +4,7 @@ import { Bell, X, CheckCheck, Info, AlertTriangle, CheckCircle, AlertCircle, Tra
 import { getNotifications, markNotificationRead, markAllNotificationsRead, deleteNotification, Notification } from "@/lib/api";
 import { toast } from "sonner";
 import { io as socketIO } from "socket.io-client";
+import { SOCKET_URL } from "@/lib/config";
 import { useAuth } from "@/contexts/AuthContext";
 import {
     Dialog,
@@ -12,8 +13,6 @@ import {
     DialogTitle,
     DialogTrigger,
 } from "@/components/ui/dialog";
-
-const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:5000";
 
 const typeConfig = {
     info: { icon: Info, color: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/30", label: "Info" },
@@ -55,7 +54,7 @@ export default function NotificationBell() {
     useEffect(() => {
         if (!token || !user) return;
 
-        const socket = socketIO(API_URL, { auth: { token } });
+        const socket = socketIO(SOCKET_URL, { auth: { token } });
 
         socket.on("connect", () => {
             socket.emit("join", { userId: user.id, chatId: "global" });

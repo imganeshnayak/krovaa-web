@@ -1,12 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, CheckCircle2, MessageSquare, User } from "lucide-react";
-import { getJob, JobDetails, applyJob, getTeams, Team } from "../lib/api";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { getJob, JobDetails, applyJob, sendMessage } from "../lib/api";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 
@@ -22,17 +19,18 @@ const formatPostedAt = (createdAt: string) => {
 const JobDetailsPage = () => {
   const { jobId } = useParams<{ jobId: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [job, setJob] = useState<JobDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showConfirmation, setShowConfirmation] = useState(false);
+  const [termsAndConditions, setTermsAndConditions] = useState("");
+  const [showBidDialog, setShowBidDialog] = useState(false);
+  const [bidAmount, setBidAmount] = useState("");
+  const [bidMessage, setBidMessage] = useState("");
   const [isApplied, setIsApplied] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [teams, setTeams] = useState<Team[]>([]);
-  const [bidAmount, setBidAmount] = useState<string>("");
-  const [deliveryTime, setDeliveryTime] = useState<string>("");
-  const [coverLetter, setCoverLetter] = useState<string>("");
-  const [selectedTeamId, setSelectedTeamId] = useState<string>("none");
+  const [isBidding, setIsBidding] = useState(false);
 
   useEffect(() => {
     const loadJob = async () => {
@@ -64,6 +62,35 @@ const JobDetailsPage = () => {
 
     loadJob();
   }, [jobId]);
+
+  const handleSendBid = async () => {
+    if (!job || !user) return;
+    if (!bidAmount.trim() || !bidMessage.trim()) {
+      toast.error("Please add a bid amount and message.");
+      return;
+    }
+
+    setIsBidding(true);
+    try {
+      const chatId = `chat_${user.id}_${job.postedBy.id}_${Date.now()}`;
+      const content = `Hi, I'd like to bid ₹${bidAmount.trim()} for your project \"${job.title}\".\n\n${bidMessage.trim()}`;
+
+      await sendMessage({
+        receiver_id: job.postedBy.id,
+        chat_id: chatId,
+        content,
+      });
+
+      toast.success("Bid sent successfully. The project owner will review it shortly.");
+      setShowBidDialog(false);
+      setBidAmount("");
+      setBidMessage("");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to send bid.");
+    } finally {
+      setIsBidding(false);
+    }
+  };
 
   return (
     <div className="px-4 pb-48 pt-4 sm:px-6 relative">
@@ -264,13 +291,13 @@ const JobDetailsPage = () => {
         <div className="fixed bottom-16 left-0 right-0 z-40 px-4 py-4 bg-white/80 backdrop-blur-xl border-t border-slate-200/50 shadow-[0_-8px_30px_rgb(0,0,0,0.04)] sm:px-6">
           <div className="mx-auto max-w-2xl">
             <AnimatePresence mode="wait">
-              {!showConfirmation ? (
+              {!showConfirmation && !showBidDialog ? (
                 <motion.div
                   key="actions"
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
-                  className="flex gap-4"
+                  className="flex flex-col gap-3 sm:flex-row"
                 >
                   <Button
                     variant="outline"
@@ -280,11 +307,69 @@ const JobDetailsPage = () => {
                     Close
                   </Button>
                   <Button
+                    variant="outline"
+                    className="flex-1 rounded-2xl border-slate-200 h-12 text-base font-semibold text-slate-600 hover:bg-slate-50 active:scale-[0.98] transition-all"
+                    onClick={() => setShowBidDialog(true)}
+                  >
+                    Bid Project
+                  </Button>
+                  <Button
                     className="flex-1 rounded-2xl bg-slate-950 h-12 text-base font-semibold text-white hover:bg-slate-800 shadow-lg shadow-slate-200 active:scale-[0.98] transition-all"
                     onClick={() => setShowConfirmation(true)}
                   >
                     Apply
                   </Button>
+                </motion.div>
+              ) : showBidDialog ? (
+                <motion.div
+                  key="bid"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="space-y-4"
+                >
+                  <div className="text-center">
+                    <p className="text-sm font-bold text-slate-900">Bid on this project</p>
+                    <p className="text-xs text-slate-500">Send the project owner a bid amount and message.</p>
+                  </div>
+                  <div className="grid gap-4">
+                    <label className="space-y-2 text-sm text-slate-700">
+                      <span className="font-semibold">Bid amount</span>
+                      <input
+                        type="text"
+                        value={bidAmount}
+                        onChange={(event) => setBidAmount(event.target.value)}
+                        placeholder="₹ 5,000"
+                        className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+                      />
+                    </label>
+                    <label className="space-y-2 text-sm text-slate-700">
+                      <span className="font-semibold">Message</span>
+                      <textarea
+                        value={bidMessage}
+                        onChange={(event) => setBidMessage(event.target.value)}
+                        rows={4}
+                        placeholder="Tell the project owner why you are the right fit."
+                        className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+                      />
+                    </label>
+                  </div>
+                  <div className="flex flex-col gap-3 sm:flex-row">
+                    <Button
+                      variant="outline"
+                      className="flex-1 rounded-2xl border-slate-200 h-12 text-base font-semibold text-slate-600 hover:bg-slate-50 active:scale-[0.98] transition-all"
+                      onClick={() => setShowBidDialog(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      disabled={isBidding}
+                      className="flex-1 rounded-2xl bg-indigo-600 h-12 text-base font-semibold text-white hover:bg-indigo-700 shadow-lg shadow-indigo-100 active:scale-[0.98] transition-all disabled:opacity-70"
+                      onClick={handleSendBid}
+                    >
+                      {isBidding ? "Sending bid..." : "Send Bid"}
+                    </Button>
+                  </div>
                 </motion.div>
               ) : (
                 <motion.div
@@ -294,76 +379,48 @@ const JobDetailsPage = () => {
                   exit={{ opacity: 0, y: -10 }}
                   className="flex flex-col gap-4"
                 >
-                  <div className="flex flex-col gap-4 text-left">
-                    <h3 className="text-lg font-bold text-slate-900">Submit Proposal</h3>
-
-                    <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-2">
-                      <div>
-                        <Label>Bid Amount (₹ - Optional)</Label>
-                        <Input type="number" placeholder="e.g. 5000" value={bidAmount} onChange={(e) => setBidAmount(e.target.value)} />
-                      </div>
-                      <div>
-                        <Label>Delivery Time (Optional)</Label>
-                        <Input placeholder="e.g. 2 weeks" value={deliveryTime} onChange={(e) => setDeliveryTime(e.target.value)} />
-                      </div>
-                      <div>
-                        <Label>Cover Letter</Label>
-                        <Textarea placeholder="Why are you the best fit?" value={coverLetter} onChange={(e) => setCoverLetter(e.target.value)} rows={4} />
-                      </div>
-                      {teams.length > 0 && (
-                        <div>
-                          <Label>Apply as Team (Optional)</Label>
-                          <Select value={selectedTeamId} onValueChange={setSelectedTeamId}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select a team" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="none">Just me</SelectItem>
-                              {teams.map((t) => (
-                                <SelectItem key={t.id} value={t.id.toString()}>
-                                  {t.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex gap-3 mt-2">
-                      <Button
-                        variant="outline"
-                        className="flex-1 rounded-2xl border-slate-200 h-12 text-base font-semibold text-slate-600 hover:bg-slate-50 active:scale-[0.98] transition-all"
-                        onClick={() => setShowConfirmation(false)}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        disabled={isSubmitting}
-                        className="flex-1 rounded-2xl bg-indigo-600 h-12 text-base font-semibold text-white hover:bg-indigo-700 shadow-lg shadow-indigo-100 active:scale-[0.98] transition-all disabled:opacity-70"
-                        onClick={async () => {
-                          if (!job) return;
-                          setIsSubmitting(true);
-                          try {
-                            await applyJob(job.id, {
-                              bidAmount: bidAmount ? Number(bidAmount) : undefined,
-                              deliveryTime: deliveryTime || undefined,
-                              coverLetter: coverLetter || undefined,
-                              teamId: selectedTeamId !== "none" ? Number(selectedTeamId) : undefined,
-                            });
-                            setIsApplied(true);
-                            toast.success("Application submitted and message sent to poster!");
-                            setShowConfirmation(false);
-                          } catch (err) {
-                            toast.error(err instanceof Error ? err.message : "Failed to submit application");
-                          } finally {
-                            setIsSubmitting(false);
-                          }
-                        }}
-                      >
-                        {isSubmitting ? "Applying..." : "Submit Application"}
-                      </Button>
-                    </div>
+                  <p className="text-center text-sm font-bold text-slate-900">
+                    Are you sure you want to apply?
+                  </p>
+                  <label className="space-y-2 text-sm text-slate-700">
+                    <span className="font-semibold">Terms and Conditions</span>
+                    <textarea
+                      value={termsAndConditions}
+                      onChange={(event) => setTermsAndConditions(event.target.value)}
+                      rows={3}
+                      placeholder="Enter any terms and conditions for this application..."
+                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+                    />
+                  </label>
+                  <div className="flex gap-3">
+                    <Button
+                      variant="outline"
+                      className="flex-1 rounded-2xl border-slate-200 h-12 text-base font-semibold text-slate-600 hover:bg-slate-50 active:scale-[0.98] transition-all"
+                      onClick={() => setShowConfirmation(false)}
+                    >
+                      Close
+                    </Button>
+                    <Button
+                      disabled={isSubmitting}
+                      className="flex-1 rounded-2xl bg-indigo-600 h-12 text-base font-semibold text-white hover:bg-indigo-700 shadow-lg shadow-indigo-100 active:scale-[0.98] transition-all disabled:opacity-70"
+                      onClick={async () => {
+                        if (!job) return;
+                        setIsSubmitting(true);
+                        try {
+                          await applyJob(job.id, termsAndConditions);
+                          setIsApplied(true);
+                          toast.success("Application submitted and message sent to poster!");
+                          // Keep isApplied true so it stays in the success state
+                          setShowConfirmation(false);
+                        } catch (err) {
+                          toast.error(err instanceof Error ? err.message : "Failed to submit application");
+                        } finally {
+                          setIsSubmitting(false);
+                        }
+                      }}
+                    >
+                      {isSubmitting ? "Applying..." : "Apply"}
+                    </Button>
                   </div>
                 </motion.div>
               )}
