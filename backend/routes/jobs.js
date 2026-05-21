@@ -136,6 +136,7 @@ router.post('/', auth, async (req, res) => {
 router.post('/:id/apply', auth, async (req, res) => {
     try {
         const jobId = Number(req.params.id);
+        const { bidAmount, deliveryTime, coverLetter, teamId } = req.body;
         if (Number.isNaN(jobId)) {
             return res.status(400).json({ error: 'Invalid job ID.' });
         }
@@ -156,25 +157,28 @@ router.post('/:id/apply', auth, async (req, res) => {
             return res.status(400).json({ error: 'You cannot apply to your own job listing.' });
         }
 
-        // Check if already applied
-        const existingApplication = await prisma.application.findUnique({
-            where: {
-                jobId_userId: {
-                    jobId,
-                    userId
-                }
-            }
+        // Check if already applied (simplified: check user or team)
+        const whereClause = teamId 
+            ? { jobId, teamId }
+            : { jobId, userId };
+
+        const existingApplication = await prisma.application.findFirst({
+            where: whereClause
         });
 
         if (existingApplication) {
-            return res.status(400).json({ error: 'You have already applied for this job.' });
+            return res.status(400).json({ error: 'You or your team have already applied for this job.' });
         }
 
         // Create application
         const application = await prisma.application.create({
             data: {
                 jobId,
-                userId,
+                userId: teamId ? null : userId,
+                teamId: teamId ? teamId : null,
+                bidAmount: bidAmount ? parseFloat(bidAmount) : null,
+                deliveryTime,
+                coverLetter,
                 status: 'pending'
             }
         });

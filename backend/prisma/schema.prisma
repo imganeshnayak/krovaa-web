@@ -55,7 +55,17 @@ model User {
   reportReceived       Report[]              @relation("Reported")
   blockedUsers         BlockedUser[]         @relation("Blocker")
   blockedBy            BlockedUser[]         @relation("Blocked")
+  createdTeams         Team[]                @relation("TeamCreator")
+  teamMemberships      TeamMember[]          @relation("TeamMemberships")
+  groupMemberships     GroupMember[]         @relation("GroupMemberships")
+  groupMessages        GroupMessage[]        @relation("UserGroupMessages")
 
+  // Community & Project relations
+  createdCommunities   Community[]
+  communityMemberships CommunityMember[]
+  createdProjects      Project[]
+  projectMessages      ProjectMessage[]
+  uploadedProjectFiles ProjectFile[]
 
   @@map("users")
 }
@@ -152,6 +162,9 @@ model EscrowDeal {
   razorpayOrderId   String?             @map("razorpay_order_id")
   razorpayPaymentId String?             @map("razorpay_payment_id")
   terms             String?
+  isSplitDeal       Boolean             @default(false) @map("is_split_deal")
+  teamId            Int?                @map("team_id")
+  splitConfig       Json?               @map("split_config")
   transactions      EscrowTransaction[]
 
   @@map("escrow_deals")
@@ -317,42 +330,46 @@ model AdClick {
 }
 
 model Job {
-  id          Int           @id @default(autoincrement())
-  title       String
-  company     String
-  location    String
-  budget      String
-  mode        String        @default("Remote")
-  description String
-  postedById  Int      @map("posted_by_id")
-  createdAt   DateTime @default(now()) @map("created_at")
-  postedBy    User     @relation("PostedJobs", fields: [postedById], references: [id], onDelete: Cascade)
+  id           Int           @id @default(autoincrement())
+  title        String
+  company      String
+  location     String
+  budget       String
+  mode         String        @default("Remote")
+  description  String
+  postedById   Int           @map("posted_by_id")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  postedBy     User          @relation("PostedJobs", fields: [postedById], references: [id], onDelete: Cascade)
   applications Application[]
 
   @@map("jobs")
 }
 
 model Application {
-  id        Int      @id @default(autoincrement())
-  jobId     Int      @map("job_id")
-  userId    Int      @map("user_id")
-  status    String   @default("pending")
-  createdAt DateTime @default(now()) @map("created_at")
-  job       Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  user      User     @relation("UserApplications", fields: [userId], references: [id], onDelete: Cascade)
+  id           Int      @id @default(autoincrement())
+  jobId        Int      @map("job_id")
+  userId       Int?     @map("user_id")
+  teamId       Int?     @map("team_id")
+  bidAmount    Float?   @map("bid_amount")
+  deliveryTime String?  @map("delivery_time")
+  coverLetter  String?  @map("cover_letter")
+  status       String   @default("pending")
+  createdAt    DateTime @default(now()) @map("created_at")
+  job          Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  user         User?    @relation("UserApplications", fields: [userId], references: [id], onDelete: Cascade)
+  team         Team?    @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
-  @@unique([jobId, userId])
   @@map("applications")
 }
 
 model Post {
-  id        Int          @id @default(autoincrement())
-  userId    Int          @map("user_id")
+  id        Int            @id @default(autoincrement())
+  userId    Int            @map("user_id")
   text      String?
-  media     Json?        @default("[]")
-  createdAt DateTime     @default(now()) @map("created_at")
-  updatedAt DateTime     @updatedAt @map("updated_at")
-  user      User         @relation("UserPosts", fields: [userId], references: [id], onDelete: Cascade)
+  media     Json?          @default("[]")
+  createdAt DateTime       @default(now()) @map("created_at")
+  updatedAt DateTime       @updatedAt @map("updated_at")
+  user      User           @relation("UserPosts", fields: [userId], references: [id], onDelete: Cascade)
   likes     Post_Like[]
   comments  Post_Comment[]
 
@@ -398,35 +415,195 @@ model ImageGeneration {
 }
 
 model ImageGenerationDaily {
-  id         Int      @id @default(autoincrement())
-  userId     Int      @map("user_id")
-  count      Int      @default(1)
-  date       DateTime @map("date")
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  count     Int      @default(1)
+  date      DateTime @map("date")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@unique([userId, date])
   @@map("image_generation_daily")
 }
 
 model Subscription {
-  id                Int      @id @default(autoincrement())
-  userId            Int      @map("user_id")
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  planId            String   @map("plan_id")
-  planName          String   @map("plan_name")
-  billingCycle      String   @default("monthly") @map("billing_cycle")
-  monthlyLimit      Int      @default(5) @map("monthly_limit")
-  imagesUsed        Int      @default(0) @map("images_used")
-  imagesThisMonth   Int      @default(0) @map("images_this_month")
-  resetDate         DateTime @map("reset_date")
-  razorpayOrderId   String?  @map("razorpay_order_id")
-  razorpayPaymentId String?  @map("razorpay_payment_id")
-  status            String   @default("active")
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
+  id                Int       @id @default(autoincrement())
+  userId            Int       @map("user_id")
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId            String    @map("plan_id")
+  planName          String    @map("plan_name")
+  billingCycle      String    @default("monthly") @map("billing_cycle")
+  monthlyLimit      Int       @default(5) @map("monthly_limit")
+  imagesUsed        Int       @default(0) @map("images_used")
+  imagesThisMonth   Int       @default(0) @map("images_this_month")
+  resetDate         DateTime  @map("reset_date")
+  razorpayOrderId   String?   @map("razorpay_order_id")
+  razorpayPaymentId String?   @map("razorpay_payment_id")
+  status            String    @default("active")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
   expiresAt         DateTime? @map("expires_at")
 
   @@unique([userId])
   @@map("subscriptions")
+}
+
+model Team {
+  id           Int           @id @default(autoincrement())
+  name         String
+  description  String?
+  creatorId    Int           @map("creator_id")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+  creator      User          @relation("TeamCreator", fields: [creatorId], references: [id])
+  members      TeamMember[]
+  applications Application[]
+
+  @@map("teams")
+}
+
+model TeamMember {
+  id       Int      @id @default(autoincrement())
+  teamId   Int      @map("team_id")
+  userId   Int      @map("user_id")
+  role     String   @default("member")
+  joinedAt DateTime @default(now()) @map("joined_at")
+  team     Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user     User     @relation("TeamMemberships", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+  @@map("team_members")
+}
+
+model GroupChat {
+  id          Int            @id @default(autoincrement())
+  name        String?
+  description String?
+  isTeamChat  Boolean        @default(false) @map("is_team_chat")
+  communityId Int?           @unique @map("community_id")
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+  members     GroupMember[]
+  messages    GroupMessage[]
+  community   Community?     @relation(fields: [communityId], references: [id], onDelete: Cascade)
+
+  @@map("group_chats")
+}
+
+model GroupMember {
+  id       Int       @id @default(autoincrement())
+  groupId  Int       @map("group_id")
+  userId   Int       @map("user_id")
+  role     String    @default("member")
+  joinedAt DateTime  @default(now()) @map("joined_at")
+  group    GroupChat @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user     User      @relation("GroupMemberships", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+  @@map("group_members")
+}
+
+model GroupMessage {
+  id            Int       @id @default(autoincrement())
+  groupId       Int       @map("group_id")
+  senderId      Int       @map("sender_id")
+  content       String
+  messageType   String    @default("text") @map("message_type")
+  attachmentUrl String?   @map("attachment_url")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  group         GroupChat @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  sender        User      @relation("UserGroupMessages", fields: [senderId], references: [id])
+
+  @@map("group_messages")
+}
+
+// Community and project workspace models
+model Community {
+  id          Int               @id @default(autoincrement())
+  name        String
+  slug        String            @unique
+  description String?
+  isPrivate   Boolean           @default(false)
+  creatorId   Int               @map("creator_id")
+  creator     User              @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  members     CommunityMember[]
+  projects    Project[]
+  groupChat   GroupChat?
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+
+  @@map("communities")
+}
+
+model CommunityMember {
+  id          Int       @id @default(autoincrement())
+  communityId Int       @map("community_id")
+  userId      Int       @map("user_id")
+  role        String    @default("member")
+  joinedAt    DateTime  @default(now()) @map("joined_at")
+  community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([communityId, userId])
+  @@map("community_members")
+}
+
+model Project {
+  id          Int              @id @default(autoincrement())
+  communityId Int              @map("community_id")
+  name        String
+  description String?
+  createdBy   Int              @map("created_by")
+  creator     User             @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  community   Community        @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  messages    ProjectMessage[]
+  files       ProjectFile[]
+  isArchived  Boolean          @default(false)
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+
+  @@map("projects")
+}
+
+model ProjectMessage {
+  id            Int      @id @default(autoincrement())
+  projectId     Int      @map("project_id")
+  senderId      Int      @map("sender_id")
+  content       String
+  messageType   String   @default("text") @map("message_type")
+  attachmentUrl String?  @map("attachment_url")
+  createdAt     DateTime @default(now()) @map("created_at")
+  project       Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sender        User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@map("project_messages")
+}
+
+model ProjectFile {
+  id         Int      @id @default(autoincrement())
+  projectId  Int      @map("project_id")
+  uploadedBy Int      @map("uploaded_by")
+  fileName   String   @map("file_name")
+  fileUrl    String   @map("file_url")
+  metadata   Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  uploader   User     @relation(fields: [uploadedBy], references: [id], onDelete: Cascade)
+
+  @@map("project_files")
+}
+
+model JobAnalytics {
+  id         Int      @id @default(autoincrement())
+  jobId      Int      @map("job_id")
+  views      Int      @default(0)
+  applicants Int      @default(0)
+  hires      Int      @default(0)
+  revenue    Float    @default(0)
+  month      Int
+  year       Int
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@unique([jobId, month, year])
+  @@map("job_analytics")
 }

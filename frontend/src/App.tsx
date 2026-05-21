@@ -25,12 +25,16 @@ import ImageGeneratorPage from "./pages/ImageGeneratorPage";
 import ImageGeneratorPricingPage from "./pages/ImageGeneratorPricingPage";
 import BlockedUsersPage from "./pages/BlockedUsersPage";
 import ForgotPassword from "./pages/ForgotPassword";
+import CommunitiesPage from "./pages/CommunitiesPage";
+import CommunityDetailPage from "./pages/CommunityDetailPage";
 import Terms from "./pages/legal/Terms";
 import Privacy from "./pages/legal/Privacy";
 import Refund from "./pages/legal/Refund";
 import CookiePolicy from "./pages/legal/CookiePolicy";
 import NotFound from "./pages/NotFound";
 import CookieConsent from "./components/CookieConsent";
+import CommunitiesTabPage from "./pages/CommunitiesTabPage";
+import JoinCommunityPage from "./pages/JoinCommunityPage";
 
 const queryClient = new QueryClient();
 
@@ -95,6 +99,10 @@ const MainContent = () => {
         <Route path="/image-generator/pricing" element={<ImageGeneratorPricingPage />} />
         <Route path="/posts" element={<ClientRoute><PostsPage /></ClientRoute>} />
         <Route path="/explore" element={<ClientRoute><ExplorePage /></ClientRoute>} />
+        <Route path="/communities" element={<ClientRoute><CommunitiesPage /></ClientRoute>} />
+        <Route path="/communities/tab" element={<ClientRoute><CommunitiesTabPage /></ClientRoute>} />
+        <Route path="/communities/:id" element={<ClientRoute><CommunityDetailPage /></ClientRoute>} />
+        <Route path="/join/:slug" element={<ClientRoute><JoinCommunityPage /></ClientRoute>} />
         <Route path="/post-job" element={<ClientRoute><PostJobPage /></ClientRoute>} />
         <Route path="/jobs/:jobId" element={<ClientRoute><JobDetailsPage /></ClientRoute>} />
         {/* Own profile - requires login */}

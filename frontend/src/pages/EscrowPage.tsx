@@ -55,7 +55,9 @@ const EscrowPage = () => {
     title: "",
     description: "",
     terms: "",
-    totalAmount: ""
+    totalAmount: "",
+    isSplitDeal: false,
+    splitConfig: ""
   });
   const [agreeToEscrowTerms, setAgreeToEscrowTerms] = useState(false);
   const [activeTab, setActiveTab] = useState<"active" | "completed">("active");
@@ -76,14 +78,23 @@ const EscrowPage = () => {
     const chatId = searchParams.get("chatId");
     const vendorId = searchParams.get("vendorId");
     const vendorUsername = searchParams.get("vendorUsername");
+    const title = searchParams.get("title");
+    const totalAmount = searchParams.get("totalAmount");
+    const isSplitDeal = searchParams.get("isSplitDeal") === "true";
+    const splitConfig = searchParams.get("splitConfig");
 
     if (chatId && vendorId) {
       setNewDeal(prev => ({
         ...prev,
         chatId,
         vendorId,
-        vendorUsername: vendorUsername || ""
+        vendorUsername: vendorUsername || "",
+        title: title || prev.title,
+        totalAmount: totalAmount || prev.totalAmount,
+        isSplitDeal,
+        splitConfig: splitConfig || ""
       }));
+      setIsNewDealOpen(true);
     }
   }, [searchParams]);
 
@@ -243,8 +254,10 @@ const EscrowPage = () => {
         title: newDeal.title,
         description: newDeal.description,
         terms: newDeal.terms,
-        totalAmount: amount
-      });
+        totalAmount: amount,
+        isSplitDeal: newDeal.isSplitDeal,
+        splitConfig: newDeal.isSplitDeal ? JSON.parse(newDeal.splitConfig) : undefined
+      } as any);
 
       toast({
         title: "Deal Active",

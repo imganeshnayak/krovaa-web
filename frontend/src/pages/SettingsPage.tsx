@@ -405,6 +405,8 @@ const SettingsPage = () => {
                     </CardContent>
                 </Card>
 
+                {/* Team Settings removed per request */}
+
                 {/* Verification Application Dialog */}
                 <Dialog open={isVerificationDialogOpen} onOpenChange={setIsVerificationDialogOpen}>
                     <DialogContent>

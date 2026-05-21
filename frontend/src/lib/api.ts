@@ -338,6 +338,85 @@ export function getSupportChat(): Promise<{ admin: AuthUser; chatId: string }> {
   return apiFetch<{ admin: AuthUser; chatId: string }>("/api/messages/support");
 }
 
+// ============ Communities API ============
+
+export interface Community {
+  id: number;
+  name: string;
+  slug: string;
+  description?: string;
+  isPrivate: boolean;
+  creatorId: number;
+  createdAt: string;
+}
+
+export function listCommunities(): Promise<Community[]> {
+  return apiFetch<Community[]>('/api/communities');
+}
+
+export function createCommunity(data: { name: string; description?: string; isPrivate?: boolean }): Promise<Community> {
+  return apiFetch<Community>('/api/communities', { method: 'POST', body: JSON.stringify(data) });
+}
+
+export function getCommunity(id: number): Promise<any> {
+  return apiFetch(`/api/communities/${id}`);
+}
+
+export function joinCommunity(id: number): Promise<any> {
+  return apiFetch(`/api/communities/${id}/join`, { method: 'POST' });
+}
+
+export function leaveCommunity(id: number): Promise<any> {
+  return apiFetch(`/api/communities/${id}/leave`, { method: 'POST' });
+}
+
+export function deleteCommunity(id: number): Promise<any> {
+  return apiFetch(`/api/communities/${id}`, { method: 'DELETE' });
+}
+
+export interface ShareLinkData {
+  shareLink: string;
+  slug: string;
+  name: string;
+  isPrivate: boolean;
+}
+
+export function getCommunityShareLink(id: number): Promise<ShareLinkData> {
+  return apiFetch(`/api/communities/${id}/share`);
+}
+
+export function getCommunityBySlug(slug: string): Promise<any> {
+  return apiFetch(`/api/communities/join/${slug}`);
+}
+
+export function joinCommunityBySlug(slug: string): Promise<any> {
+  return apiFetch(`/api/communities/join/${slug}`, { method: 'POST' });
+}
+
+export interface Message {
+  id: number;
+  senderId: number;
+  content: string;
+  createdAt: string;
+  sender?: {
+    id: number;
+    username: string;
+    displayName: string;
+    avatarUrl?: string;
+  };
+}
+
+export function getCommunityMessages(communityId: number, limit = 50, offset = 0): Promise<Message[]> {
+  return apiFetch(`/api/communities/${communityId}/messages?limit=${limit}&offset=${offset}`);
+}
+
+export function sendCommunityMessage(communityId: number, content: string, attachmentUrl?: string): Promise<Message> {
+  return apiFetch(`/api/communities/${communityId}/messages`, {
+    method: 'POST',
+    body: JSON.stringify({ content, attachmentUrl })
+  });
+}
+
 export function deleteMessagesBatch(messageIds: number[], type: 'me' | 'everyone' = 'me'): Promise<any> {
   return apiFetch("/api/messages/batch-delete", {
     method: "POST",
@@ -1091,9 +1170,10 @@ export function postJob(data: {
   });
 }
 
-export function applyJob(jobId: number): Promise<{ message: string; application: any }> {
+export function applyJob(jobId: number, data?: { bidAmount?: number; deliveryTime?: string; coverLetter?: string; teamId?: number }): Promise<{ message: string; application: any }> {
   return apiFetch<{ message: string; application: any }>(`/api/jobs/${jobId}/apply`, {
     method: 'POST',
+    body: data ? JSON.stringify(data) : undefined,
   });
 }
 
@@ -1351,4 +1431,56 @@ export function checkImageGenerationUsage(): Promise<{
   planId: string;
 }> {
   return apiFetch("/api/subscriptions/check-usage");
+}
+
+// ============ Teams API ============
+
+export interface Team {
+  id: number;
+  name: string;
+  description: string;
+  creatorId: number;
+  createdAt: string;
+  members: TeamMember[];
+}
+
+export interface TeamMember {
+  id: number;
+  userId: number;
+  role: string;
+  user: AuthUser;
+}
+
+export function getTeams(): Promise<Team[]> {
+  return apiFetch<Team[]>('/api/teams');
+}
+export function createTeam(data: { name: string; description?: string }): Promise<Team> {
+  return apiFetch<Team>('/api/teams', { method: 'POST', body: JSON.stringify(data) });
+}
+export function addTeamMember(teamId: number, data: { userId: number; role?: string }): Promise<TeamMember> {
+  return apiFetch<TeamMember>(`/api/teams/${teamId}/members`, { method: 'POST', body: JSON.stringify(data) });
+}
+
+// ============ Groups API ============
+
+export interface GroupChat {
+  id: number;
+  name: string;
+  description: string;
+  isTeamChat: boolean;
+  members: any[];
+  messages: any[];
+}
+
+export function getGroupChats(): Promise<GroupChat[]> {
+  return apiFetch<GroupChat[]>('/api/groups');
+}
+export function createGroupChat(data: { name?: string; description?: string; userIds: number[]; isTeamChat?: boolean }): Promise<GroupChat> {
+  return apiFetch<GroupChat>('/api/groups', { method: 'POST', body: JSON.stringify(data) });
+}
+export function getGroupMessages(groupId: number): Promise<any[]> {
+  return apiFetch<any[]>(`/api/groups/${groupId}/messages`);
+}
+export function sendGroupMessage(groupId: number, data: { content: string; messageType?: string; attachmentUrl?: string }): Promise<any> {
+  return apiFetch<any>(`/api/groups/${groupId}/messages`, { method: 'POST', body: JSON.stringify(data) });
 }

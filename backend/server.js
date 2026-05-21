@@ -30,6 +30,9 @@ import jobsRoutes from './routes/jobs.js';
 import postsRoutes from './routes/posts.js';
 import imageGeneratorRoutes from './routes/imageGenerator.js';
 import subscriptionRoutes from './routes/subscriptions.js';
+import teamsRoutes from './routes/teams.js';
+import groupsRoutes from './routes/groups.js';
+import communitiesRoutes from './routes/communities.js';
 import setupSocket from './socket/chat.js';
 
 const app = express();
@@ -117,6 +120,9 @@ app.use('/api/jobs', jobsRoutes);
 app.use('/api/posts', postsRoutes);
 app.use('/api/image-generator', imageGeneratorRoutes);
 app.use('/api/subscriptions', subscriptionRoutes);
+app.use('/api/teams', teamsRoutes);
+app.use('/api/groups', groupsRoutes);
+app.use('/api/communities', communitiesRoutes);
 
 // Global Error Handler
 app.use((err, req, res, next) => {

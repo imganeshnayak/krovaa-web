@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, CheckCircle2, MessageSquare, User } from "lucide-react";
-import { getJob, JobDetails, applyJob } from "../lib/api";
+import { getJob, JobDetails, applyJob, getTeams, Team } from "../lib/api";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -24,6 +28,11 @@ const JobDetailsPage = () => {
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [isApplied, setIsApplied] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [bidAmount, setBidAmount] = useState<string>("");
+  const [deliveryTime, setDeliveryTime] = useState<string>("");
+  const [coverLetter, setCoverLetter] = useState<string>("");
+  const [selectedTeamId, setSelectedTeamId] = useState<string>("none");
 
   useEffect(() => {
     const loadJob = async () => {
@@ -37,8 +46,12 @@ const JobDetailsPage = () => {
       setError(null);
 
       try {
-        const jobData = await getJob(Number(jobId));
+        const [jobData, teamsData] = await Promise.all([
+          getJob(Number(jobId)),
+          getTeams().catch(() => [])
+        ]);
         setJob(jobData);
+        setTeams(teamsData);
         if (jobData.hasApplied) {
           setIsApplied(true);
         }
@@ -281,38 +294,76 @@ const JobDetailsPage = () => {
                   exit={{ opacity: 0, y: -10 }}
                   className="flex flex-col gap-4"
                 >
-                  <p className="text-center text-sm font-bold text-slate-900">
-                    Are you sure you want to apply?
-                  </p>
-                  <div className="flex gap-3">
-                    <Button
-                      variant="outline"
-                      className="flex-1 rounded-2xl border-slate-200 h-12 text-base font-semibold text-slate-600 hover:bg-slate-50 active:scale-[0.98] transition-all"
-                      onClick={() => setShowConfirmation(false)}
-                    >
-                      Close
-                    </Button>
-                    <Button
-                      disabled={isSubmitting}
-                      className="flex-1 rounded-2xl bg-indigo-600 h-12 text-base font-semibold text-white hover:bg-indigo-700 shadow-lg shadow-indigo-100 active:scale-[0.98] transition-all disabled:opacity-70"
-                      onClick={async () => {
-                        if (!job) return;
-                        setIsSubmitting(true);
-                        try {
-                          await applyJob(job.id);
-                          setIsApplied(true);
-                          toast.success("Application submitted and message sent to poster!");
-                          // Keep isApplied true so it stays in the success state
-                          setShowConfirmation(false);
-                        } catch (err) {
-                          toast.error(err instanceof Error ? err.message : "Failed to submit application");
-                        } finally {
-                          setIsSubmitting(false);
-                        }
-                      }}
-                    >
-                      {isSubmitting ? "Applying..." : "Apply"}
-                    </Button>
+                  <div className="flex flex-col gap-4 text-left">
+                    <h3 className="text-lg font-bold text-slate-900">Submit Proposal</h3>
+
+                    <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-2">
+                      <div>
+                        <Label>Bid Amount (₹ - Optional)</Label>
+                        <Input type="number" placeholder="e.g. 5000" value={bidAmount} onChange={(e) => setBidAmount(e.target.value)} />
+                      </div>
+                      <div>
+                        <Label>Delivery Time (Optional)</Label>
+                        <Input placeholder="e.g. 2 weeks" value={deliveryTime} onChange={(e) => setDeliveryTime(e.target.value)} />
+                      </div>
+                      <div>
+                        <Label>Cover Letter</Label>
+                        <Textarea placeholder="Why are you the best fit?" value={coverLetter} onChange={(e) => setCoverLetter(e.target.value)} rows={4} />
+                      </div>
+                      {teams.length > 0 && (
+                        <div>
+                          <Label>Apply as Team (Optional)</Label>
+                          <Select value={selectedTeamId} onValueChange={setSelectedTeamId}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select a team" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">Just me</SelectItem>
+                              {teams.map((t) => (
+                                <SelectItem key={t.id} value={t.id.toString()}>
+                                  {t.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex gap-3 mt-2">
+                      <Button
+                        variant="outline"
+                        className="flex-1 rounded-2xl border-slate-200 h-12 text-base font-semibold text-slate-600 hover:bg-slate-50 active:scale-[0.98] transition-all"
+                        onClick={() => setShowConfirmation(false)}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        disabled={isSubmitting}
+                        className="flex-1 rounded-2xl bg-indigo-600 h-12 text-base font-semibold text-white hover:bg-indigo-700 shadow-lg shadow-indigo-100 active:scale-[0.98] transition-all disabled:opacity-70"
+                        onClick={async () => {
+                          if (!job) return;
+                          setIsSubmitting(true);
+                          try {
+                            await applyJob(job.id, {
+                              bidAmount: bidAmount ? Number(bidAmount) : undefined,
+                              deliveryTime: deliveryTime || undefined,
+                              coverLetter: coverLetter || undefined,
+                              teamId: selectedTeamId !== "none" ? Number(selectedTeamId) : undefined,
+                            });
+                            setIsApplied(true);
+                            toast.success("Application submitted and message sent to poster!");
+                            setShowConfirmation(false);
+                          } catch (err) {
+                            toast.error(err instanceof Error ? err.message : "Failed to submit application");
+                          } finally {
+                            setIsSubmitting(false);
+                          }
+                        }}
+                      >
+                        {isSubmitting ? "Applying..." : "Submit Application"}
+                      </Button>
+                    </div>
                   </div>
                 </motion.div>
               )}

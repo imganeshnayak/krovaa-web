@@ -93,7 +93,7 @@ router.get('/:id', auth, async (req, res) => {
 // POST /api/escrow - Create new escrow deal
 router.post('/', auth, async (req, res) => {
     try {
-        const { chatId, vendorId, title, description, terms, totalAmount } = req.body;
+        const { chatId, vendorId, title, description, terms, totalAmount, isSplitDeal, teamId, splitConfig } = req.body;
 
         if (!chatId || !vendorId || !title || !totalAmount) {
             return res.status(400).json({ error: 'Missing required fields.' });
@@ -220,7 +220,10 @@ router.post('/', auth, async (req, res) => {
                     totalAmount: grossAmount, // Store gross amount for clarity
                     status: 'active',
                     paymentStatus: 'paid',
-                    paidAmount: grossAmount // Store Gross amount paid by client
+                    paidAmount: grossAmount, // Store Gross amount paid by client
+                    isSplitDeal: isSplitDeal || false,
+                    teamId: teamId || null,
+                    splitConfig: splitConfig || null
                 },
                 include: {
                     client: {
@@ -403,31 +406,55 @@ router.post('/:id/release', auth, async (req, res) => {
                     currentDeal.status = 'completed'; // Update local obj for response
                 }
 
-                // 5. Credit vendor wallet
-                const venUp = await tx.user.update({
-                    where: { id: deal.vendorId },
-                    data: { walletBalance: { increment: vendorNet } }
-                });
-
-                // 6. Log wallet transaction for vendor
-                await tx.walletTransaction.create({
-                    data: {
-                        userId: deal.vendorId,
-                        type: 'escrow_release',
-                        amount: vendorNet,
-                        balance: venUp.walletBalance,
-                        reference: `deal_${dealId}`,
-                        description: `Payment release: ${deal.title} (${userPercent}%).`,
-                        metadata: {
-                            dealId,
-                            dealTitle: deal.title,
-                            chatId: deal.chatId,
-                            percent: userPercent,
-                            otherUserId: deal.clientId,
-                            otherDisplayName: deal.client.displayName
+                // 5. Credit vendor wallet(s)
+                if (currentDeal.isSplitDeal && currentDeal.splitConfig) {
+                    const splits = currentDeal.splitConfig;
+                    for (const split of splits) {
+                        const splitAmount = vendorNet * (split.percent / 100);
+                        if (splitAmount > 0) {
+                            const venUp = await tx.user.update({
+                                where: { id: split.userId },
+                                data: { walletBalance: { increment: splitAmount } }
+                            });
+                            await tx.walletTransaction.create({
+                                data: {
+                                    userId: split.userId,
+                                    type: 'escrow_release',
+                                    amount: splitAmount,
+                                    balance: venUp.walletBalance,
+                                    reference: `deal_${dealId}`,
+                                    description: `Split Payment release: ${deal.title} (${userPercent}% of deal).`,
+                                    metadata: { dealId, dealTitle: deal.title, chatId: deal.chatId, percent: userPercent }
+                                }
+                            });
                         }
                     }
-                });
+                } else {
+                    const venUp = await tx.user.update({
+                        where: { id: deal.vendorId },
+                        data: { walletBalance: { increment: vendorNet } }
+                    });
+
+                    // 6. Log wallet transaction for vendor
+                    await tx.walletTransaction.create({
+                        data: {
+                            userId: deal.vendorId,
+                            type: 'escrow_release',
+                            amount: vendorNet,
+                            balance: venUp.walletBalance,
+                            reference: `deal_${dealId}`,
+                            description: `Payment release: ${deal.title} (${userPercent}%).`,
+                            metadata: {
+                                dealId,
+                                dealTitle: deal.title,
+                                chatId: deal.chatId,
+                                percent: userPercent,
+                                otherUserId: deal.clientId,
+                                otherDisplayName: deal.client.displayName
+                            }
+                        }
+                    });
+                }
 
                 // 7. Log activity
                 await tx.activityLog.create({

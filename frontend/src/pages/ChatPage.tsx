@@ -54,7 +54,8 @@ import {
   getChatList, getMessages, sendMessage, markMessagesAsRead, uploadFile,
   searchUsers, blockUser, reportUser, clearChatHistory, getUser,
   deleteMessage, deleteMessagesBatch, getSupportChat, openViewOnceMessage,
-  getBestProfiles,
+  getBestProfiles, getGroupChats, getGroupMessages, sendGroupMessage,
+  listCommunities, getCommunityMessages, sendCommunityMessage,
   Chat as ChatType, Message as MessageType, AuthUser
 } from "@/lib/api";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -78,6 +79,78 @@ import {
 } from "@/components/ui/select";
 
 type LocalMessage = MessageType & { message_type?: string; isUploading?: boolean; sender?: { role?: string; avatarUrl?: string; displayName?: string } };
+
+// Communities modal used by the chat page
+const CommunitiesModal = ({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) => {
+  const [loading, setLoading] = useState(false);
+  const [communities, setCommunities] = useState<any[]>([]);
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const toast = useToast();
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const data = await listCommunities();
+      setCommunities(data || []);
+    } catch (err) {
+      console.error(err);
+      toast({ title: 'Failed to load communities', description: err instanceof Error ? err.message : String(err), variant: 'destructive' });
+    } finally { setLoading(false); }
+  };
+
+  useEffect(() => { if (open) load(); }, [open]);
+
+  const handleCreate = async () => {
+    if (!name.trim()) return toast({ title: 'Name required' });
+    try {
+      const c = await createCommunity({ name: name.trim(), description });
+      toast({ title: 'Created', description: `Community ${c.name} created.` });
+      setName(''); setDescription('');
+      load();
+    } catch (err) {
+      console.error(err);
+      toast({ title: 'Error', description: err instanceof Error ? err.message : 'Failed to create', variant: 'destructive' });
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Communities</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div>
+            <h4 className="text-sm font-medium mb-2">Create community</h4>
+            <Input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} className="mb-2" />
+            <Input placeholder="Description" value={description} onChange={(e) => setDescription(e.target.value)} className="mb-2" />
+            <div className="flex justify-end"><Button onClick={handleCreate}>Create</Button></div>
+          </div>
+
+          <div>
+            <h4 className="text-sm font-medium mb-2">Your communities</h4>
+            {loading ? <div>Loading...</div> : (
+              <div className="grid gap-2">
+                {communities.length === 0 ? <div className="text-sm text-muted-foreground">No communities yet</div> : communities.map(c => (
+                  <div key={c.id} className="p-3 border rounded-lg flex items-center justify-between">
+                    <div>
+                      <div className="font-semibold">{c.name}</div>
+                      <div className="text-xs text-muted-foreground">{c.description}</div>
+                    </div>
+                    <div>
+                      <Link to={`/communities/${c.id}`} className="text-sm text-blue-500">Open</Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
 
 function formatTime(ts: string) {
   if (!ts) return "";
@@ -340,7 +413,9 @@ const ConversationList = ({
               <p>No conversations yet</p>
               <p className="text-xs mt-2">Search for a user to start chatting</p>
             </div>
-          </div>
+
+
+        </div>
         ) : (
           filteredChats.map((chat) => (
             <button
@@ -404,6 +479,15 @@ const ConversationList = ({
           ))
         )}
       </ScrollArea>
+
+      {/* Floating Communities button (navigates to Communities page) */}
+      <button
+        onClick={() => navigate('/communities')}
+        title="Communities"
+        className="fixed right-4 bottom-24 z-40 bg-white border border-border rounded-full p-3 shadow-lg hover:scale-105 transition-transform"
+      >
+        <Sparkles className="w-5 h-5 text-[#00A4EF]" />
+      </button>
     </div>
   );
 };
@@ -1597,6 +1681,46 @@ const ChatPage = () => {
     setIsLoading(true);
     try {
       const data = await getChatList();
+      try {
+        const groups = await getGroupChats();
+        const mappedGroups: ChatType[] = groups.map(g => ({
+          chat_id: `group_${g.id}`,
+          last_message: g.messages?.[0]?.content || "Group Chat",
+          last_message_time: g.messages?.[0]?.createdAt || new Date().toISOString(),
+          user_id: 0,
+          display_name: g.name || "Unnamed Group",
+          avatar_url: "/group-icon.svg",
+          username: "group",
+          unread_count: 0,
+          verified: false,
+          isOfficial: false,
+        }));
+        data.push(...mappedGroups);
+        data.sort((a, b) => new Date(b.last_message_time).getTime() - new Date(a.last_message_time).getTime());
+      } catch (err) {
+        console.error("Failed to load group chats", err);
+      }
+      try {
+        const communities = await listCommunities();
+        // only show communities we are a member of
+        const joinedCommunities = communities.filter(c => c.members?.some((m: any) => m.userId === user?.id));
+        const mappedCommunities: ChatType[] = joinedCommunities.map(c => ({
+          chat_id: `community_${c.id}`,
+          last_message: "Community Chat",
+          last_message_time: c.createdAt || new Date().toISOString(),
+          user_id: 0,
+          display_name: c.name,
+          avatar_url: "", // Can use a default community icon if needed
+          username: "community",
+          unread_count: 0,
+          verified: false,
+          isOfficial: false,
+        }));
+        data.push(...mappedCommunities);
+        data.sort((a, b) => new Date(b.last_message_time).getTime() - new Date(a.last_message_time).getTime());
+      } catch (err) {
+        console.error("Failed to load communities", err);
+      }
       if (user?.role !== 'admin' && user?.role !== 'staff' && user?.id) {
         const supportChatId = `support_${user.id}`;
         const hasSupportChat = data.some((chat) => chat.chat_id === supportChatId);
@@ -1650,7 +1774,16 @@ const ChatPage = () => {
 
   const loadMessages = useCallback(async (chatId: string) => {
     try {
-      const data = await getMessages(chatId);
+      let data;
+      if (chatId.startsWith("group_")) {
+        const groupId = parseInt(chatId.replace("group_", ""));
+        data = await getGroupMessages(groupId);
+      } else if (chatId.startsWith("community_")) {
+        const communityId = parseInt(chatId.replace("community_", ""));
+        data = await getCommunityMessages(communityId);
+      } else {
+        data = await getMessages(chatId);
+      }
       setMessages(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load messages");
@@ -2022,13 +2155,24 @@ const ChatPage = () => {
     }
 
     try {
-      await sendMessage({
-        receiver_id: selectedChat.user_id,
-        chat_id: selectedChat.chat_id,
-        content: messageToSend,
-        message_type: "text",
-        is_view_once: false // Text messages are no longer view-once via main input
-      });
+      if (selectedChat.chat_id.startsWith("group_")) {
+        const groupId = parseInt(selectedChat.chat_id.replace("group_", ""));
+        await sendGroupMessage(groupId, {
+          content: messageToSend,
+          messageType: "text"
+        });
+      } else if (selectedChat.chat_id.startsWith("community_")) {
+        const communityId = parseInt(selectedChat.chat_id.replace("community_", ""));
+        await sendCommunityMessage(communityId, messageToSend);
+      } else {
+        await sendMessage({
+          receiver_id: selectedChat.user_id,
+          chat_id: selectedChat.chat_id,
+          content: messageToSend,
+          message_type: "text",
+          is_view_once: false // Text messages are no longer view-once via main input
+        });
+      }
       await loadMessages(selectedChat.chat_id);
       await loadChats();
 
