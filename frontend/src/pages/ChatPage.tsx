@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Search, Send, Paperclip, Smile, ArrowLeft, Image, FileText,
   Mic, MoreVertical, IndianRupee, User as UserIcon, Plus,
-  Trash2, Ban, AlertTriangle, Download, X, CheckCircle2, Loader2, LogOut, Settings, User, HelpCircle, ShieldCheck, EyeOff, Eye, Lock, Shield, Camera, Film,
+  Trash2, Ban, AlertTriangle, Download, X, CheckCircle2, Loader2, LogOut, Settings, User, HelpCircle, ShieldCheck, EyeOff, Eye, Lock, Shield, Camera, Film, Square,
   Sparkles, History
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -166,6 +166,12 @@ function formatTime(ts: string) {
   } catch (e) {
     return "";
   }
+}
+
+function formatRecordingDuration(seconds: number) {
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
 }
 
 const EMOJIS = ["😀", "😂", "🥰", "😍", "😊", "😎", "🤔", "😅", "🔥", "👍", "❤️", "🙌", "✨", "🎉", "💯", "🙏"];
@@ -484,7 +490,7 @@ const ConversationList = ({
       <button
         onClick={() => navigate('/communities')}
         title="Communities"
-        className="fixed right-4 bottom-24 z-40 bg-white border border-border rounded-full p-3 shadow-lg hover:scale-105 transition-transform"
+        className="fixed right-4 bottom-32 z-40 bg-white border border-border rounded-full p-3 shadow-lg hover:scale-105 transition-transform"
       >
         <Sparkles className="w-5 h-5 text-[#00A4EF]" />
       </button>
@@ -515,6 +521,10 @@ const ChatView = ({
   setPendingFile,
   handleConfirmUpload,
   isLoading,
+  isRecordingVoice,
+  recordingSeconds,
+  startVoiceRecording,
+  stopVoiceRecording,
   isBlurred,
   setIsBlurred,
   isPreviewViewOnce,
@@ -553,6 +563,10 @@ const ChatView = ({
   setBotData: (data: { city?: string; pincode?: string; profession?: string } | ((prev: { city?: string; pincode?: string; profession?: string }) => { city?: string; pincode?: string; profession?: string })) => void;
   setMessages: React.Dispatch<React.SetStateAction<MessageType[]>>;
   isLoading: boolean;
+  isRecordingVoice: boolean;
+  recordingSeconds: number;
+  startVoiceRecording: () => void;
+  stopVoiceRecording: () => void;
   isBlurred: boolean;
   setIsBlurred: (val: boolean) => void;
   isPreviewViewOnce: boolean;
@@ -1066,10 +1080,36 @@ const ChatView = ({
                               </button>
                             )}
                           </div>
+                        ) : msg.messageType === 'voice' && msg.attachmentUrl ? (
+                          <div className="relative space-y-2 pr-8">
+                            {!msg.isDeleted && !isSelectionMode && (
+                              <button
+                                type="button"
+                                aria-label="Voice message options"
+                                title="Voice message options"
+                                className="absolute right-0 top-0 rounded-full border border-border/60 bg-white/90 p-1.5 text-muted-foreground shadow-sm opacity-70 transition-all hover:opacity-100 hover:bg-background"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveMessageMenu(msg);
+                                }}
+                              >
+                                <MoreVertical className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                            <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.2em] opacity-70">
+                              <Mic className="h-3.5 w-3.5" />
+                              Voice message
+                            </div>
+                            <audio
+                              controls
+                              src={msg.attachmentUrl}
+                              className="w-full max-w-[280px]"
+                            />
+                          </div>
                         ) : (
                           <p className="text-sm">{msg.content}</p>
                         )}
-                        {msg.attachmentUrl && !msg.isDeleted && !msg.isViewOnce && (
+                        {msg.attachmentUrl && !msg.isDeleted && !msg.isViewOnce && msg.messageType !== 'voice' && (
                           <div className="mt-2 p-2 bg-black/10 rounded-lg flex items-center gap-2">
                             {msg.messageType === 'image' || msg.attachmentUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
                               <div
@@ -1233,6 +1273,12 @@ const ChatView = ({
           </div>
         )}
         <div className={`flex items-center gap-2 ${selectedChat?.isKrovAI ? 'bg-[#FDF4FF]/80 backdrop-blur-xl border-t border-[#D946EF]/10' : ''}`}>
+          {isRecordingVoice && (
+            <div className="flex items-center gap-2 rounded-full bg-destructive/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-destructive shrink-0">
+              <span className="h-2 w-2 rounded-full bg-destructive animate-pulse" />
+              Recording {formatRecordingDuration(recordingSeconds)}
+            </div>
+          )}
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="ghost" size="icon" className="shrink-0">
@@ -1309,9 +1355,20 @@ const ChatView = ({
             inputMode="text"
             autoComplete="off"
           />
-          <Button size="icon" onClick={handleSend} className={`shrink-0 ${selectedChat?.isKrovAI ? 'bg-gradient-to-r from-[#D946EF] to-[#F97316] hover:opacity-90 text-white' : ''}`}>
-            <Send className="h-4 w-4" />
-          </Button>
+          {newMessage.trim() ? (
+            <Button size="icon" onClick={handleSend} className={`shrink-0 ${selectedChat?.isKrovAI ? 'bg-gradient-to-r from-[#D946EF] to-[#F97316] hover:opacity-90 text-white' : ''}`}>
+              <Send className="h-4 w-4" />
+            </Button>
+          ) : (
+            <Button
+              size="icon"
+              onClick={isRecordingVoice ? stopVoiceRecording : startVoiceRecording}
+              className={`shrink-0 ${isRecordingVoice ? 'bg-destructive hover:bg-destructive/90 text-destructive-foreground animate-pulse' : selectedChat?.isKrovAI ? 'bg-gradient-to-r from-[#D946EF] to-[#F97316] hover:opacity-90 text-white' : ''}`}
+              aria-label={isRecordingVoice ? 'Stop voice recording' : 'Start voice recording'}
+            >
+              {isRecordingVoice ? <Square className="h-4 w-4 fill-current" /> : <Mic className="h-4 w-4" />}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -1629,9 +1686,15 @@ const ChatPage = () => {
   const [error, setError] = useState("");
   const messageInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const voiceStreamRef = useRef<MediaStream | null>(null);
+  const voiceChunksRef = useRef<BlobPart[]>([]);
+  const voiceTimerRef = useRef<number | null>(null);
   const [currentAcceptType, setCurrentAcceptType] = useState<string>("image/*,.pdf,.doc,.docx,.txt,.zip,.rar");
   const [selectedMessages, setSelectedMessages] = useState<number[]>([]);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [isRecordingVoice, setIsRecordingVoice] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [isBlurred, setIsBlurred] = useState(false);
   const [isPreviewViewOnce, setIsPreviewViewOnce] = useState(false);
   const [isHoldingView, setIsHoldingView] = useState(false);
@@ -2281,6 +2344,149 @@ const ChatPage = () => {
     }
   }, [pendingFile, selectedChat, user, loadMessages, loadChats]);
 
+  const clearVoiceRecordingTimer = useCallback(() => {
+    if (voiceTimerRef.current !== null) {
+      window.clearInterval(voiceTimerRef.current);
+      voiceTimerRef.current = null;
+    }
+  }, []);
+
+  const releaseVoiceResources = useCallback(() => {
+    clearVoiceRecordingTimer();
+    if (voiceStreamRef.current) {
+      voiceStreamRef.current.getTracks().forEach((track) => track.stop());
+      voiceStreamRef.current = null;
+    }
+    mediaRecorderRef.current = null;
+    voiceChunksRef.current = [];
+  }, [clearVoiceRecordingTimer]);
+
+  const sendVoiceBlob = useCallback(async (blob: Blob, mimeType: string) => {
+    if (!selectedChat || !user) return;
+
+    const tempId = Date.now();
+    const tempUrl = URL.createObjectURL(blob);
+    const extension = mimeType.includes('mp4') ? 'm4a' : mimeType.includes('ogg') ? 'ogg' : 'webm';
+    const voiceFile = new File([blob], `voice-message-${tempId}.${extension}`, {
+      type: mimeType || 'audio/webm',
+    });
+
+    const tempMessage = {
+      id: tempId,
+      chatId: selectedChat.chat_id,
+      senderId: user.id,
+      receiverId: selectedChat.user_id,
+      content: 'Voice message',
+      messageType: 'voice',
+      attachmentUrl: tempUrl,
+      attachmentName: voiceFile.name,
+      createdAt: new Date().toISOString(),
+      read: false,
+      isDeleted: false,
+      isViewOnce: false,
+      isUploading: true,
+    } as MessageType & { isUploading?: boolean };
+
+    setMessages((prev) => [...prev, tempMessage]);
+    setIsLoading(true);
+
+    try {
+      await uploadFile({
+        receiver_id: selectedChat.user_id,
+        chat_id: selectedChat.chat_id,
+        file: voiceFile,
+        content: 'Voice message',
+      });
+      await loadMessages(selectedChat.chat_id);
+      await loadChats();
+
+      if (messageInputRef.current) {
+        messageInputRef.current.focus();
+      }
+    } catch (err) {
+      setMessages((prev) => prev.filter((message) => message.id !== tempId));
+      setError(err instanceof Error ? err.message : 'Failed to send voice message');
+    } finally {
+      setIsLoading(false);
+      URL.revokeObjectURL(tempUrl);
+    }
+  }, [loadChats, loadMessages, selectedChat, user]);
+
+  const stopVoiceRecording = useCallback(() => {
+    const recorder = mediaRecorderRef.current;
+    if (!recorder || recorder.state !== 'recording') return;
+
+    setIsRecordingVoice(false);
+    clearVoiceRecordingTimer();
+    recorder.stop();
+  }, [clearVoiceRecordingTimer]);
+
+  const startVoiceRecording = useCallback(async () => {
+    if (!selectedChat || !user) return;
+
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+      setError('Voice recording is not supported in this browser.');
+      return;
+    }
+
+    try {
+      setError('');
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const supportedMimeType = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/mp4',
+        'audio/ogg',
+      ].find((type) => MediaRecorder.isTypeSupported(type));
+
+      const recorder = supportedMimeType ? new MediaRecorder(stream, { mimeType: supportedMimeType }) : new MediaRecorder(stream);
+      voiceStreamRef.current = stream;
+      mediaRecorderRef.current = recorder;
+      voiceChunksRef.current = [];
+      setRecordingSeconds(0);
+      setIsRecordingVoice(true);
+
+      voiceTimerRef.current = window.setInterval(() => {
+        setRecordingSeconds((current) => current + 1);
+      }, 1000);
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          voiceChunksRef.current.push(event.data);
+        }
+      };
+
+      recorder.onstop = async () => {
+        const chunks = voiceChunksRef.current.slice();
+        const mimeType = recorder.mimeType || supportedMimeType || 'audio/webm';
+        const blob = new Blob(chunks, { type: mimeType });
+
+        releaseVoiceResources();
+
+        if (blob.size === 0) {
+          setError('Voice recording was empty. Please try again.');
+          return;
+        }
+
+        await sendVoiceBlob(blob, mimeType);
+      };
+
+      recorder.start();
+    } catch (err) {
+      releaseVoiceResources();
+      setIsRecordingVoice(false);
+      setError(err instanceof Error ? err.message : 'Failed to start voice recording.');
+    }
+  }, [releaseVoiceResources, selectedChat, sendVoiceBlob, user]);
+
+  useEffect(() => {
+    return () => {
+      releaseVoiceResources();
+      setIsRecordingVoice(false);
+      setRecordingSeconds(0);
+    };
+  }, [releaseVoiceResources]);
+
   const handleSupport = useCallback(async () => {
     try {
       setIsLoading(true);
@@ -2347,6 +2553,10 @@ const ChatPage = () => {
             setPendingFile={setPendingFile}
             handleConfirmUpload={handleConfirmUpload}
             isLoading={isLoading}
+            isRecordingVoice={isRecordingVoice}
+            recordingSeconds={recordingSeconds}
+            startVoiceRecording={startVoiceRecording}
+            stopVoiceRecording={stopVoiceRecording}
             isBlurred={isBlurred}
             setIsBlurred={setIsBlurred}
             isPreviewViewOnce={isPreviewViewOnce}
@@ -2424,6 +2634,10 @@ const ChatPage = () => {
           pendingFile={pendingFile}
           setPendingFile={setPendingFile}
           handleConfirmUpload={handleConfirmUpload}
+          isRecordingVoice={isRecordingVoice}
+          recordingSeconds={recordingSeconds}
+          startVoiceRecording={startVoiceRecording}
+          stopVoiceRecording={stopVoiceRecording}
           currentAcceptType={currentAcceptType}
           setCurrentAcceptType={setCurrentAcceptType}
           isLoading={isLoading}

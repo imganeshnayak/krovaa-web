@@ -1156,6 +1156,7 @@ export interface Job {
   budget: string;
   mode: string;
   description: string;
+  terms?: string[] | string | null;
   createdAt: string;
 }
 
@@ -1181,6 +1182,7 @@ export function postJob(data: {
   budget: string;
   mode: string;
   description: string;
+  terms?: string[];
 }): Promise<Job> {
   return apiFetch<Job>('/api/jobs', {
     method: 'POST',
@@ -1448,6 +1450,7 @@ export function checkImageGenerationUsage(): Promise<{
   return apiFetch("/api/subscriptions/check-usage");
 }
 
+<<<<<<< Updated upstream
 // ============ Teams API ============
 
 export interface Team {
@@ -1498,4 +1501,11 @@ export function getGroupMessages(groupId: number): Promise<any[]> {
 }
 export function sendGroupMessage(groupId: number, data: { content: string; messageType?: string; attachmentUrl?: string }): Promise<any> {
   return apiFetch<any>(`/api/groups/${groupId}/messages`, { method: 'POST', body: JSON.stringify(data) });
+=======
+export function updateJobTerms(jobId: number, terms: string[]): Promise<Job> {
+  return apiFetch<Job>(`/api/jobs/${jobId}/terms`, {
+    method: 'PUT',
+    body: JSON.stringify({ terms }),
+  });
+>>>>>>> Stashed changes
 }

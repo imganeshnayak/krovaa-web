@@ -295,13 +295,14 @@ router.post('/upload', auth, upload.single('file'), async (req, res) => {
             fs.createReadStream(req.file.path).pipe(stream);
         });
 
+        const isAudio = req.file.mimetype.startsWith('audio/');
         const message = await prisma.message.create({
             data: {
                 senderId: req.user.id,
                 receiverId: parseInt(receiver_id),
                 chatId: chat_id,
-                content: content || 'File shared',
-                messageType: req.file.mimetype.startsWith('image/') ? 'image' : 'file',
+                content: content || (isAudio ? 'Voice message' : 'File shared'),
+                messageType: req.file.mimetype.startsWith('image/') ? 'image' : (isAudio ? 'voice' : 'file'),
                 attachmentUrl: uploadResult.secure_url,
                 attachmentName: req.file.originalname,
                 isViewOnce: req.body.is_view_once === true || req.body.is_view_once === 'true'

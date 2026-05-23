@@ -1,6 +1,6 @@
 import { FormEvent, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, CheckCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle, Trash2, Plus } from "lucide-react";
 import { Job, postJob } from "../lib/api";
 
 const PostJobPage = () => {
@@ -11,10 +11,26 @@ const PostJobPage = () => {
   const [budget, setBudget] = useState("");
   const [mode, setMode] = useState("Remote");
   const [description, setDescription] = useState("");
+  const [terms, setTerms] = useState<string[]>([""]);
   const [submitted, setSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [createdJob, setCreatedJob] = useState<Job | null>(null);
+
+  const handleTermChange = (index: number, value: string) => {
+    const newTerms = [...terms];
+    newTerms[index] = value;
+    setTerms(newTerms);
+  };
+
+  const addTerm = () => {
+    setTerms([...terms, ""]);
+  };
+
+  const removeTerm = (index: number) => {
+    const newTerms = terms.filter((_, i) => i !== index);
+    setTerms(newTerms.length > 0 ? newTerms : [""]);
+  };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -22,7 +38,8 @@ const PostJobPage = () => {
     setIsSubmitting(true);
 
     try {
-      const job = await postJob({ title, company, location, budget, mode, description });
+      const filteredTerms = terms.map(t => t.trim()).filter(Boolean);
+      const job = await postJob({ title, company, location, budget, mode, description, terms: filteredTerms });
       setCreatedJob(job);
       setSubmitted(true);
     } catch (err) {
@@ -66,6 +83,16 @@ const PostJobPage = () => {
               <p><strong>Mode:</strong> {createdJob?.mode || mode}</p>
               <p><strong>Budget:</strong> {createdJob?.budget || budget}</p>
               <p><strong>Description:</strong> {createdJob?.description || description}</p>
+              {createdJob?.terms && (Array.isArray(createdJob.terms) ? createdJob.terms : [createdJob.terms]).length > 0 && (
+                <div className="mt-2 pt-2 border-t border-emerald-200/50">
+                  <p className="font-semibold text-slate-900 mb-1">Terms & Conditions:</p>
+                  <ul className="list-disc pl-5 space-y-1">
+                    {(Array.isArray(createdJob.terms) ? createdJob.terms : [createdJob.terms]).map((term, index) => (
+                      <li key={index}>{term}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           </div>
         ) : (
@@ -145,6 +172,39 @@ const PostJobPage = () => {
                 required
               />
             </label>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-slate-700">Terms & Conditions</span>
+                <button
+                  type="button"
+                  onClick={addTerm}
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-[#00A4EF] hover:underline"
+                >
+                  <Plus className="h-3 w-3" /> Add Term
+                </button>
+              </div>
+              <div className="space-y-2">
+                {terms.map((term, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <input
+                      value={term}
+                      onChange={(event) => handleTermChange(index, event.target.value)}
+                      placeholder={`e.g. Must complete task before deadline`}
+                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-[#00A4EF] focus:ring-2 focus:ring-[#00A4EF]/20"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeTerm(index)}
+                      className="p-3 text-slate-400 hover:text-rose-600 transition"
+                      disabled={terms.length === 1 && term === ""}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
 
             <button
               type="submit"

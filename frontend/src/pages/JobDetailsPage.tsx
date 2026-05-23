@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, CheckCircle2, MessageSquare, User } from "lucide-react";
-import { getJob, JobDetails, applyJob, sendMessage } from "../lib/api";
+import { ArrowLeft, CheckCircle2, MessageSquare, User, Trash2, Plus, ArrowUp, ArrowDown, Edit2, Save, X } from "lucide-react";
+import { getJob, JobDetails, applyJob, sendMessage, updateJobTerms } from "../lib/api";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
@@ -24,13 +24,17 @@ const JobDetailsPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showConfirmation, setShowConfirmation] = useState(false);
-  const [termsAndConditions, setTermsAndConditions] = useState("");
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [showBidDialog, setShowBidDialog] = useState(false);
   const [bidAmount, setBidAmount] = useState("");
   const [bidMessage, setBidMessage] = useState("");
   const [isApplied, setIsApplied] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isBidding, setIsBidding] = useState(false);
+
+  const [isEditingTerms, setIsEditingTerms] = useState(false);
+  const [editingTerms, setEditingTerms] = useState<string[]>([]);
+  const [isSavingTerms, setIsSavingTerms] = useState(false);
 
   useEffect(() => {
     const loadJob = async () => {
@@ -44,12 +48,8 @@ const JobDetailsPage = () => {
       setError(null);
 
       try {
-        const [jobData, teamsData] = await Promise.all([
-          getJob(Number(jobId)),
-          getTeams().catch(() => [])
-        ]);
+        const jobData = await getJob(Number(jobId));
         setJob(jobData);
-        setTeams(teamsData);
         if (jobData.hasApplied) {
           setIsApplied(true);
         }
@@ -62,6 +62,67 @@ const JobDetailsPage = () => {
 
     loadJob();
   }, [jobId]);
+
+  const startEditingTerms = () => {
+    if (job) {
+      const initialTerms = Array.isArray(job.terms)
+        ? job.terms
+        : typeof job.terms === 'string' && job.terms
+          ? [job.terms]
+          : [];
+      setEditingTerms(initialTerms.length > 0 ? initialTerms : [""]);
+      setIsEditingTerms(true);
+    }
+  };
+
+  const handleTermChange = (index: number, value: string) => {
+    const newTerms = [...editingTerms];
+    newTerms[index] = value;
+    setEditingTerms(newTerms);
+  };
+
+  const addTerm = () => {
+    setEditingTerms([...editingTerms, ""]);
+  };
+
+  const removeTerm = (index: number) => {
+    const newTerms = editingTerms.filter((_, i) => i !== index);
+    setEditingTerms(newTerms.length > 0 ? newTerms : [""]);
+  };
+
+  const moveTermUp = (index: number) => {
+    if (index === 0) return;
+    const newTerms = [...editingTerms];
+    const temp = newTerms[index];
+    newTerms[index] = newTerms[index - 1];
+    newTerms[index - 1] = temp;
+    setEditingTerms(newTerms);
+  };
+
+  const moveTermDown = (index: number) => {
+    if (index === editingTerms.length - 1) return;
+    const newTerms = [...editingTerms];
+    const temp = newTerms[index];
+    newTerms[index] = newTerms[index + 1];
+    newTerms[index + 1] = temp;
+    setEditingTerms(newTerms);
+  };
+
+  const saveTerms = async () => {
+    if (!job) return;
+    setIsSavingTerms(true);
+    try {
+      const filteredTerms = editingTerms.map(t => t.trim()).filter(Boolean);
+      await updateJobTerms(job.id, filteredTerms);
+      setJob(prev => prev ? { ...prev, terms: filteredTerms } : null);
+      setIsEditingTerms(false);
+      toast.success("Terms & Conditions updated successfully!");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save terms.");
+    } finally {
+      setIsSavingTerms(false);
+    }
+  };
 
   const handleSendBid = async () => {
     if (!job || !user) return;
@@ -150,6 +211,119 @@ const JobDetailsPage = () => {
 
             <div className="mt-6 space-y-4 text-sm leading-7 text-slate-600">
               <p>{job.description}</p>
+            </div>
+          </section>
+
+          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-slate-950">Terms & Conditions</h2>
+              {job.isOwner && !isEditingTerms && (
+                <button
+                  type="button"
+                  onClick={startEditingTerms}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
+                >
+                  <Edit2 className="h-3 w-3" /> Edit Terms
+                </button>
+              )}
+            </div>
+
+            <div className="mt-4">
+              {job.isOwner && isEditingTerms ? (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    {editingTerms.map((term, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <input
+                          value={term}
+                          onChange={(e) => handleTermChange(index, e.target.value)}
+                          placeholder={`Term #${index + 1} (e.g. Must complete task before deadline)`}
+                          className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-[#00A4EF] focus:ring-2 focus:ring-[#00A4EF]/20"
+                        />
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => moveTermUp(index)}
+                            disabled={index === 0}
+                            className="p-2 text-slate-400 hover:text-slate-700 transition disabled:opacity-30 disabled:hover:text-slate-400"
+                            title="Move Up"
+                          >
+                            <ArrowUp className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => moveTermDown(index)}
+                            disabled={index === editingTerms.length - 1}
+                            className="p-2 text-slate-400 hover:text-slate-700 transition disabled:opacity-30 disabled:hover:text-slate-400"
+                            title="Move Down"
+                          >
+                            <ArrowDown className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => removeTerm(index)}
+                            className="p-2 text-slate-400 hover:text-rose-600 transition"
+                            title="Remove Term"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={addTerm}
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-[#00A4EF] hover:underline"
+                    >
+                      <Plus className="h-3 w-3" /> Add Term
+                    </button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        type="button"
+                        onClick={() => setIsEditingTerms(false)}
+                        className="rounded-full px-4 py-2 text-xs"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        type="button"
+                        onClick={saveTerms}
+                        disabled={isSavingTerms}
+                        className="rounded-full bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 text-xs flex items-center gap-1"
+                      >
+                        <Save className="h-3.5 w-3.5" /> Save Terms
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  {job.terms && (Array.isArray(job.terms) ? job.terms : [job.terms]).length > 0 ? (
+                    <ul className="list-disc pl-5 space-y-2 text-sm text-slate-600">
+                      {(Array.isArray(job.terms) ? job.terms : [job.terms]).map((term, index) => (
+                        <li key={index}>{term}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-6 text-center">
+                      <p className="text-sm text-slate-500 mb-3">No terms and conditions provided.</p>
+                      {job.isOwner && (
+                        <button
+                          type="button"
+                          onClick={startEditingTerms}
+                          className="inline-flex items-center gap-1 rounded-full bg-indigo-600 hover:bg-indigo-700 px-4 py-2 text-xs font-semibold text-white transition shadow-md"
+                        >
+                          <Plus className="h-3.5 w-3.5" /> Add Terms
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </section>
 
@@ -379,20 +553,36 @@ const JobDetailsPage = () => {
                   exit={{ opacity: 0, y: -10 }}
                   className="flex flex-col gap-4"
                 >
-                  <p className="text-center text-sm font-bold text-slate-900">
+                  <p className="text-center text-sm font-bold text-slate-900 mb-2">
                     Are you sure you want to apply?
                   </p>
-                  <label className="space-y-2 text-sm text-slate-700">
-                    <span className="font-semibold">Terms and Conditions</span>
-                    <textarea
-                      value={termsAndConditions}
-                      onChange={(event) => setTermsAndConditions(event.target.value)}
-                      rows={3}
-                      placeholder="Enter any terms and conditions for this application..."
-                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+                  
+                  {/* Show all Terms & Conditions clearly */}
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left max-h-40 overflow-y-auto w-full">
+                    <p className="text-xs font-semibold text-slate-700 uppercase tracking-[0.1em] mb-2">Job Terms & Conditions</p>
+                    {job.terms && (Array.isArray(job.terms) ? job.terms : [job.terms]).length > 0 ? (
+                      <ul className="list-disc pl-4 space-y-1 text-xs text-slate-600">
+                        {(Array.isArray(job.terms) ? job.terms : [job.terms]).map((term, index) => (
+                          <li key={index}>{term}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-xs text-slate-500">No terms and conditions provided.</p>
+                    )}
+                  </div>
+
+                  {/* Checkbox */}
+                  <label className="flex items-start gap-2.5 text-sm text-slate-700 select-none cursor-pointer mt-1 text-left w-full">
+                    <input
+                      type="checkbox"
+                      checked={agreedToTerms}
+                      onChange={(event) => setAgreedToTerms(event.target.checked)}
+                      className="mt-1 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4"
                     />
+                    <span className="leading-tight">I agree to the Terms & Conditions</span>
                   </label>
-                  <div className="flex gap-3">
+
+                  <div className="flex gap-3 w-full mt-2">
                     <Button
                       variant="outline"
                       className="flex-1 rounded-2xl border-slate-200 h-12 text-base font-semibold text-slate-600 hover:bg-slate-50 active:scale-[0.98] transition-all"
@@ -402,12 +592,25 @@ const JobDetailsPage = () => {
                     </Button>
                     <Button
                       disabled={isSubmitting}
-                      className="flex-1 rounded-2xl bg-indigo-600 h-12 text-base font-semibold text-white hover:bg-indigo-700 shadow-lg shadow-indigo-100 active:scale-[0.98] transition-all disabled:opacity-70"
+                      className={`flex-1 rounded-2xl h-12 text-base font-semibold text-white shadow-lg transition-all active:scale-[0.98] ${
+                        !agreedToTerms 
+                          ? "bg-slate-300 hover:bg-slate-300 text-slate-500 cursor-not-allowed shadow-none" 
+                          : "bg-indigo-600 hover:bg-indigo-700 shadow-indigo-100"
+                      }`}
                       onClick={async () => {
                         if (!job) return;
+                        if (!agreedToTerms) {
+                          toast.error("Please accept the Terms & Conditions.");
+                          return;
+                        }
                         setIsSubmitting(true);
                         try {
-                          await applyJob(job.id, termsAndConditions);
+                          const termsString = Array.isArray(job.terms) 
+                            ? job.terms.join('\n') 
+                            : typeof job.terms === 'string' 
+                              ? job.terms 
+                              : '';
+                          await applyJob(job.id, termsString);
                           setIsApplied(true);
                           toast.success("Application submitted and message sent to poster!");
                           // Keep isApplied true so it stays in the success state
