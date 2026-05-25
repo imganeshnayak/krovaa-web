@@ -124,8 +124,11 @@ router.post('/subscribe', auth, async (req, res) => {
       return res.status(400).json({ error: 'Invalid plan ID' });
     }
 
-<<<<<<< HEAD
-    const plan = PLANS[planId];
+    const plan = await getSubscriptionPlan(planId);
+    if (!plan) {
+      return res.status(400).json({ error: 'Invalid plan ID' });
+    }
+
     const user = await prisma.user.findUnique({
       where: { id: req.user.id },
       select: { id: true, email: true, displayName: true, username: true, walletBalance: true }
@@ -133,11 +136,6 @@ router.post('/subscribe', auth, async (req, res) => {
 
     if (!user) {
       return res.status(404).json({ error: 'User not found.' });
-=======
-    const plan = await getSubscriptionPlan(planId);
-    if (!plan) {
-      return res.status(400).json({ error: 'Invalid plan ID' });
->>>>>>> b648ef3bb4d32dae4449876839c18268011f42f6
     }
 
     if (planId === 'free') {
