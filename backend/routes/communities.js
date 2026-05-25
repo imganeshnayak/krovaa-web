@@ -300,18 +300,17 @@ router.post('/:id/messages', auth, async (req, res) => {
     }).catch(() => null);
     if (!member) return res.status(403).json({ error: 'Not a member of this community.' });
     
-    const message = await prisma.projectMessage.create({ 
+    const message = await prisma.communityMessage.create({ 
       data: { 
-        projectId: 0, // 0 for community-level messages
+        communityId,
         senderId: req.user.id,
         content: content || '',
         messageType: 'text',
-        attachmentUrl,
-        metadata: JSON.stringify({ communityId })
+        attachmentUrl
       } 
     });
     
-    const fullMessage = await prisma.projectMessage.findUnique({
+    const fullMessage = await prisma.communityMessage.findUnique({
       where: { id: message.id },
       include: { sender: true }
     });
@@ -329,8 +328,8 @@ router.get('/:id/messages', auth, async (req, res) => {
     const limit = parseInt(req.query.limit) || 50;
     const offset = parseInt(req.query.offset) || 0;
     
-    const messages = await prisma.projectMessage.findMany({
-      where: { metadata: { contains: `"communityId":${communityId}` } },
+    const messages = await prisma.communityMessage.findMany({
+      where: { communityId },
       include: { sender: true },
       orderBy: { createdAt: 'desc' },
       take: limit,
@@ -364,8 +363,8 @@ router.delete('/:id', auth, async (req, res) => {
     if (community.creatorId !== req.user.id) return res.status(403).json({ error: 'Only creator can delete.' });
     
     // Delete community-level messages
-    await prisma.projectMessage.deleteMany({
-      where: { metadata: { contains: `"communityId":${id}` } }
+    await prisma.communityMessage.deleteMany({
+      where: { communityId: id }
     });
     
     await prisma.community.delete({ where: { id } });
