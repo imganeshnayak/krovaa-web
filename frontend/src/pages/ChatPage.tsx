@@ -505,7 +505,6 @@ const ConversationList = ({
         title="Communities"
         className="fixed right-4 bottom-32 z-40 bg-white border border-border rounded-full p-3 shadow-lg hover:scale-105 transition-transform"
       >
-        <Sparkles className="w-5 h-5 text-[#00A4EF]" />
       </button>
     </div>
   );
@@ -789,16 +788,18 @@ const ChatView = ({
                 <ArrowLeft className="h-5 w-5 text-foreground" />
               </button>
             )}
-            {selectedChat.chat_id.startsWith("community_") && selectedCommunity?.creator ? (
+            {selectedChat.chat_id.startsWith("community_") && selectedCommunity ? (
               <button
                 type="button"
-                onClick={() => openProfile(selectedCommunity.creator?.username)}
+                onClick={() => {
+                  navigate(`/communities/${selectedCommunity.id}`);
+                }}
                 className="shrink-0 rounded-full ring-2 ring-[#00A4EF]/10 hover:ring-[#00A4EF]/30 transition-all"
-                title={`Open ${selectedCommunity.creator?.displayName || selectedCommunity.creator?.username}`}
+                title={`View ${selectedCommunity.name} Info`}
               >
                 <Avatar className="h-10 w-10">
-                  <AvatarImage src={selectedCommunity.creator.avatarUrl} />
-                  <AvatarFallback>{selectedCommunity.creator.displayName?.[0] || selectedCommunity.creator.username?.[0] || selectedChat.display_name[0]}</AvatarFallback>
+                  <AvatarImage src={selectedCommunity.creator?.avatarUrl} />
+                  <AvatarFallback>{selectedCommunity.name?.[0]?.toUpperCase() || selectedChat.display_name[0]}</AvatarFallback>
                 </Avatar>
               </button>
             ) : (

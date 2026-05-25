@@ -1,6 +1,20 @@
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
 import { auth } from '../middleware/auth.js';
+import cloudinary from '../config/cloudinary.js';
+import multer from 'multer';
+
+const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+    fileFilter: (req, file, cb) => {
+        if (file.mimetype.startsWith('image/')) {
+            cb(null, true);
+        } else {
+            cb(new Error('Only images are allowed for avatars.'), false);
+        }
+    }
+});
 
 const prisma = new PrismaClient();
 const router = express.Router();
@@ -31,14 +45,17 @@ router.post('/', auth, async (req, res) => {
   }
 });
 
-// List communities (public + joined)
+// List communities (public + private visible)
 router.get('/', auth, async (req, res) => {
   try {
     const communities = await prisma.community.findMany({
-      where: { OR: [{ isPrivate: false }, { members: { some: { userId: req.user.id } } }] },
-      include: { members: { select: { userId: true, role: true } }, creator: true }
+      include: { members: { select: { userId: true, role: true, status: true } }, creator: true }
     });
-    res.json(communities);
+    const mapped = communities.map(c => ({
+      ...c,
+      memberCount: c.members.filter(m => m.status === 'approved' || m.userId === c.creatorId).length
+    }));
+    res.json(mapped);
   } catch (err) {
     console.error('List communities error:', err);
     res.status(500).json({ error: 'Failed to list communities.' });
@@ -54,21 +71,41 @@ router.get('/:id', auth, async (req, res) => {
       include: { members: { include: { user: true } }, projects: true, creator: true }
     });
     if (!community) return res.status(404).json({ error: 'Community not found.' });
-    // If private, ensure member
-    if (community.isPrivate) {
-      const member = await prisma.communityMember.findUnique({ where: { communityId_userId: { communityId: id, userId: req.user.id } } }).catch(() => null);
-      if (!member && req.user.id !== community.creatorId) return res.status(403).json({ error: 'Private community.' });
-    }
-    
-    // Add helper flags
+    const member = await prisma.communityMember.findUnique({ where: { communityId_userId: { communityId: id, userId: req.user.id } } }).catch(() => null);
     const isCreator = community.creatorId === req.user.id;
-    const isMember = community.members.some(m => m.userId === req.user.id);
-    const memberCount = community.members.length;
+    const isMember = member?.status === 'approved' || isCreator;
+    const isPending = member?.status === 'pending';
+    
+    // Non-members of private community only get limited info
+    if (community.isPrivate && !isMember && !isCreator) {
+      return res.json({
+        id: community.id,
+        name: community.name,
+        slug: community.slug,
+        description: community.description,
+        isPrivate: community.isPrivate,
+        avatarUrl: community.avatarUrl,
+        creatorId: community.creatorId,
+        creator: community.creator,
+        isCreator: false,
+        isMember: false,
+        isPending,
+        memberCount: community.members.filter(m => m.status === 'approved' || m.userId === community.creatorId).length
+      });
+    }
+
+    // Filter members based on status if not creator
+    if (!isCreator) {
+      community.members = community.members.filter(m => m.status === 'approved' || m.userId === community.creatorId);
+    }
+
+    const memberCount = community.members.filter(m => m.status === 'approved' || m.userId === community.creatorId).length;
     
     res.json({
       ...community,
       isCreator,
       isMember,
+      isPending,
       memberCount
     });
   } catch (err) {
@@ -85,9 +122,12 @@ router.post('/:id/join', auth, async (req, res) => {
       where: { id: communityId }
     });
     if (!community) return res.status(404).json({ error: 'Community not found.' });
-    if (community.isPrivate) return res.status(403).json({ error: 'Cannot join private community without invite.' });
-    await prisma.communityMember.create({ data: { communityId, userId: req.user.id } });
-    res.json({ success: true });
+    if (community.isPrivate) {
+      await prisma.communityMember.create({ data: { communityId, userId: req.user.id, status: 'pending' } });
+      return res.json({ success: true, status: 'pending' });
+    }
+    await prisma.communityMember.create({ data: { communityId, userId: req.user.id, status: 'approved' } });
+    res.json({ success: true, status: 'approved' });
   } catch (err) {
     console.error('Join community error:', err);
     res.status(500).json({ error: 'Failed to join community.' });
@@ -162,6 +202,62 @@ router.delete('/:id/members/:userId', auth, async (req, res) => {
   } catch (err) {
     console.error('Remove member error:', err);
     res.status(500).json({ error: 'Failed to remove member.' });
+  }
+});
+
+// Approve pending member
+router.put('/:id/members/:userId/approve', auth, async (req, res) => {
+  try {
+    const communityId = Number(req.params.id);
+    const userId = Number(req.params.userId);
+    
+    const community = await prisma.community.findUnique({ where: { id: communityId } });
+    if (!community) return res.status(404).json({ error: 'Community not found.' });
+    if (community.creatorId !== req.user.id) return res.status(403).json({ error: 'Only creator can approve members.' });
+
+    await prisma.communityMember.update({
+      where: { communityId_userId: { communityId, userId } },
+      data: { status: 'approved' }
+    });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Approve member error:', err);
+    res.status(500).json({ error: 'Failed to approve member.' });
+  }
+});
+
+// Update community avatar (upload)
+router.put('/:id/avatar', auth, upload.single('avatar'), async (req, res) => {
+  try {
+    const communityId = Number(req.params.id);
+    
+    const community = await prisma.community.findUnique({ where: { id: communityId } });
+    if (!community) return res.status(404).json({ error: 'Community not found.' });
+    if (community.creatorId !== req.user.id) return res.status(403).json({ error: 'Only creator can update avatar.' });
+
+    if (!req.file || !req.file.buffer) {
+        return res.status(400).json({ error: 'No image file provided.' });
+    }
+
+    const b64 = req.file.buffer.toString('base64');
+    const dataURI = "data:" + req.file.mimetype + ";base64," + b64;
+
+    const result = await cloudinary.uploader.upload(dataURI, {
+        folder: 'krovaa/communities',
+        transformation: [{ width: 400, height: 400, crop: 'fill', gravity: 'auto' }],
+        access_mode: 'public'
+    });
+
+    const finalAvatarUrl = result.secure_url || result.url;
+
+    const updated = await prisma.community.update({
+      where: { id: communityId },
+      data: { avatarUrl: finalAvatarUrl }
+    });
+    res.json(updated);
+  } catch (err) {
+    console.error('Update avatar error:', err);
+    res.status(500).json({ error: 'Failed to update avatar.', details: err.message });
   }
 });
 
@@ -300,18 +396,17 @@ router.post('/:id/messages', auth, async (req, res) => {
     }).catch(() => null);
     if (!member) return res.status(403).json({ error: 'Not a member of this community.' });
     
-    const message = await prisma.projectMessage.create({ 
+    const message = await prisma.communityMessage.create({ 
       data: { 
-        projectId: 0, // 0 for community-level messages
+        communityId,
         senderId: req.user.id,
         content: content || '',
         messageType: 'text',
-        attachmentUrl,
-        metadata: JSON.stringify({ communityId })
+        attachmentUrl
       } 
     });
     
-    const fullMessage = await prisma.projectMessage.findUnique({
+    const fullMessage = await prisma.communityMessage.findUnique({
       where: { id: message.id },
       include: { sender: true }
     });
@@ -329,8 +424,8 @@ router.get('/:id/messages', auth, async (req, res) => {
     const limit = parseInt(req.query.limit) || 50;
     const offset = parseInt(req.query.offset) || 0;
     
-    const messages = await prisma.projectMessage.findMany({
-      where: { metadata: { contains: `"communityId":${communityId}` } },
+    const messages = await prisma.communityMessage.findMany({
+      where: { communityId },
       include: { sender: true },
       orderBy: { createdAt: 'desc' },
       take: limit,
@@ -364,8 +459,8 @@ router.delete('/:id', auth, async (req, res) => {
     if (community.creatorId !== req.user.id) return res.status(403).json({ error: 'Only creator can delete.' });
     
     // Delete community-level messages
-    await prisma.projectMessage.deleteMany({
-      where: { metadata: { contains: `"communityId":${id}` } }
+    await prisma.communityMessage.deleteMany({
+      where: { communityId: id }
     });
     
     await prisma.community.delete({ where: { id } });

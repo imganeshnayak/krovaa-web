@@ -488,7 +488,6 @@ router.post('/:id/apply', auth, async (req, res) => {
                 : '';
 
     
-
         // Create application
         const application = await prisma.application.create({
             data: {

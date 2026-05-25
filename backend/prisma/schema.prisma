@@ -654,6 +654,7 @@ model Community {
   slug        String            @unique
   description String?
   isPrivate   Boolean           @default(false)
+  avatarUrl   String?           @map("avatar_url")
   creatorId   Int               @map("creator_id")
   creator     User              @relation(fields: [creatorId], references: [id], onDelete: Cascade)
   members     CommunityMember[]
@@ -671,6 +672,7 @@ model CommunityMember {
   communityId Int       @map("community_id")
   userId      Int       @map("user_id")
   role        String    @default("member")
+  status      String    @default("approved")
   joinedAt    DateTime  @default(now()) @map("joined_at")
   community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
