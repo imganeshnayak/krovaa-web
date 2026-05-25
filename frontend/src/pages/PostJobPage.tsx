@@ -1,6 +1,6 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, CheckCircle, Trash2, Plus } from "lucide-react";
+import { ArrowLeft, CheckCircle, Paperclip, X, Briefcase, Building, MapPin, IndianRupee, Clock, Code2, FileText } from "lucide-react";
 import { Job, postJob } from "../lib/api";
 
 const PostJobPage = () => {
@@ -10,26 +10,39 @@ const PostJobPage = () => {
   const [location, setLocation] = useState("");
   const [budget, setBudget] = useState("");
   const [mode, setMode] = useState("Remote");
+  const [duration, setDuration] = useState(""); // New field for context
+  const [skills, setSkills] = useState(""); // New field for alignment
   const [description, setDescription] = useState("");
-  const [terms, setTerms] = useState<string[]>([""]);
   const [submitted, setSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [createdJob, setCreatedJob] = useState<Job | null>(null);
+  const [attachments, setAttachments] = useState<File[]>([]);
+  const [attachmentPreviews, setAttachmentPreviews] = useState<(string | null)[]>([]);
 
-  const handleTermChange = (index: number, value: string) => {
-    const newTerms = [...terms];
-    newTerms[index] = value;
-    setTerms(newTerms);
+  useEffect(() => {
+    const previewUrls = attachments.map((file) => (
+      file.type.startsWith("image/") ? URL.createObjectURL(file) : null
+    ));
+
+    setAttachmentPreviews(previewUrls);
+
+    return () => {
+      previewUrls.forEach((url) => {
+        if (url) {
+          URL.revokeObjectURL(url);
+        }
+      });
+    };
+  }, [attachments]);
+
+  const handleAttachmentChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    setAttachments((prev) => [...prev, ...files].slice(0, 10)); // Caps at 10 files max
   };
 
-  const addTerm = () => {
-    setTerms([...terms, ""]);
-  };
-
-  const removeTerm = (index: number) => {
-    const newTerms = terms.filter((_, i) => i !== index);
-    setTerms(newTerms.length > 0 ? newTerms : [""]);
+  const removeAttachment = (indexToRemove: number) => {
+    setAttachments((current) => current.filter((_, index) => index !== indexToRemove));
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -38,10 +51,21 @@ const PostJobPage = () => {
     setIsSubmitting(true);
 
     try {
-      const filteredTerms = terms.map(t => t.trim()).filter(Boolean);
-      const job = await postJob({ title, company, location, budget, mode, description, terms: filteredTerms });
+      // Extended payload structure with parsed skills and timeline settings
+      const job = await postJob({ 
+        title, 
+        company, 
+        location, 
+        budget, 
+        mode, 
+        description, 
+        attachments,
+        duration,
+        skills: skills.split(",").map(s => s.trim()).filter(Boolean)
+      });
       setCreatedJob(job);
       setSubmitted(true);
+      setAttachments([]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to post job.');
     } finally {
@@ -50,169 +74,250 @@ const PostJobPage = () => {
   };
 
   return (
-    <div className="px-4 pb-6 pt-4 sm:px-6">
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="space-y-1">
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to jobs
-          </button>
-          <h1 className="text-2xl font-semibold text-slate-950">Post a job</h1>
-          <p className="text-sm text-slate-500">Create a new job listing for others to discover.</p>
-        </div>
+    <div className="max-w-4xl mx-auto px-4 pb-28 pt-6 sm:px-6">
+      {/* Page Header */}
+      <div className="mb-8 border-b border-slate-100 pb-6">
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors group mb-3"
+        >
+          <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
+          Back to jobs
+        </button>
+        <h1 className="text-2xl sm:text-3xl font-bold text-slate-950 tracking-tight">Post a job</h1>
+        <p className="text-sm text-slate-500 mt-1">Deploy a brand-new scope profile tracking direct developer matching parameters.</p>
       </div>
 
       <div className="space-y-6">
         {submitted ? (
-          <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-6 text-slate-900 shadow-sm">
-            <div className="flex items-center gap-3 text-emerald-700">
-              <CheckCircle className="h-6 w-6" />
+          <div className="rounded-[2rem] border border-emerald-200 bg-emerald-50/40 p-6 sm:p-8 text-slate-900 shadow-sm space-y-6">
+            <div className="flex items-start gap-4 text-emerald-800">
+              <div className="p-2 bg-emerald-100 rounded-xl shrink-0">
+                <CheckCircle className="h-6 w-6 text-emerald-600" />
+              </div>
               <div>
-                <p className="font-semibold">Job posted successfully.</p>
-                <p className="text-sm text-slate-600">Your listing has been saved to the backend.</p>
+                <h2 className="text-lg font-bold tracking-tight">Job Cluster Initialized Successfully</h2>
+                <p className="text-sm text-slate-600 mt-0.5">Your assignment listing pipeline has been accurately propagated to the infrastructure database.</p>
               </div>
             </div>
-            <div className="mt-4 space-y-1 text-sm text-slate-700">
-              <p><strong>Title:</strong> {createdJob?.title || title}</p>
-              <p><strong>Company:</strong> {createdJob?.company || company}</p>
-              <p><strong>Location:</strong> {createdJob?.location || location}</p>
-              <p><strong>Mode:</strong> {createdJob?.mode || mode}</p>
-              <p><strong>Budget:</strong> {createdJob?.budget || budget}</p>
-              <p><strong>Description:</strong> {createdJob?.description || description}</p>
-              {createdJob?.terms && (Array.isArray(createdJob.terms) ? createdJob.terms : [createdJob.terms]).length > 0 && (
-                <div className="mt-2 pt-2 border-t border-emerald-200/50">
-                  <p className="font-semibold text-slate-900 mb-1">Terms & Conditions:</p>
-                  <ul className="list-disc pl-5 space-y-1">
-                    {(Array.isArray(createdJob.terms) ? createdJob.terms : [createdJob.terms]).map((term, index) => (
-                      <li key={index}>{term}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+            
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 grid gap-4 text-sm text-slate-700">
+              <p className="border-b border-slate-50 pb-2"><strong className="text-slate-400 font-semibold uppercase text-[10px] tracking-wider block">Job Title</strong> <span className="font-semibold text-slate-900">{createdJob?.title || title}</span></p>
+              <p className="border-b border-slate-50 pb-2"><strong className="text-slate-400 font-semibold uppercase text-[10px] tracking-wider block">Company</strong> {createdJob?.company || company}</p>
+              <div className="grid sm:grid-cols-3 gap-4 border-b border-slate-50 pb-2">
+                <p><strong className="text-slate-400 font-semibold uppercase text-[10px] tracking-wider block">Location</strong> {createdJob?.location || location}</p>
+                <p><strong className="text-slate-400 font-semibold uppercase text-[10px] tracking-wider block">Mode</strong> {createdJob?.mode || mode}</p>
+                <p><strong className="text-slate-400 font-semibold uppercase text-[10px] tracking-wider block">Budget Matrix</strong> {createdJob?.budget || budget}</p>
+              </div>
+              {skills && <p className="border-b border-slate-50 pb-2"><strong className="text-slate-400 font-semibold uppercase text-[10px] tracking-wider block">Skills Mapped</strong> {skills}</p>}
+              <p><strong className="text-slate-400 font-semibold uppercase text-[10px] tracking-wider block">Detailed Scope Context</strong> <span className="block mt-1 text-slate-600 whitespace-pre-wrap leading-relaxed text-xs">{createdJob?.description || description}</span></p>
             </div>
+
+            <Button 
+              className="w-full sm:w-auto rounded-xl bg-slate-950 text-white font-semibold text-xs h-11 px-6 hover:bg-slate-800"
+              onClick={() => navigate('/jobs')}
+            >
+              Return to Listing Continuum
+            </Button>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="grid gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <form onSubmit={handleSubmit} className="space-y-6">
             {error && (
-              <div className="rounded-3xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+              <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-xs font-semibold text-rose-700">
                 {error}
               </div>
             )}
-            <label className="space-y-2 text-sm text-slate-700">
-              <span>Job title</span>
-              <input
-                value={title}
-                onChange={(event) => setTitle(event.target.value)}
-                placeholder="e.g. Product designer for marketplace app"
-                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-[#00A4EF] focus:ring-2 focus:ring-[#00A4EF]/20"
-                required
-              />
-            </label>
 
-            <label className="space-y-2 text-sm text-slate-700">
-              <span>Company</span>
-              <input
-                value={company}
-                onChange={(event) => setCompany(event.target.value)}
-                placeholder="e.g. Krovaa Labs"
-                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-[#00A4EF] focus:ring-2 focus:ring-[#00A4EF]/20"
-                required
-              />
-            </label>
+            {/* Block 1: Role Core Context */}
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm space-y-5">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                <Briefcase className="h-4 w-4 text-[#00A4EF]" />
+                Primary Identifier Data
+              </h3>
+              
+              <div className="grid gap-5 sm:grid-cols-2">
+                <label className="flex flex-col gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                  <span>Job title <span className="text-rose-500">*</span></span>
+                  <input
+                    value={title}
+                    onChange={(event) => setTitle(event.target.value)}
+                    placeholder="e.g. Lead Full-Stack Architect (Next.js)"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-2.5 text-sm normal-case font-normal text-slate-900 outline-none transition focus:border-[#00A4EF] focus:ring-4 focus:ring-[#00A4EF]/10"
+                    required
+                  />
+                </label>
 
-            <div className="grid gap-4 sm:grid-cols-3">
-              <label className="space-y-2 text-sm text-slate-700">
-                <span>Location</span>
-                <input
-                  value={location}
-                  onChange={(event) => setLocation(event.target.value)}
-                  placeholder="e.g. Remote"
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-[#00A4EF] focus:ring-2 focus:ring-[#00A4EF]/20"
-                  required
-                />
-              </label>
-
-              <label className="space-y-2 text-sm text-slate-700">
-                <span>Budget</span>
-                <input
-                  value={budget}
-                  onChange={(event) => setBudget(event.target.value)}
-                  placeholder="e.g. $1,500 - $2,000"
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-[#00A4EF] focus:ring-2 focus:ring-[#00A4EF]/20"
-                  required
-                />
-              </label>
-
-              <label className="space-y-2 text-sm text-slate-700">
-                <span>Mode</span>
-                <select
-                  value={mode}
-                  onChange={(event) => setMode(event.target.value)}
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-[#00A4EF] focus:ring-2 focus:ring-[#00A4EF]/20"
-                  required
-                >
-                  <option value="Remote">Remote</option>
-                  <option value="Hybrid">Hybrid</option>
-                  <option value="Onsite">Onsite</option>
-                </select>
-              </label>
-            </div>
-
-            <label className="space-y-2 text-sm text-slate-700">
-              <span>Description</span>
-              <textarea
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-                placeholder="Write a short summary of the job, responsibilities, and requirements."
-                className="min-h-[140px] w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-[#00A4EF] focus:ring-2 focus:ring-[#00A4EF]/20"
-                required
-              />
-            </label>
-
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-slate-700">Terms & Conditions</span>
-                <button
-                  type="button"
-                  onClick={addTerm}
-                  className="inline-flex items-center gap-1 text-xs font-semibold text-[#00A4EF] hover:underline"
-                >
-                  <Plus className="h-3 w-3" /> Add Term
-                </button>
-              </div>
-              <div className="space-y-2">
-                {terms.map((term, index) => (
-                  <div key={index} className="flex items-center gap-2">
+                <label className="flex flex-col gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                  <span>Company Registry <span className="text-rose-500">*</span></span>
+                  <div className="relative flex items-center">
+                    <Building className="absolute left-4 h-4 w-4 text-slate-400" />
                     <input
-                      value={term}
-                      onChange={(event) => handleTermChange(index, event.target.value)}
-                      placeholder={`e.g. Must complete task before deadline`}
-                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-[#00A4EF] focus:ring-2 focus:ring-[#00A4EF]/20"
+                      value={company}
+                      onChange={(event) => setCompany(event.target.value)}
+                      placeholder="e.g. Utopia SaaS Platforms"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/50 pl-11 pr-4 py-2.5 text-sm normal-case font-normal text-slate-900 outline-none transition focus:border-[#00A4EF] focus:ring-4 focus:ring-[#00A4EF]/10"
+                      required
                     />
-                    <button
-                      type="button"
-                      onClick={() => removeTerm(index)}
-                      className="p-3 text-slate-400 hover:text-rose-600 transition"
-                      disabled={terms.length === 1 && term === ""}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
                   </div>
-                ))}
+                </label>
               </div>
             </div>
 
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="inline-flex items-center justify-center rounded-full bg-[#00A4EF] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#0087d1] disabled:cursor-not-allowed disabled:bg-slate-400"
-            >
-              {isSubmitting ? 'Posting...' : 'Submit job listing'}
-            </button>
+            {/* Block 2: Location, Budget, Alignment Fields */}
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm space-y-5">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                <MapPin className="h-4 w-4 text-[#00A4EF]" />
+                Workspace Operational Alignment
+              </h3>
+
+              <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+                <label className="flex flex-col gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                  <span>Location Hub <span className="text-rose-500">*</span></span>
+                  <input
+                    value={location}
+                    onChange={(event) => setLocation(event.target.value)}
+                    placeholder="e.g. Remote / Mangaluru"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-2.5 text-sm normal-case font-normal text-slate-900 outline-none transition focus:border-[#00A4EF] focus:ring-4 focus:ring-[#00A4EF]/10"
+                    required
+                  />
+                </label>
+
+                <label className="flex flex-col gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                  <span>Mode Matrix <span className="text-rose-500">*</span></span>
+                  <select
+                    value={mode}
+                    onChange={(event) => setMode(event.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-2.5 text-sm normal-case font-normal text-slate-900 outline-none transition focus:border-[#00A4EF] focus:ring-4 focus:ring-[#00A4EF]/10"
+                    required
+                  >
+                    <option value="Remote">Remote</option>
+                    <option value="Hybrid">Hybrid</option>
+                    <option value="Onsite">Onsite</option>
+                  </select>
+                </label>
+
+                <label className="flex flex-col gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                  <span>Budget Scope <span className="text-rose-500">*</span></span>
+                  <div className="relative flex items-center">
+                    <IndianRupee className="absolute left-4 h-3.5 w-3.5 text-slate-400" />
+                    <input
+                      value={budget}
+                      onChange={(event) => setBudget(event.target.value)}
+                      placeholder="e.g. 45,000 - 60,000"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/50 pl-9 pr-4 py-2.5 text-sm normal-case font-normal text-slate-900 outline-none transition focus:border-[#00A4EF] focus:ring-4 focus:ring-[#00A4EF]/10"
+                      required
+                    />
+                  </div>
+                </label>
+
+                <label className="flex flex-col gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                  <span>Expected Duration</span>
+                  <div className="relative flex items-center">
+                    <Clock className="absolute left-4 h-4 w-4 text-slate-400" />
+                    <input
+                      value={duration}
+                      onChange={(event) => setDuration(event.target.value)}
+                      placeholder="e.g. 3 Months / Initial Scope"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/50 pl-11 pr-4 py-2.5 text-sm normal-case font-normal text-slate-900 outline-none transition focus:border-[#00A4EF] focus:ring-4 focus:ring-[#00A4EF]/10"
+                    />
+                  </div>
+                </label>
+              </div>
+
+              <label className="flex flex-col gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 pt-2">
+                <span className="flex items-center gap-1">
+                  <Code2 className="h-3.5 w-3.5 text-slate-400" />
+                  Target Skill Arrays
+                </span>
+                <input
+                  value={skills}
+                  onChange={(event) => setSkills(event.target.value)}
+                  placeholder="e.g. React, TypeScript, Next.js, Tailwind CSS (Comma separated)"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-2.5 text-sm normal-case font-normal text-slate-900 outline-none transition focus:border-[#00A4EF] focus:ring-4 focus:ring-[#00A4EF]/10"
+                />
+              </label>
+            </div>
+
+            {/* Block 3: Assignment Specifications & Assets */}
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm space-y-6">
+              <label className="flex flex-col gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                <span>Detailed Deliverables Specification <span className="text-rose-500">*</span></span>
+                <textarea
+                  value={description}
+                  onChange={(event) => setDescription(event.target.value)}
+                  placeholder="Enumerate exact system milestones, engineering requirements, architectural responsibilities, and criteria metrics..."
+                  className="min-h-[160px] w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm normal-case font-normal text-slate-900 outline-none transition focus:border-[#00A4EF] focus:ring-4 focus:ring-[#00A4EF]/10 leading-relaxed"
+                  required
+                />
+              </label>
+
+              <div className="space-y-3">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block">Optional Technical Briefs / Attachments</span>
+                <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50 px-4 py-6 transition hover:border-[#00A4EF] hover:bg-[#F3FAFF] group">
+                  <div className="p-2.5 bg-white rounded-xl border border-slate-100 shadow-sm group-hover:scale-105 transition-transform">
+                    <Paperclip className="h-4 w-4 text-slate-500 group-hover:text-[#00A4EF]" />
+                  </div>
+                  <span className="font-semibold text-xs text-slate-700 mt-1">Bind Reference Documentation</span>
+                  <span className="text-[10px] text-slate-400">Upload Figma panels, project schemas, JSON datasets or PDF instructions. Max 10 files.</span>
+                  <input
+                    type="file"
+                    multiple
+                    accept="*/*"
+                    onChange={handleAttachmentChange}
+                    className="hidden"
+                  />
+                </label>
+
+                {/* Displaying Uploaded File Assets */}
+                {attachments.length > 0 && (
+                  <div className="grid gap-3 rounded-2xl border border-slate-100 bg-slate-50/30 p-4 mt-3">
+                    {attachments.map((file, index) => {
+                      const previewUrl = attachmentPreviews[index];
+
+                      return (
+                        <div key={`${file.name}-${file.lastModified}-${index}`} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                          {previewUrl ? (
+                            <img src={previewUrl} alt={file.name} className="h-12 w-12 rounded-lg object-cover border border-slate-100" />
+                          ) : (
+                            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-slate-50 border border-slate-100 text-slate-400">
+                              <FileText className="h-5 w-5 text-slate-400" />
+                            </div>
+                          )}
+
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-xs font-bold text-slate-900">{file.name}</p>
+                            <p className="text-[10px] font-mono text-slate-400 mt-0.5">
+                              {(file.size / (1024 * 1024)).toFixed(2)} MB · {file.type || "binary/octet-stream"}
+                            </p>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => removeAttachment(index)}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-100 text-slate-400 transition hover:border-rose-100 hover:bg-rose-50 hover:text-rose-600"
+                            aria-label={`Remove asset ${file.name}`}
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Submit Control Action Bar */}
+            <div className="pt-2 flex justify-end">
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full sm:w-auto inline-flex h-12 items-center justify-center rounded-xl bg-[#00A4EF] px-8 text-sm font-bold text-white shadow-lg shadow-[#00A4EF]/10 transition-all hover:bg-[#0087d1] active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+              >
+                {isSubmitting ? 'Deploying Listing...' : 'Publish Job Listing'}
+              </button>
+            </div>
           </form>
         )}
       </div>

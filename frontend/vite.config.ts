@@ -32,4 +32,18 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'react-router-dom'],
+          ui: ['lucide-react', 'framer-motion', 'embla-carousel-react'],
+          utils: ['date-fns', 'zod', 'clsx', 'tailwind-merge'],
+          query: ['@tanstack/react-query'],
+          socket: ['socket.io-client'],
+          charts: ['recharts']
+        }
+      }
+    }
+  }
 }));

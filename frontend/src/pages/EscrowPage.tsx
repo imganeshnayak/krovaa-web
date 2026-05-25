@@ -532,12 +532,40 @@ const EscrowPage = () => {
                       className="mt-0.5"
                     />
                     <div className="grid gap-1.5 leading-none">
-                      <Label
-                        htmlFor="escrow-terms"
-                        className="text-xs text-muted-foreground cursor-pointer leading-normal"
-                      >
-                        I agree to the <Link to="/terms" target="_blank" className="text-primary hover:underline">Terms & Conditions</Link>, <Link to="/privacy" target="_blank" className="text-primary hover:underline">Privacy Policy</Link> and <Link to="/refund" target="_blank" className="text-primary hover:underline">Refund Policy</Link>
-                      </Label>
+                      <div className="text-xs text-muted-foreground leading-normal">
+                        <Label htmlFor="escrow-terms" className="cursor-pointer">
+                          I agree to the 
+                        </Label>
+                        <Link
+                          to="/terms"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          Terms & Conditions
+                        </Link>
+                        {", "}
+                        <Link
+                          to="/privacy"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          Privacy Policy
+                        </Link>
+                        {" and "}
+                        <Link
+                          to="/refund"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          Refund Policy
+                        </Link>
+                      </div>
                     </div>
                   </div>
 

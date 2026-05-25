@@ -18,12 +18,13 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Info, Plus } from "lucide-react";
+import { Info, Plus, Share2 } from "lucide-react";
 import { initiateWalletTopup, verifyPayment } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
+import { useRazorpay } from "@/hooks/useRazorpay";
 
 declare global {
     interface Window {
@@ -48,6 +49,9 @@ const WalletPage = () => {
     const [addAmount, setAddAmount] = useState<string>("500");
     const [agreeToWalletTerms, setAgreeToWalletTerms] = useState(false);
     const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+    const { openCheckout } = useRazorpay();
+    const shareId = user?.shareId || user?.username || "";
+    const walletShareLink = shareId ? `${window.location.origin}/wallet/pay/${encodeURIComponent(shareId)}` : "";
 
     const loadData = async (type = filterType) => {
         setIsLoading(true);
@@ -110,10 +114,22 @@ const WalletPage = () => {
 
     return (
         <div className="container max-w-4xl mx-auto p-4 md:p-6 space-y-6 pb-20 md:pb-6">
-            <h1 className="text-3xl font-bold flex items-center gap-2">
-                <Wallet className="h-8 w-8 text-[#00A4EF]" />
-                My Wallet
-            </h1>
+            <div className="flex items-center justify-between">
+                <h1 className="text-3xl font-bold flex items-center gap-2">
+                    <Wallet className="h-8 w-8 text-[#00A4EF]" />
+                    My Wallet
+                </h1>
+                <Button
+                    asChild
+                    variant="outline"
+                    className="border-[#00A4EF] text-[#00A4EF] hover:bg-[#00A4EF]/10"
+                    aria-label="Share wallet QR"
+                >
+                    <Link to={`/wallet/pay/${encodeURIComponent(shareId)}`}>
+                        <Share2 className="h-4 w-4" />
+                    </Link>
+                </Button>
+            </div>
 
             {/* Balance Card */}
             <Card className="bg-gradient-to-br from-[#00A4EF]/10 to-[#00A4EF]/5 border-[#00A4EF]/20">
@@ -145,6 +161,7 @@ const WalletPage = () => {
                             </Button>
                         </div>
                     </div>
+                    
                 </CardHeader>
             </Card>
 
@@ -201,6 +218,13 @@ const WalletPage = () => {
                             </div>
                         )}
 
+                        {isProcessingPayment && (
+                            <div className="flex items-center gap-3 rounded-lg border border-[#00A4EF]/20 bg-[#00A4EF]/5 px-4 py-3 text-sm text-[#00A4EF]">
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                <span>Loading secure payment gateway...</span>
+                            </div>
+                        )}
+
                         <div className="flex items-start space-x-2 p-3 bg-secondary/20 rounded-lg">
                             <Checkbox 
                                 id="walletTerms" 
@@ -209,12 +233,40 @@ const WalletPage = () => {
                                 className="mt-0.5"
                             />
                             <div className="grid gap-1.5 leading-none">
-                                <Label
-                                    htmlFor="walletTerms"
-                                    className="text-xs text-[#1C1C1C]/60 cursor-pointer leading-normal"
-                                >
-                                    I agree to the <Link to="/terms" target="_blank" className="text-[#00A4EF] hover:underline">Terms & Conditions</Link>, <Link to="/privacy" target="_blank" className="text-[#00A4EF] hover:underline">Privacy Policy</Link> and <Link to="/refund" target="_blank" className="text-[#00A4EF] hover:underline">Refund Policy</Link>
-                                </Label>
+                                <div className="text-xs text-[#1C1C1C]/60 leading-normal">
+                                    <Label htmlFor="walletTerms" className="cursor-pointer">
+                                        I agree to the 
+                                    </Label>
+                                    <Link
+                                        to="/terms"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-[#00A4EF] hover:underline"
+                                        onClick={(e) => e.stopPropagation()}
+                                    >
+                                        Terms & Conditions
+                                    </Link>
+                                    {", "}
+                                    <Link
+                                        to="/privacy"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-[#00A4EF] hover:underline"
+                                        onClick={(e) => e.stopPropagation()}
+                                    >
+                                        Privacy Policy
+                                    </Link>
+                                    {" and "}
+                                    <Link
+                                        to="/refund"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-[#00A4EF] hover:underline"
+                                        onClick={(e) => e.stopPropagation()}
+                                    >
+                                        Refund Policy
+                                    </Link>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -236,14 +288,18 @@ const WalletPage = () => {
                                 try {
                                     const order = await initiateWalletTopup(amount);
 
-                                    const options = {
-                                        key: order.key_id,
+                                    const opened = await openCheckout({
+                                        orderId: order.orderId,
                                         amount: order.amount,
                                         currency: order.currency,
                                         name: "Krovaa Wallet",
                                         description: `Top-up ₹${amount}`,
-                                        order_id: order.orderId,
-                                        handler: async function (response: any) {
+                                        keyId: order.key_id,
+                                        userDetails: {
+                                            name: user?.displayName,
+                                            email: user?.username + "@Krovaa.com",
+                                        },
+                                        onSuccess: async (response) => {
                                             try {
                                                 const verification = await verifyPayment({
                                                     orderId: response.razorpay_order_id,
@@ -261,15 +317,14 @@ const WalletPage = () => {
                                                 toast.error("Payment verification failed. Please contact support.");
                                             }
                                         },
-                                        prefill: {
-                                            name: user?.displayName,
-                                            email: user?.username + "@Krovaa.com", // Fallback email
+                                        onFailure: (error) => {
+                                            console.error("Wallet payment failed:", error);
                                         },
-                                        theme: { color: themeColors.blue.primary }
-                                    };
+                                    });
 
-                                    const rzp = new window.Razorpay(options);
-                                    rzp.open();
+                                    if (opened) {
+                                        setIsAddMoneyOpen(false);
+                                    }
                                 } catch (error) {
                                     console.error("Add money error:", error);
                                     toast.error("Failed to initiate payment.");

@@ -20,19 +20,7 @@ router.post('/', auth, async (req, res) => {
         description,
         isPrivate: !!isPrivate,
         creatorId: req.user.id,
-        members: { create: { userId: req.user.id, role: 'owner' } },
-        groupChat: {
-          create: {
-            name: `${name} General Chat`,
-            description: `Official chat group for ${name}`,
-            members: {
-              create: {
-                userId: req.user.id,
-                role: 'owner'
-              }
-            }
-          }
-        }
+        members: { create: { userId: req.user.id, role: 'owner' } }
       }
     });
 
@@ -94,17 +82,11 @@ router.post('/:id/join', auth, async (req, res) => {
   try {
     const communityId = Number(req.params.id);
     const community = await prisma.community.findUnique({ 
-      where: { id: communityId },
-      include: { groupChat: true }
+      where: { id: communityId }
     });
     if (!community) return res.status(404).json({ error: 'Community not found.' });
     if (community.isPrivate) return res.status(403).json({ error: 'Cannot join private community without invite.' });
     await prisma.communityMember.create({ data: { communityId, userId: req.user.id } });
-    if (community.groupChat) {
-      await prisma.groupMember.create({
-        data: { groupId: community.groupChat.id, userId: req.user.id, role: 'member' }
-      }).catch(err => console.error("Could not add to group chat", err));
-    }
     res.json({ success: true });
   } catch (err) {
     console.error('Join community error:', err);
@@ -288,8 +270,7 @@ router.post('/join/:slug', auth, async (req, res) => {
   try {
     const { slug } = req.params;
     const community = await prisma.community.findUnique({ 
-      where: { slug },
-      include: { groupChat: true }
+      where: { slug }
     });
     if (!community) return res.status(404).json({ error: 'Community not found.' });
     if (community.isPrivate) return res.status(403).json({ error: 'Cannot join private community.' });
@@ -300,11 +281,6 @@ router.post('/join/:slug', auth, async (req, res) => {
     if (existing) return res.status(400).json({ error: 'Already a member.' });
     
     await prisma.communityMember.create({ data: { communityId: community.id, userId: req.user.id } });
-    if (community.groupChat) {
-      await prisma.groupMember.create({
-        data: { groupId: community.groupChat.id, userId: req.user.id, role: 'member' }
-      }).catch(err => console.error("Could not add to group chat", err));
-    }
     res.json({ success: true, communityId: community.id });
   } catch (err) {
     console.error('Join via slug error:', err);
