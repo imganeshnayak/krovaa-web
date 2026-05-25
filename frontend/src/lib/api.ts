@@ -346,6 +346,7 @@ export interface Community {
   slug: string;
   description?: string;
   isPrivate: boolean;
+  avatarUrl?: string;
   creatorId: number;
   createdAt: string;
 }
@@ -372,6 +373,21 @@ export function leaveCommunity(id: number): Promise<any> {
 
 export function deleteCommunity(id: number): Promise<any> {
   return apiFetch(`/api/communities/${id}`, { method: 'DELETE' });
+}
+
+export function updateCommunityAvatar(communityId: number, file: File): Promise<{ avatarUrl: string }> {
+  const formData = new FormData();
+  formData.append("avatar", file);
+  return apiFetch<{ avatarUrl: string }>(`/api/communities/${communityId}/avatar`, {
+    method: "PUT",
+    body: formData,
+  });
+}
+
+export function approveCommunityMember(communityId: number, userId: number): Promise<{ success: boolean }> {
+  return apiFetch<{ success: boolean }>(`/api/communities/${communityId}/members/${userId}/approve`, {
+    method: "PUT",
+  });
 }
 
 export interface ShareLinkData {
