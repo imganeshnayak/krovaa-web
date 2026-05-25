@@ -487,11 +487,7 @@ router.post('/:id/apply', auth, async (req, res) => {
                 ? termsAndConditions
                 : '';
 
-        const termsString = Array.isArray(termsAndConditions)
-            ? termsAndConditions.join('\n')
-            : typeof termsAndConditions === 'string'
-                ? termsAndConditions
-                : '';
+    
 
         // Create application
         const application = await prisma.application.create({
