@@ -92,6 +92,7 @@ app.use(cors({
 app.use(helmet({
     crossOriginEmbedderPolicy: false,
     crossOriginResourcePolicy: { policy: 'cross-origin' },
+    hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
     contentSecurityPolicy: {
         directives: {
             defaultSrc: ["'self'"],
