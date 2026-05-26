@@ -1450,7 +1450,6 @@ export function checkImageGenerationUsage(): Promise<{
   return apiFetch("/api/subscriptions/check-usage");
 }
 
-<<<<<<< Updated upstream
 // ============ Teams API ============
 
 export interface Team {
@@ -1472,9 +1471,11 @@ export interface TeamMember {
 export function getTeams(): Promise<Team[]> {
   return apiFetch<Team[]>('/api/teams');
 }
+
 export function createTeam(data: { name: string; description?: string }): Promise<Team> {
   return apiFetch<Team>('/api/teams', { method: 'POST', body: JSON.stringify(data) });
 }
+
 export function addTeamMember(teamId: number, data: { userId: number; role?: string }): Promise<TeamMember> {
   return apiFetch<TeamMember>(`/api/teams/${teamId}/members`, { method: 'POST', body: JSON.stringify(data) });
 }
@@ -1493,19 +1494,25 @@ export interface GroupChat {
 export function getGroupChats(): Promise<GroupChat[]> {
   return apiFetch<GroupChat[]>('/api/groups');
 }
+
 export function createGroupChat(data: { name?: string; description?: string; userIds: number[]; isTeamChat?: boolean }): Promise<GroupChat> {
   return apiFetch<GroupChat>('/api/groups', { method: 'POST', body: JSON.stringify(data) });
 }
+
 export function getGroupMessages(groupId: number): Promise<any[]> {
   return apiFetch<any[]>(`/api/groups/${groupId}/messages`);
 }
+
 export function sendGroupMessage(groupId: number, data: { content: string; messageType?: string; attachmentUrl?: string }): Promise<any> {
   return apiFetch<any>(`/api/groups/${groupId}/messages`, { method: 'POST', body: JSON.stringify(data) });
-=======
+}
+
 export function updateJobTerms(jobId: number, terms: string[]): Promise<Job> {
   return apiFetch<Job>(`/api/jobs/${jobId}/terms`, {
     method: 'PUT',
     body: JSON.stringify({ terms }),
   });
->>>>>>> Stashed changes
 }
+
+
+

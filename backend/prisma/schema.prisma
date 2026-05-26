@@ -341,16 +341,6 @@ model Job {
   postedById  Int      @map("posted_by_id")
   createdAt   DateTime @default(now()) @map("created_at")
   postedBy    User     @relation("PostedJobs", fields: [postedById], references: [id], onDelete: Cascade)
-  id           Int           @id @default(autoincrement())
-  title        String
-  company      String
-  location     String
-  budget       String
-  mode         String        @default("Remote")
-  description  String
-  postedById   Int           @map("posted_by_id")
-  createdAt    DateTime      @default(now()) @map("created_at")
-  postedBy     User          @relation("PostedJobs", fields: [postedById], references: [id], onDelete: Cascade)
   applications Application[]
 
   @@map("jobs")
@@ -364,21 +354,11 @@ model Application {
   terms     String?
   createdAt DateTime @default(now()) @map("created_at")
   job       Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  teamId    Int?     @map("team_id")
   user      User     @relation("UserApplications", fields: [userId], references: [id], onDelete: Cascade)
+  team      Team?    @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
   @@unique([jobId, userId])
-  id           Int      @id @default(autoincrement())
-  jobId        Int      @map("job_id")
-  userId       Int?     @map("user_id")
-  teamId       Int?     @map("team_id")
-  bidAmount    Float?   @map("bid_amount")
-  deliveryTime String?  @map("delivery_time")
-  coverLetter  String?  @map("cover_letter")
-  status       String   @default("pending")
-  createdAt    DateTime @default(now()) @map("created_at")
-  job          Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  user         User?    @relation("UserApplications", fields: [userId], references: [id], onDelete: Cascade)
-  team         Team?    @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
   @@map("applications")
 }
