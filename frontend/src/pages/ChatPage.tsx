@@ -500,13 +500,6 @@ const ConversationList = ({
         )}
       </ScrollArea>
 
-      {/* Floating Communities button (navigates to Communities page) */}
-      <button
-        onClick={() => navigate('/communities')}
-        title="Communities"
-        className="fixed right-4 bottom-32 z-40 bg-white border border-border rounded-full p-3 shadow-lg hover:scale-105 transition-transform"
-      >
-      </button>
     </div>
   );
 };
