@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, CheckCircle2, FileText, MessageSquare, Paperclip, User, Calendar, MapPin, Briefcase, IndianRupee, Clock, Code2 } from "lucide-react";
-import { getJob, JobDetails, applyJob } from "../lib/api";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "sonner";
 
 const formatPostedAt = (createdAt: string) => {
@@ -31,6 +31,7 @@ const JobDetailsPage = () => {
   const [justApplied, setJustApplied] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [userApplication, setUserApplication] = useState<any>(null);
+  const isJobOwner = Boolean(user && job && job.postedBy.id === user.id);
 
   useEffect(() => {
     const loadJob = async () => {
@@ -295,7 +296,7 @@ const JobDetailsPage = () => {
               )}
 
               {/* Recieved Applicants Dashboard Panel */}
-              {job.isOwner && job.applications && (
+              {isJobOwner && job.applications && (
                 <section className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm">
                   <div className="mb-6">
                     <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">Received Applications ({job.applications.length})</h2>
@@ -406,7 +407,7 @@ const JobDetailsPage = () => {
                 </div>
 
                 {/* Apply Now button in sidebar for non-owners who haven't applied */}
-                {!job.isOwner && !isApplied && (
+                {!isJobOwner && !isApplied && (
                   <>
                     <hr className="border-slate-100" />
                     <Button
@@ -419,7 +420,7 @@ const JobDetailsPage = () => {
                 )}
 
                 {/* Already applied badge in sidebar */}
-                {!job.isOwner && isApplied && (
+                {!isJobOwner && isApplied && (
                   <>
                     <hr className="border-slate-100" />
                     <div className="flex items-center gap-2 rounded-2xl bg-indigo-50 px-4 py-3 border border-indigo-100">
@@ -480,7 +481,7 @@ const JobDetailsPage = () => {
       </AnimatePresence>
 
       {/* Floating Sticky Footer Actions Deck */}
-      {job && !isLoading && !error && !job.isOwner && !isApplied && (
+      {job && !isLoading && !error && !isJobOwner && !isApplied && (
         <div className={`fixed bottom-16 left-0 right-0 z-40 px-4 py-4 bg-white/80 backdrop-blur-xl border-t border-slate-200/60 shadow-[0_-10px_40px_rgba(0,0,0,0.04)] sm:px-6 ${!showApplyModal ? 'lg:hidden' : ''}`}>
           <div className="mx-auto max-w-3xl">
             <AnimatePresence mode="wait">
@@ -499,75 +500,84 @@ const JobDetailsPage = () => {
                     Apply Now
                   </Button>
                 </motion.div>
-              ) : (
-                <motion.div
-                  key="apply"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="flex flex-col gap-4 max-w-xl mx-auto"
-                >
-                  <div className="text-center">
-                    <p className="text-sm font-bold text-slate-900">Apply for this position</p>
-                    <p className="text-xs text-slate-500 mt-0.5">Enter your bid amount and why you're the right fit.</p>
-                  </div>
-                  <div className="space-y-4">
-                    <div className="space-y-1">
-                      <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Bid Amount <span className="text-rose-500">*</span></span>
-                      <div className="relative">
-                        <IndianRupee className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                        <input
-                          type="text"
-                          value={applyBidAmount}
-                          onChange={(e) => setApplyBidAmount(e.target.value)}
-                          placeholder="5,000"
-                          className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Cover Letter <span className="text-rose-500">*</span></span>
-                      <textarea
-                        value={applyCoverLetter}
-                        onChange={(e) => setApplyCoverLetter(e.target.value)}
-                        rows={3}
-                        placeholder="Tell the project owner why you are the right fit..."
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Terms &amp; Conditions (Optional)</span>
-                      <textarea
-                        value={termsAndConditions}
-                        onChange={(e) => setTermsAndConditions(e.target.value)}
-                        rows={2}
-                        placeholder="Any specific terms you'd like to propose..."
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex gap-3">
-                    <Button
-                      variant="outline"
-                      className="flex-1 rounded-xl border-slate-200 h-11 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-all"
-                      onClick={() => setShowApplyModal(false)}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      disabled={isSubmitting}
-                      className="flex-1 rounded-xl bg-indigo-600 h-11 text-xs font-semibold text-white hover:bg-indigo-700 shadow-md transition-all disabled:opacity-70"
-                      onClick={handleApply}
-                    >
-                      {isSubmitting ? "Submitting..." : "Submit Application"}
-                    </Button>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+        <div className="fixed bottom-[60px] md:bottom-0 left-0 right-0 z-40 px-4 py-4 bg-white/80 backdrop-blur-xl border-t border-slate-200/60 lg:hidden">
+          <Button
+            className="w-full rounded-2xl bg-slate-950 h-12 text-sm font-semibold text-white hover:bg-slate-800 shadow-lg shadow-slate-950/10 active:scale-[0.98] transition-all"
+            onClick={openApplyModal}
+          >
+            Apply Now
+          </Button>
         </div>
       )}
+
+      {/* Apply Dialog Modal */}
+      <Dialog open={showApplyModal} onOpenChange={setShowApplyModal}>
+        <DialogContent className="sm:max-w-[500px] p-6 rounded-3xl">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-slate-900">Apply for this position</DialogTitle>
+            <DialogDescription className="text-sm text-slate-500">
+              Enter your bid amount and why you're the right fit.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-5 mt-4">
+            <div className="space-y-1.5">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                Bid Amount <span className="text-rose-500">*</span>
+              </span>
+              <div className="relative">
+                <IndianRupee className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <input
+                  type="text"
+                  value={applyBidAmount}
+                  onChange={(e) => setApplyBidAmount(e.target.value)}
+                  placeholder="5,000"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                Cover Letter <span className="text-rose-500">*</span>
+              </span>
+              <textarea
+                value={applyCoverLetter}
+                onChange={(e) => setApplyCoverLetter(e.target.value)}
+                rows={4}
+                placeholder="Tell the project owner why you are the right fit..."
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100 resize-none"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                Terms &amp; Conditions (Optional)
+              </span>
+              <textarea
+                value={termsAndConditions}
+                onChange={(e) => setTermsAndConditions(e.target.value)}
+                rows={3}
+                placeholder="Any specific terms you'd like to propose..."
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100 resize-none"
+              />
+            </div>
+          </div>
+          <div className="flex gap-3 mt-6 pt-4 border-t border-slate-100">
+            <Button
+              variant="outline"
+              className="flex-1 rounded-xl border-slate-200 h-11 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-all"
+              onClick={() => setShowApplyModal(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={isSubmitting}
+              className="flex-1 rounded-xl bg-indigo-600 h-11 text-sm font-semibold text-white hover:bg-indigo-700 shadow-md transition-all disabled:opacity-70"
+              onClick={handleApply}
+            >
+              {isSubmitting ? "Submitting..." : "Submit Application"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
