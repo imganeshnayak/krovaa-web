@@ -8,14 +8,14 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
-import { useEffect, useState, useRef } from "react";
+import React, { Suspense, useEffect, useState, useRef } from "react";
 import Logo from "@/components/Logo";
 import HeroLanding from "@/components/HeroLanding";
-import FeatureCard from "@/components/FeatureCard";
-import Timeline from "@/components/Timeline";
 import Navbar from "@/components/Navbar";
-import FeaturesCarousel from "@/components/FeaturesCarousel";
 import landingContent from "../../content/landing.json";
+
+const Timeline = React.lazy(() => import("@/components/Timeline"));
+const FeaturesCarousel = React.lazy(() => import("@/components/FeaturesCarousel"));
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   MessageSquare,
@@ -73,7 +73,7 @@ const Landing = () => {
     setDragging(false);
   };
 
-  if (isLoading || user) return null;
+  if (user) return null;
 
   const slide = slides[current];
   const SlideIcon = slide.icon;
@@ -122,7 +122,9 @@ const Landing = () => {
         </div>
       </div>
 
-      <Timeline />
+      <Suspense fallback={<div className="h-40 flex items-center justify-center text-sm text-gray-500">Loading timeline...</div>}>
+        <Timeline />
+      </Suspense>
 
       <section id="features" className="py-20 px-6 group">
         <div className="max-w-6xl mx-auto">
@@ -131,7 +133,9 @@ const Landing = () => {
             <h2 className="text-3xl md:text-4xl font-bold">Everything you need. Nothing you don't.</h2>
           </div>
 
-          <FeaturesCarousel items={slides} />
+          <Suspense fallback={<div className="h-64 flex items-center justify-center text-sm text-gray-500">Loading features...</div>}>
+            <FeaturesCarousel items={slides} />
+          </Suspense>
         </div>
       </section>
 
@@ -206,16 +210,16 @@ const Landing = () => {
                 </p>
                 {/* Social Links */}
                 <div className="flex gap-2">
-                  <a href="mailto:support@krovaa.com" className="p-2 rounded-lg bg-[#F0F0F0] hover:bg-[#00A4EF] text-[#1C1C1C80] hover:text-white transition-all duration-200" title="Email">
+                  <a href="mailto:support@krovaa.com" className="p-2 rounded-lg bg-[#F0F0F0] hover:bg-[#00A4EF] text-[#454545] hover:text-white transition-all duration-200" title="Email" aria-label="Email support">
                     <Mail className="h-4 w-4" />
                   </a>
-                  <a href="https://twitter.com" className="p-2 rounded-lg bg-[#F0F0F0] hover:bg-[#00A4EF] text-[#1C1C1C80] hover:text-white transition-all duration-200" title="Twitter">
+                  <a href="https://twitter.com" className="p-2 rounded-lg bg-[#F0F0F0] hover:bg-[#00A4EF] text-[#454545] hover:text-white transition-all duration-200" title="Twitter" aria-label="Twitter profile">
                     <Twitter className="h-4 w-4" />
                   </a>
-                  <a href="https://linkedin.com" className="p-2 rounded-lg bg-[#F0F0F0] hover:bg-[#00A4EF] text-[#1C1C1C80] hover:text-white transition-all duration-200" title="LinkedIn">
+                  <a href="https://linkedin.com" className="p-2 rounded-lg bg-[#F0F0F0] hover:bg-[#00A4EF] text-[#454545] hover:text-white transition-all duration-200" title="LinkedIn" aria-label="LinkedIn profile">
                     <Linkedin className="h-4 w-4" />
                   </a>
-                  <a href="https://github.com" className="p-2 rounded-lg bg-[#F0F0F0] hover:bg-[#00A4EF] text-[#1C1C1C80] hover:text-white transition-all duration-200" title="GitHub">
+                  <a href="https://github.com" className="p-2 rounded-lg bg-[#F0F0F0] hover:bg-[#00A4EF] text-[#454545] hover:text-white transition-all duration-200" title="GitHub" aria-label="GitHub profile">
                     <Github className="h-4 w-4" />
                   </a>
                 </div>

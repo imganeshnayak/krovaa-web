@@ -204,6 +204,7 @@ const Login = () => {
                   <button
                     type="button"
                     onClick={() => setShowPassword(s => !s)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
                     className="absolute right-0 top-1/2 -translate-y-1/2 transition-colors pb-2"
                     style={{ color: "#1C1C1C40" }}
                     onMouseEnter={e => (e.currentTarget.style.color = "#1C1C1C80")}

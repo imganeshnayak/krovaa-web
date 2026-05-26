@@ -9,7 +9,7 @@ function walk(dir, callback) {
     });
 }
 
-walk('c:/Users/User/Desktop/krovaa-web/frontend/src', function(filePath) {
+walk('c:/Users/chait/Documents/krovaa-web/frontend/src', function(filePath) {
     if (filePath.endsWith('.tsx') || filePath.endsWith('.jsx')) {
         let content = fs.readFileSync(filePath, 'utf8');
         // Find <img without an alt attribute

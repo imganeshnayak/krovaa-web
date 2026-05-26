@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <link rel="icon" type="image/svg+xml" href="/krovaa-logo.svg?v=3" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <!-- Primary Meta Tags -->
   <title>Krovaa | Elite Vendor-Client Chat</title>
@@ -33,7 +33,13 @@
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800&family=Syne:wght@700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&family=Rubik:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+  <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800&family=Syne:wght@700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&family=Rubik:wght@300;400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
+  <noscript>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800&family=Syne:wght@700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&family=Rubik:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  </noscript>
+
 
   <style>
     /* Prevent initial white flash in dark mode */
@@ -51,7 +57,32 @@
 </head>
 
 <body>
-  <div id="root"></div>
+  <main id="main-content">
+    <div id="root">
+      <style>
+        .initial-loader {
+          position: fixed;
+          top: 0; left: 0; width: 100%; height: 100%;
+          background: #161b2c;
+          display: flex; justify-content: center; align-items: center;
+          z-index: 9999;
+        }
+        .initial-loader-spinner {
+          width: 40px; height: 40px;
+          border: 3px solid rgba(255,255,255,0.1);
+          border-radius: 50%;
+          border-top-color: #00A4EF;
+          animation: initial-spin 1s ease-in-out infinite;
+        }
+        @keyframes initial-spin {
+          to { transform: rotate(360deg); }
+        }
+      </style>
+      <div class="initial-loader">
+        <div class="initial-loader-spinner"></div>
+      </div>
+    </div>
+  </main>
   <script type="module" src="/src/main.tsx"></script>
 </body>
 

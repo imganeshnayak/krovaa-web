@@ -1,14 +1,14 @@
 import { lazy, Suspense } from "react";
-import { Toaster } from "@/components/ui/toaster";
+const Toaster = lazy(() => import("@/components/ui/toaster").then(m => ({ default: m.Toaster })));
 import { useAuth } from "./contexts/AuthContext";
 import LoadingScreen from "./components/ui/LoadingScreen";
 import BottomNavbar from "./components/BottomNavbar";
-import { Toaster as Sonner } from "@/components/ui/sonner";
+const Sonner = lazy(() => import("@/components/ui/sonner").then(m => ({ default: m.Toaster })));
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
-const Landing = lazy(() => import("./pages/Landing"));
+import Landing from "./pages/Landing";
 const Login = lazy(() => import("./pages/Login"));
 const Register = lazy(() => import("./pages/Register"));
 const ChatPage = lazy(() => import("./pages/ChatPage"));
@@ -35,10 +35,10 @@ const Privacy = lazy(() => import("./pages/legal/Privacy"));
 const Refund = lazy(() => import("./pages/legal/Refund"));
 const CookiePolicy = lazy(() => import("./pages/legal/CookiePolicy"));
 const NotFound = lazy(() => import("./pages/NotFound"));
-import CookieConsent from "./components/CookieConsent";
+const CookieConsent = lazy(() => import("./components/CookieConsent"));
 const CommunitiesTabPage = lazy(() => import("./pages/CommunitiesTabPage"));
 const JoinCommunityPage = lazy(() => import("./pages/JoinCommunityPage"));
-import FloatingCommunityButton from "./components/FloatingCommunityButton";
+const FloatingCommunityButton = lazy(() => import("./components/FloatingCommunityButton"));
 
 const queryClient = new QueryClient();
 
@@ -146,10 +146,13 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <TooltipProvider>
-        <Toaster />
-        <Sonner />
+        <Suspense fallback={null}>
+          <Toaster />
+          <Sonner />
+        </Suspense>
         <BrowserRouter>
           <MainContent />
+          <FloatingCommunityButton />
           <CookieConsent />
         </BrowserRouter>
       </TooltipProvider>

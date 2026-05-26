@@ -25,6 +25,145 @@ router.get('/balance', auth, async (req, res) => {
     }
 });
 
+// GET /api/wallet/recipient/:shareId - Get wallet recipient details by share ID or username
+router.get('/recipient/:shareId', async (req, res) => {
+    try {
+        const { shareId } = req.params;
+        const recipient = await prisma.user.findFirst({
+            where: {
+                OR: [
+                    { shareId },
+                    { username: shareId }
+                ]
+            },
+            select: {
+                id: true,
+                username: true,
+                displayName: true,
+                avatarUrl: true,
+                shareId: true,
+                verified: true,
+                status: true,
+                razorpayContactId: true,
+                phoneNumber: true
+            }
+        });
+
+        if (!recipient) {
+            return res.status(404).json({ error: 'Wallet recipient not found' });
+        }
+
+        res.json({ ...recipient, walletEnabled: true });
+    } catch (err) {
+        console.error('Get wallet recipient error:', err);
+        res.status(500).json({ error: 'Failed to fetch wallet recipient' });
+    }
+});
+
+// POST /api/wallet/transfer - Transfer wallet balance to another user by share ID
+router.post('/transfer', auth, async (req, res) => {
+    try {
+        const { shareId, amount, note } = req.body;
+        const transferAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+
+        if (!shareId || !transferAmount || transferAmount <= 0) {
+            return res.status(400).json({ error: 'Valid shareId and transfer amount are required' });
+        }
+
+        const sender = await prisma.user.findUnique({
+            where: { id: req.user.id }
+        });
+
+        if (!sender) {
+            return res.status(404).json({ error: 'Sender not found' });
+        }
+
+        const recipient = await prisma.user.findFirst({
+            where: {
+                OR: [
+                    { shareId },
+                    { username: shareId }
+                ]
+            }
+        });
+
+        if (!recipient) {
+            return res.status(404).json({ error: 'Recipient not found' });
+        }
+
+        if (recipient.id === sender.id) {
+            return res.status(400).json({ error: 'You cannot transfer funds to yourself' });
+        }
+
+        if (sender.walletBalance < transferAmount) {
+            return res.status(400).json({ error: 'Insufficient wallet balance' });
+        }
+
+        const result = await prisma.$transaction(async (tx) => {
+            const updatedSender = await tx.user.update({
+                where: { id: sender.id },
+                data: { walletBalance: { decrement: transferAmount } }
+            });
+
+            const updatedRecipient = await tx.user.update({
+                where: { id: recipient.id },
+                data: { walletBalance: { increment: transferAmount } }
+            });
+
+            const senderTransaction = await tx.walletTransaction.create({
+                data: {
+                    userId: sender.id,
+                    type: 'transfer',
+                    amount: -transferAmount,
+                    balance: updatedSender.walletBalance,
+                    description: `Transfer to ${recipient.displayName || recipient.username}`,
+                    metadata: { recipientId: recipient.id, shareId: recipient.shareId, note: note || null }
+                }
+            });
+
+            const recipientTransaction = await tx.walletTransaction.create({
+                data: {
+                    userId: recipient.id,
+                    type: 'transfer',
+                    amount: transferAmount,
+                    balance: updatedRecipient.walletBalance,
+                    description: `Received payment from ${sender.displayName || sender.username}`,
+                    metadata: { senderId: sender.id, shareId: recipient.shareId, note: note || null }
+                }
+            });
+
+            return { updatedSender, updatedRecipient, senderTransaction, recipientTransaction };
+        });
+
+        const io = req.app.get('io');
+        sendUserNotification(
+            io,
+            recipient.id,
+            '💸 Wallet received',
+            `You have received ₹${transferAmount.toFixed(2)} from ${sender.displayName || sender.username}.`,
+            'success',
+            { type: 'wallet_transfer', amount: transferAmount }
+        );
+
+        res.json({
+            success: true,
+            transferReference: result.senderTransaction.id.toString(),
+            amount: transferAmount,
+            senderBalance: result.updatedSender.walletBalance,
+            recipientBalance: result.updatedRecipient.walletBalance,
+            recipient: {
+                id: recipient.id,
+                username: recipient.username,
+                displayName: recipient.displayName,
+                shareId: recipient.shareId
+            }
+        });
+    } catch (err) {
+        console.error('Wallet transfer error:', err);
+        res.status(500).json({ error: 'Failed to transfer wallet balance' });
+    }
+});
+
 // GET /api/wallet/transactions - Get wallet transaction history
 router.get('/transactions', auth, async (req, res) => {
     try {
