@@ -152,8 +152,10 @@ const App = () => (
         </Suspense>
         <BrowserRouter>
           <MainContent />
-          <FloatingCommunityButton />
-          <CookieConsent />
+          <Suspense fallback={null}>
+            <FloatingCommunityButton />
+            <CookieConsent />
+          </Suspense>
         </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>
