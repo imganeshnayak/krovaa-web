@@ -537,6 +537,7 @@ router.post('/:id/apply', auth, async (req, res) => {
                 userId,
                 status: 'pending',
                 bidAmount: bidAmount ? parseFloat(bidAmount) : null,
+                deliveryTime: deliveryTime || null,
                 coverLetter: coverLetter || null,
                 terms: termsString || null
             }
@@ -645,3 +646,4 @@ router.put('/:id/terms', auth, async (req, res) => {
 });
 
 export default router;
+

@@ -1648,9 +1648,11 @@ export interface TeamMember {
 export function getTeams(): Promise<Team[]> {
   return apiFetch<Team[]>('/api/teams');
 }
+
 export function createTeam(data: { name: string; description?: string }): Promise<Team> {
   return apiFetch<Team>('/api/teams', { method: 'POST', body: JSON.stringify(data) });
 }
+
 export function addTeamMember(teamId: number, data: { userId: number; role?: string }): Promise<TeamMember> {
   return apiFetch<TeamMember>(`/api/teams/${teamId}/members`, { method: 'POST', body: JSON.stringify(data) });
 }
@@ -1669,16 +1671,20 @@ export interface GroupChat {
 export function getGroupChats(): Promise<GroupChat[]> {
   return apiFetch<GroupChat[]>('/api/groups');
 }
+
 export function createGroupChat(data: { name?: string; description?: string; userIds: number[]; isTeamChat?: boolean }): Promise<GroupChat> {
   return apiFetch<GroupChat>('/api/groups', { method: 'POST', body: JSON.stringify(data) });
 }
+
 export function getGroupMessages(groupId: number): Promise<any[]> {
   return apiFetch<any[]>(`/api/groups/${groupId}/messages`);
 }
+
 export function sendGroupMessage(groupId: number, data: { content: string; messageType?: string; attachmentUrl?: string }): Promise<any> {
   return apiFetch<any>(`/api/groups/${groupId}/messages`, { method: 'POST', body: JSON.stringify(data) });
 }
 
+<<<<<<< HEAD
 // ============ Community Jobs API ============
 
 export interface CommunityJob {
@@ -1747,3 +1753,7 @@ export function acceptCommunityBid(communityId: number, jobId: number, bidId: nu
 export function rateCommunityJob(communityId: number, jobId: number, data: { reviewedId: number; rating: number; feedback?: string }): Promise<any> {
   return apiFetch<any>(`/api/communities/${communityId}/jobs/${jobId}/ratings`, { method: 'POST', body: JSON.stringify(data) });
 }
+=======
+
+
+>>>>>>> d8fafdda48171a9981abc46f73f282a9d0b1032e
