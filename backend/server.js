@@ -2,9 +2,11 @@ import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
+import helmet from 'helmet';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import compression from 'compression';
 
 // Resolve __dirname for ESM and load .env from the project root
 const __filename = fileURLToPath(import.meta.url);
@@ -69,6 +71,7 @@ const allowedOrigins = [
 ].filter(Boolean);
 
 // Middleware
+app.use(compression());
 app.use(cors({
     origin: (origin, callback) => {
         // Allow requests with no origin (like mobile apps/curl)
@@ -85,12 +88,34 @@ app.use(cors({
     optionsSuccessStatus: 200
 }));
 
+// Security headers (Helmet)
+app.use(helmet({
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+    hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", "'unsafe-inline'"],
+            styleSrc: ["'self'", "'unsafe-inline'"],
+            imgSrc: ["'self'", "data:", "https:", "blob:"],
+            connectSrc: ["'self'", "https://api.razorpay.com", "wss:", "ws:"],
+            fontSrc: ["'self'", "data:"],
+            objectSrc: ["'none'"],
+            mediaSrc: ["'self'", "https:"],
+            frameSrc: ["'self'", "https://checkout.razorpay.com"],
+        },
+    },
+}));
+
+// Body size limits — prevent DoS via oversized payloads
 app.use(express.json({
+    limit: '10mb',
     verify: (req, res, buf) => {
         req.rawBody = buf;
     }
 }));
-app.use(express.urlencoded({ extended: true }));
+app.use(express.urlencoded({ extended: true, limit: '50kb' }));
 
 // Webhooks (no auth needed)
 app.use('/webhooks', webhookRoutes);
@@ -105,6 +130,11 @@ const io = new Server(server, {
 });
 
 // API Routes
+app.use(express.static(path.join(__dirname, '../frontend/dist'), {
+    maxAge: '1y',
+    immutable: true
+}));
+
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/messages', messageRoutes);

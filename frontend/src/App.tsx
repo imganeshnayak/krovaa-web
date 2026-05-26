@@ -1,40 +1,44 @@
-import { Toaster } from "@/components/ui/toaster";
+import { lazy, Suspense } from "react";
+const Toaster = lazy(() => import("@/components/ui/toaster").then(m => ({ default: m.Toaster })));
 import { useAuth } from "./contexts/AuthContext";
 import LoadingScreen from "./components/ui/LoadingScreen";
 import BottomNavbar from "./components/BottomNavbar";
-import { Toaster as Sonner } from "@/components/ui/sonner";
+const Sonner = lazy(() => import("@/components/ui/sonner").then(m => ({ default: m.Toaster })));
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import Landing from "./pages/Landing";
-import Login from "./pages/Login";
-import Register from "./pages/Register";
-import ChatPage from "./pages/ChatPage";
-import ProfilePage from "./pages/ProfilePage";
-import PostsPage from "./pages/PostsPage";
-import ExplorePage from "./pages/ExplorePage";
-import PostJobPage from "./pages/PostJobPage";
-import JobDetailsPage from "./pages/JobDetailsPage";
-import EscrowPage from "./pages/EscrowPage";
-import WalletPage from "./pages/WalletPage";
-import AdminDashboard from "./pages/AdminDashboard";
-import AdminChatView from "./pages/AdminChatView";
-import SettingsPage from "./pages/SettingsPage";
-import ImageGeneratorPage from "./pages/ImageGeneratorPage";
-import ImageGeneratorPricingPage from "./pages/ImageGeneratorPricingPage";
-import BlockedUsersPage from "./pages/BlockedUsersPage";
-import ForgotPassword from "./pages/ForgotPassword";
-import CommunitiesPage from "./pages/CommunitiesPage";
-import CommunityDetailPage from "./pages/CommunityDetailPage";
-import Terms from "./pages/legal/Terms";
-import Privacy from "./pages/legal/Privacy";
-import Refund from "./pages/legal/Refund";
-import CookiePolicy from "./pages/legal/CookiePolicy";
-import NotFound from "./pages/NotFound";
-import CookieConsent from "./components/CookieConsent";
-import CommunitiesTabPage from "./pages/CommunitiesTabPage";
-import JoinCommunityPage from "./pages/JoinCommunityPage";
+const Login = lazy(() => import("./pages/Login"));
+const Register = lazy(() => import("./pages/Register"));
+const ChatPage = lazy(() => import("./pages/ChatPage"));
+const ProfilePage = lazy(() => import("./pages/ProfilePage"));
+const PostsPage = lazy(() => import("./pages/PostsPage"));
+const ExplorePage = lazy(() => import("./pages/ExplorePage"));
+const PostJobPage = lazy(() => import("./pages/PostJobPage"));
+const JobDetailsPage = lazy(() => import("./pages/JobDetailsPage"));
+const MyListingsPage = lazy(() => import("./pages/MyListingsPage"));
+const EscrowPage = lazy(() => import("./pages/EscrowPage"));
+const WalletPage = lazy(() => import("./pages/WalletPage"));
+const WalletPayPage = lazy(() => import("./pages/WalletPayPage"));
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const AdminChatView = lazy(() => import("./pages/AdminChatView"));
+const SettingsPage = lazy(() => import("./pages/SettingsPage"));
+const ImageGeneratorPage = lazy(() => import("./pages/ImageGeneratorPage"));
+const ImageGeneratorPricingPage = lazy(() => import("./pages/ImageGeneratorPricingPage"));
+const BlockedUsersPage = lazy(() => import("./pages/BlockedUsersPage"));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
+const CommunitiesPage = lazy(() => import("./pages/CommunitiesPage"));
+const CommunityDetailPage = lazy(() => import("./pages/CommunityDetailPage"));
+const Terms = lazy(() => import("./pages/legal/Terms"));
+const Privacy = lazy(() => import("./pages/legal/Privacy"));
+const Refund = lazy(() => import("./pages/legal/Refund"));
+const CookiePolicy = lazy(() => import("./pages/legal/CookiePolicy"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const CookieConsent = lazy(() => import("./components/CookieConsent"));
+const CommunitiesTabPage = lazy(() => import("./pages/CommunitiesTabPage"));
+const JoinCommunityPage = lazy(() => import("./pages/JoinCommunityPage"));
+// FloatingCommunityButton is rendered by ChatPage only
 
 const queryClient = new QueryClient();
 
@@ -88,7 +92,8 @@ const MainContent = () => {
   const showNavbar = !isAuthPage && !!user;
 
   return (
-    <div className={`${showNavbar ? "pb-16" : ""} main-wrapper`}>
+    <main className={`${showNavbar ? "pb-16" : ""} main-wrapper`}>
+      <Suspense fallback={<LoadingScreen />}>
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
@@ -105,12 +110,14 @@ const MainContent = () => {
         <Route path="/join/:slug" element={<ClientRoute><JoinCommunityPage /></ClientRoute>} />
         <Route path="/post-job" element={<ClientRoute><PostJobPage /></ClientRoute>} />
         <Route path="/jobs/:jobId" element={<ClientRoute><JobDetailsPage /></ClientRoute>} />
+        <Route path="/my-listings" element={<ClientRoute><MyListingsPage /></ClientRoute>} />
         {/* Own profile - requires login */}
         <Route path="/profile" element={<ClientRoute><ProfilePage /></ClientRoute>} />
         {/* Legacy /profile/:username -> redirect to /:username */}
         <Route path="/profile/:username" element={<ProfileRedirect />} />
         <Route path="/escrow" element={<ClientRoute><EscrowPage /></ClientRoute>} />
         <Route path="/wallet" element={<ClientRoute><WalletPage /></ClientRoute>} />
+        <Route path="/wallet/pay/:shareId" element={<WalletPayPage />} />
         <Route path="/settings" element={<ClientRoute><SettingsPage /></ClientRoute>} />
         <Route path="/blocked-users" element={<ClientRoute><BlockedUsersPage /></ClientRoute>} />
         <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
@@ -129,8 +136,9 @@ const MainContent = () => {
 
         <Route path="*" element={<NotFound />} />
       </Routes>
+      </Suspense>
       {showNavbar && <BottomNavbar />}
-    </div>
+    </main>
   );
 };
 
@@ -138,11 +146,15 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <TooltipProvider>
-        <Toaster />
-        <Sonner />
+        <Suspense fallback={null}>
+          <Toaster />
+          <Sonner />
+        </Suspense>
         <BrowserRouter>
           <MainContent />
-          <CookieConsent />
+          <Suspense fallback={null}>
+            <CookieConsent />
+          </Suspense>
         </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>

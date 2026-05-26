@@ -346,6 +346,7 @@ export interface Community {
   slug: string;
   description?: string;
   isPrivate: boolean;
+  avatarUrl?: string;
   creatorId: number;
   createdAt: string;
 }
@@ -372,6 +373,21 @@ export function leaveCommunity(id: number): Promise<any> {
 
 export function deleteCommunity(id: number): Promise<any> {
   return apiFetch(`/api/communities/${id}`, { method: 'DELETE' });
+}
+
+export function updateCommunityAvatar(communityId: number, file: File): Promise<{ avatarUrl: string }> {
+  const formData = new FormData();
+  formData.append("avatar", file);
+  return apiFetch<{ avatarUrl: string }>(`/api/communities/${communityId}/avatar`, {
+    method: "PUT",
+    body: formData,
+  });
+}
+
+export function approveCommunityMember(communityId: number, userId: number): Promise<{ success: boolean }> {
+  return apiFetch<{ success: boolean }>(`/api/communities/${communityId}/members/${userId}/approve`, {
+    method: "PUT",
+  });
 }
 
 export interface ShareLinkData {
@@ -446,7 +462,7 @@ export async function uploadFile(data: {
 
   const token = localStorage.getItem("authToken");
 
-  const res = await fetch(`${API_URL}/api/messages/upload`, {
+  const res = await fetch(apiUrl("/api/messages/upload"), {
     method: "POST",
     headers: {
       ...(token && { 'Authorization': `Bearer ${token}` }),
@@ -815,12 +831,54 @@ export interface PayoutRequest {
   };
 }
 
+export interface WalletRecipient {
+  id: number;
+  username: string;
+  displayName: string;
+  avatarUrl?: string;
+  shareId: string;
+  verified: boolean;
+  status: string;
+  walletEnabled: boolean;
+  razorpayContactId?: string;
+  phoneNumber?: string;
+}
+
+export interface WalletTransferResponse {
+  success: boolean;
+  transferReference: string;
+  amount: number;
+  senderBalance: number;
+  recipientBalance: number;
+  recipient: {
+    id: number;
+    username: string;
+    displayName: string;
+    shareId: string;
+  };
+}
+
 export function getWalletBalance(): Promise<{ balance: number }> {
   return apiFetch<{ balance: number }>("/api/wallet/balance");
 }
 
+export function getWalletRecipient(shareId: string): Promise<WalletRecipient> {
+  return apiFetch<WalletRecipient>(`/api/wallet/recipient/${encodeURIComponent(shareId)}`);
+}
+
 export function getWalletTransactions(type: string = 'all'): Promise<WalletTransaction[]> {
   return apiFetch<WalletTransaction[]>(`/api/wallet/transactions?type=${type}`);
+}
+
+export function transferWalletBalance(data: {
+  shareId: string;
+  amount: number;
+  note?: string;
+}): Promise<WalletTransferResponse> {
+  return apiFetch<WalletTransferResponse>("/api/wallet/transfer", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
 }
 
 export function requestPayout(data: {
@@ -1148,23 +1206,71 @@ export interface JobPoster {
   createdAt: string;
 }
 
+export interface JobAttachment {
+  id: number;
+  fileName: string;
+  fileUrl: string;
+  publicId: string;
+  mimeType: string;
+  fileSize?: number | null;
+  sortOrder: number;
+  createdAt: string;
+}
+
 export interface Job {
   id: number;
+  postedById?: number;
   title: string;
   company: string;
   location: string;
   budget: string;
   mode: string;
   description: string;
-  terms?: string[] | string | null;
+  attachments?: JobAttachment[];
+  terms?: string[];
   createdAt: string;
+}
+
+export interface MyJob extends Job {
+  postedById: number;
+  applicationCount: number;
+  applications?: Array<{
+    id: number;
+    userId: number;
+    status: string;
+    createdAt: string;
+    bidAmount?: string | null;
+    coverLetter?: string | null;
+    user: {
+      id: number;
+      username: string;
+      displayName: string;
+      avatarUrl?: string;
+      profession?: string;
+    };
+  }>;
+  postedBy: JobPoster;
 }
 
 export interface JobDetails extends Job {
   postedBy: JobPoster;
   hasApplied?: boolean;
   isOwner?: boolean;
-  applications?: any[];
+  applications?: Array<{
+    id: number;
+    jobId: number;
+    userId: number;
+    status: string;
+    terms: string | null;
+    createdAt: string;
+    user: {
+      id: number;
+      username: string;
+      displayName: string;
+      avatarUrl?: string;
+      profession?: string;
+    };
+  }>;
 }
 
 export function getJobs(): Promise<Job[]> {
@@ -1182,18 +1288,73 @@ export function postJob(data: {
   budget: string;
   mode: string;
   description: string;
-  terms?: string[];
+  attachments?: File[];
+  duration?: string;
+  skills?: string[];
+  terms?: string;
 }): Promise<Job> {
+  const hasAttachments = (data.attachments?.length || 0) > 0;
+
+  if (hasAttachments) {
+    const formData = new FormData();
+    formData.append('title', data.title);
+    formData.append('company', data.company);
+    formData.append('location', data.location);
+    formData.append('budget', data.budget);
+    formData.append('mode', data.mode);
+    formData.append('description', data.description);
+    if (data.duration) formData.append('duration', data.duration);
+    if (data.skills) formData.append('skills', JSON.stringify(data.skills));
+    if (data.terms) formData.append('terms', data.terms);
+
+    data.attachments?.forEach((file) => {
+      formData.append('attachments', file);
+    });
+
+    return apiFetch<Job>('/api/jobs', {
+      method: 'POST',
+      body: formData,
+    });
+  }
+
   return apiFetch<Job>('/api/jobs', {
     method: 'POST',
     body: JSON.stringify(data),
   });
 }
 
-export function applyJob(jobId: number, termsAndConditions?: string): Promise<{ message: string; application: any }> {
+export function applyJob(jobId: number, data: {
+  bidAmount?: string;
+  coverLetter?: string;
+  termsAndConditions?: string;
+}): Promise<{ message: string; application: any }> {
   return apiFetch<{ message: string; application: any }>(`/api/jobs/${jobId}/apply`, {
     method: 'POST',
-    body: JSON.stringify({ termsAndConditions }),
+    body: JSON.stringify(data),
+  });
+}
+
+export function getMyJobs(): Promise<MyJob[]> {
+  return apiFetch<MyJob[]>('/api/jobs/my');
+}
+
+export function updateJob(jobId: number, data: {
+  title?: string;
+  company?: string;
+  location?: string;
+  budget?: string;
+  mode?: string;
+  description?: string;
+}): Promise<Job> {
+  return apiFetch<Job>(`/api/jobs/${jobId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export function deleteJob(jobId: number): Promise<{ message: string }> {
+  return apiFetch<{ message: string }>(`/api/jobs/${jobId}`, {
+    method: 'DELETE',
   });
 }
 
@@ -1371,7 +1532,20 @@ export interface ImageGenerationHistory {
 export function generateImage(data: {
   prompt: string;
   size?: string;
+  image?: string | File;
+  frontendGeneratedImage?: string;
 }): Promise<GeneratedImage> {
+  if (data.image instanceof File) {
+    const formData = new FormData();
+    formData.append('prompt', data.prompt);
+    if (data.size) formData.append('size', data.size);
+    formData.append('image', data.image);
+    if (data.frontendGeneratedImage) formData.append('frontendGeneratedImage', data.frontendGeneratedImage);
+    return apiFetch<GeneratedImage>("/api/image-generator/generate", {
+      method: "POST",
+      body: formData,
+    });
+  }
   return apiFetch<GeneratedImage>("/api/image-generator/generate", {
     method: "POST",
     body: JSON.stringify(data),
@@ -1394,6 +1568,8 @@ export function getImageGeneratorStats(): Promise<{
   topStyles: { style: string; _count: number }[];
   dailyLimit: number;
   isEnabled: boolean;
+  provider: string;
+  supportsImg2Img: boolean;
   usersAtLimitToday: number;
   uniqueUsersToday: number;
   totalDailyUsers: number[];
@@ -1505,13 +1681,6 @@ export function getGroupMessages(groupId: number): Promise<any[]> {
 
 export function sendGroupMessage(groupId: number, data: { content: string; messageType?: string; attachmentUrl?: string }): Promise<any> {
   return apiFetch<any>(`/api/groups/${groupId}/messages`, { method: 'POST', body: JSON.stringify(data) });
-}
-
-export function updateJobTerms(jobId: number, terms: string[]): Promise<Job> {
-  return apiFetch<Job>(`/api/jobs/${jobId}/terms`, {
-    method: 'PUT',
-    body: JSON.stringify({ terms }),
-  });
 }
 
 

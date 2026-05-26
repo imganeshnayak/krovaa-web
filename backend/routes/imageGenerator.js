@@ -4,14 +4,24 @@ import { PrismaClient } from '@prisma/client';
 import axios from 'axios';
 import FormData from 'form-data';
 import crypto from 'crypto';
+import multer from 'multer';
 
 const router = express.Router();
 const prisma = new PrismaClient();
+const upload = multer({ storage: multer.memoryStorage() });
 
 // Generate image using AI
-router.post('/generate', auth, async (req, res) => {
+router.post('/generate', auth, upload.single('image'), async (req, res) => {
     try {
-        const { prompt, size = '1024x1024', style = 'natural' } = req.body;
+        let { prompt, size = '1024x1024', style = 'natural' } = req.body;
+        const file = req.file;
+        
+        // If we are using FormData, basic a base64 conversion might be needed for some providers 
+        // or we can send the buffer directly.
+        let base64Image = null;
+        if (file) {
+            base64Image = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
+        }
 
         if (!prompt || prompt.trim().length === 0) {
             return res.status(400).json({ error: 'Prompt is required' });
@@ -68,179 +78,95 @@ router.post('/generate', auth, async (req, res) => {
         //     });
         // }
 
+        // ---- Image generation logic start ----
         let imageUrl;
         const provider = process.env.IMAGE_GENERATOR_PROVIDER || 'pollinations';
-        console.log(`[ImageGen] Using provider: ${provider}, prompt: ${prompt.substring(0, 50)}...`);
+        console.log(`[ImageGen] Using provider: ${provider}`);
 
-        if (provider === 'openai') {
-            // OpenAI DALL-E
-            if (!process.env.OPENAI_API_KEY) {
-                console.error('[ImageGen] OpenAI provider selected but OPENAI_API_KEY not configured');
-                return res.status(500).json({ error: 'Image generation service not configured. Please set OPENAI_API_KEY.' });
-            }
-
-            const openaiRes = await axios.post(
-                'https://api.openai.com/v1/images/generations',
-                {
-                    model: process.env.OPENAI_IMAGE_MODEL || 'dall-e-3',
-                    prompt: prompt,
-                    n: 1,
-                    size: size === '512x512' ? '1024x1024' : size,
-                    quality: 'standard',
-                },
-                {
-                    headers: {
-                        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-                        'Content-Type': 'application/json',
-                    },
-                    timeout: 60000,
-                }
-            );
-
-            imageUrl = openaiRes.data.data[0].url;
-        } else if (provider === 'stability') {
-            // Stability AI
-            if (!process.env.STABILITY_API_KEY) {
-                return res.status(500).json({ error: 'Image generation service not configured' });
-            }
-
-            const form = new FormData();
-            form.append('prompt', prompt);
-            form.append('output_format', 'png');
-
-            const stabilityRes = await axios.post(
-                'https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/text-to-image',
-                {
-                    text_prompts: [{ text: prompt, weight: 1 }],
-                    cfg_scale: 7,
-                    width: size === '512x512' ? 512 : 1024,
-                    height: size === '512x512' ? 512 : 1024,
-                    samples: 1,
-                    steps: 30,
-                },
-                {
-                    headers: {
-                        'Authorization': `Bearer ${process.env.STABILITY_API_KEY}`,
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                    },
-                    timeout: 60000,
-                    responseType: 'arraybuffer',
-                }
-            );
-
-            // Upload to Cloudinary for persistent URL
+        // Helper: upload buffer to Cloudinary
+        const uploadToCloud = async (buf) => {
             const cloudinary = await import('cloudinary');
-            const cloudinaryConfig = cloudinary.v2;
-            cloudinaryConfig.config({
+            const cfg = cloudinary.v2;
+            cfg.config({
                 cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
                 api_key: process.env.CLOUDINARY_API_KEY,
                 api_secret: process.env.CLOUDINARY_API_SECRET,
             });
-
-            const uploadResult = await new Promise((resolve, reject) => {
-                cloudinaryConfig.uploader.upload_stream(
+            return new Promise((resolve, reject) => {
+                cfg.uploader.upload_stream(
                     { folder: 'krovai-generated', resource_type: 'image' },
-                    (error, result) => error ? reject(error) : resolve(result)
-                ).end(Buffer.from(stabilityRes.data));
+                    (error, result) => error ? reject(error) : resolve(result.secure_url)
+                ).end(buf);
             });
+        };
 
-            imageUrl = uploadResult.secure_url;
-        } else if (provider === 'pollinations') {
-            // Pollinations AI (free, no API key needed)
-            // Download image and proxy through Cloudinary for CORS compatibility
-            const encodedPrompt = encodeURIComponent(prompt);
-            const seed = Math.floor(Math.random() * 1000000);
-            const pollUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${size === '512x512' ? 512 : 1024}&height=${size === '512x512' ? 512 : 1024}&seed=${seed}&nologo=true`;
-            
-            try {
-                console.log('[ImageGen] Downloading from pollinations:', pollUrl.substring(0, 80) + '...');
-                const imgRes = await axios.get(pollUrl, { 
-                    timeout: 60000,
-                    responseType: 'arraybuffer' 
-                });
+        // Determine if the request is image-to-image
+        const supportsImg2Img = provider === 'stability';
+        const requestedImg2Img = Boolean(base64Image);
+        if (requestedImg2Img && !supportsImg2Img) {
+            console.warn('[ImageGen] Reference image provided but provider does not support image-to-image. Falling back to text-to-image.');
+            base64Image = null;
+        }
+        const isImg2Img = requestedImg2Img && supportsImg2Img;
+        console.log('[ImageGen] isImg2Img:', isImg2Img, 'provider:', provider);
 
-                // Upload to Cloudinary for persistent, CORS-enabled URL
-                const cloudinary = await import('cloudinary');
-                const cloudinaryConfig = cloudinary.v2;
-                cloudinaryConfig.config({
-                    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-                    api_key: process.env.CLOUDINARY_API_KEY,
-                    api_secret: process.env.CLOUDINARY_API_SECRET,
-                });
-
-                const uploadResult = await new Promise((resolve, reject) => {
-                    cloudinaryConfig.uploader.upload_stream(
-                        { folder: 'krovai-generated', resource_type: 'image' },
-                        (error, result) => error ? reject(error) : resolve(result)
-                    ).end(Buffer.from(imgRes.data));
-                });
-
-                imageUrl = uploadResult.secure_url;
-                console.log('[ImageGen] Uploaded to Cloudinary:', imageUrl.substring(0, 80) + '...');
-            } catch (e) {
-                console.error('[ImageGen] Pollinations download/upload error:', e.message);
-                throw new Error(`Failed to process pollinations image: ${e.message}`);
-            }
-        } else if (provider === 'puter') {
-            // Puter.ai provider (server-side)
-            if (!process.env.PUTER_API_KEY || !process.env.PUTER_API_URL) {
-                return res.status(500).json({ error: 'Image generation service not configured' });
+        if (provider === 'stability') {
+            if (!process.env.STABILITY_API_KEY) {
+                return res.status(500).json({ error: 'Stability AI key missing. Set STABILITY_API_KEY in .env' });
             }
 
-            try {
-                const puterRes = await axios.post(
-                    process.env.PUTER_API_URL,
-                    {
-                        prompt: prompt,
-                        size,
-                        style,
-                        // preserve any other options
+            const stFormData = new FormData();
+            stFormData.append('prompt', prompt);
+            stFormData.append('output_format', 'png');
+            stFormData.append('model', 'sd3.5-large-turbo');
+
+            if (isImg2Img) {
+                // Image-to-image: send image + mode + strength
+                const imgBuf = Buffer.from(base64Image.replace(/^data:[^;]+;base64,/, ''), 'base64');
+                stFormData.append('image', imgBuf, { filename: 'input.png', contentType: 'image/png' });
+                stFormData.append('mode', 'image-to-image');
+                stFormData.append('strength', '0.75'); // 0=copy input, 1=ignore input
+            } else {
+                // Text-to-image: just prompt
+                stFormData.append('mode', 'text-to-image');
+            }
+
+            const stabilityRes = await axios.post(
+                'https://api.stability.ai/v2beta/stable-image/generate/sd3',
+                stFormData,
+                {
+                    headers: {
+                        Authorization: `Bearer ${process.env.STABILITY_API_KEY}`,
+                        Accept: 'application/json',
+                        ...stFormData.getHeaders(),
                     },
-                    {
-                        headers: {
-                            'Authorization': `Bearer ${process.env.PUTER_API_KEY}`,
-                            'Content-Type': 'application/json',
-                        },
-                        timeout: 60000,
-                    }
-                );
-
-                // Provider may return an accessible URL or base64 image data
-                if (puterRes.data?.url) {
-                    imageUrl = puterRes.data.url;
-                } else if (puterRes.data?.b64_image) {
-                    const b64 = puterRes.data.b64_image;
-                    const buffer = Buffer.from(b64, 'base64');
-
-                    const cloudinary = await import('cloudinary');
-                    const cloudinaryConfig = cloudinary.v2;
-                    cloudinaryConfig.config({
-                        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-                        api_key: process.env.CLOUDINARY_API_KEY,
-                        api_secret: process.env.CLOUDINARY_API_SECRET,
-                    });
-
-                    const uploadResult = await new Promise((resolve, reject) => {
-                        cloudinaryConfig.uploader.upload_stream(
-                            { folder: 'krovai-generated', resource_type: 'image' },
-                            (error, result) => error ? reject(error) : resolve(result)
-                        ).end(buffer);
-                    });
-
-                    imageUrl = uploadResult.secure_url;
-                } else {
-                    throw new Error('Unexpected response from puter.ai provider');
+                    timeout: 90000,
                 }
-            } catch (e) {
-                console.error('Puter provider error:', e.response?.data || e.message);
-                if (e.response?.status === 429) {
-                    return res.status(429).json({ error: 'Rate limit exceeded by provider. Please try again later.' });
-                }
-                throw e;
+            );
+
+            if (stabilityRes.data?.image) {
+                imageUrl = await uploadToCloud(Buffer.from(stabilityRes.data.image, 'base64'));
+            } else {
+                console.error('[Stability] Unexpected response:', stabilityRes.data);
+                return res.status(500).json({ error: 'Unexpected Stability AI response' });
             }
+        } else if (provider === 'openai') {
+            if (!process.env.OPENAI_API_KEY) {
+                return res.status(500).json({ error: 'OpenAI key missing' });
+            }
+            const openaiRes = await axios.post(
+                'https://api.openai.com/v1/images/generations',
+                { model: process.env.OPENAI_IMAGE_MODEL || 'dall-e-3', prompt, n: 1, size: size === '512x512' ? '1024x1024' : size, quality: 'standard' },
+                { headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` }, timeout: 60000 }
+            );
+            imageUrl = openaiRes.data.data[0].url;
+        } else if (provider === 'pollinations') {
+            const encoded = encodeURIComponent(prompt);
+            const pollUrl = `https://image.pollinations.ai/prompt/${encoded}?width=${size === '512x512' ? 512 : 1024}&height=${size === '512x512' ? 512 : 1024}`;
+            const resImg = await axios.get(pollUrl, { responseType: 'arraybuffer', timeout: 60000 });
+            imageUrl = await uploadToCloud(Buffer.from(resImg.data));
         } else {
-            return res.status(500).json({ error: 'Invalid image generation provider configured' });
+            return res.status(500).json({ error: 'Unsupported provider: ' + provider });
         }
 
         // Save generation to database
@@ -476,6 +402,8 @@ router.get('/stats', auth, async (req, res) => {
             topStyles,
             dailyLimit,
             isEnabled,
+            provider,
+            supportsImg2Img,
             usersAtLimitToday: usersAtLimit.length,
             uniqueUsersToday: uniqueUsersToday.length,
             totalDailyUsers: uniqueUsersToday.map(u => u.userId),

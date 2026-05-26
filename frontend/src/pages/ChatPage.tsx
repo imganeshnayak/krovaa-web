@@ -55,7 +55,7 @@ import {
   searchUsers, blockUser, reportUser, clearChatHistory, getUser,
   deleteMessage, deleteMessagesBatch, getSupportChat, openViewOnceMessage,
   getBestProfiles, getGroupChats, getGroupMessages, sendGroupMessage,
-  listCommunities, getCommunityMessages, sendCommunityMessage,
+  listCommunities, getCommunity, getCommunityMessages, sendCommunityMessage,
   Chat as ChatType, Message as MessageType, AuthUser
 } from "@/lib/api";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -77,8 +77,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import FloatingCommunityButton from "@/components/FloatingCommunityButton";
 
 type LocalMessage = MessageType & { message_type?: string; isUploading?: boolean; sender?: { role?: string; avatarUrl?: string; displayName?: string } };
+
+type CommunityDetailView = {
+  id: number;
+  name: string;
+  creatorId: number;
+  creator?: AuthUser;
+  members?: Array<{
+    id: number;
+    userId: number;
+    role: string;
+    user?: AuthUser;
+  }>;
+};
 
 // Communities modal used by the chat page
 const CommunitiesModal = ({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) => {
@@ -486,14 +500,6 @@ const ConversationList = ({
         )}
       </ScrollArea>
 
-      {/* Floating Communities button (navigates to Communities page) */}
-      <button
-        onClick={() => navigate('/communities')}
-        title="Communities"
-        className="fixed right-4 bottom-32 z-40 bg-white border border-border rounded-full p-3 shadow-lg hover:scale-105 transition-transform"
-      >
-        <Sparkles className="w-5 h-5 text-[#00A4EF]" />
-      </button>
     </div>
   );
 };
@@ -536,8 +542,10 @@ const ChatView = ({
   botData,
   setBotData,
   setMessages,
+  selectedCommunity,
 }: {
   selectedChat: ChatType | null;
+  selectedCommunity: CommunityDetailView | null;
   setSelectedChat: (chat: ChatType | null) => void;
   isMobile: boolean;
   navigate: ReturnType<typeof useNavigate>;
@@ -774,11 +782,28 @@ const ChatView = ({
                 <ArrowLeft className="h-5 w-5 text-foreground" />
               </button>
             )}
-            <Avatar className="h-10 w-10">
-              <AvatarImage src={selectedChat.avatar_url} />
-              <AvatarFallback>{selectedChat.display_name[0]}</AvatarFallback>
-            </Avatar>
-            <div className="flex-1 min-w-0">
+            {selectedChat.chat_id.startsWith("community_") && selectedCommunity ? (
+              <button
+                type="button"
+                onClick={() => {
+                  navigate(`/communities/${selectedCommunity.id}`);
+                }}
+                className="shrink-0 rounded-full ring-2 ring-[#00A4EF]/10 hover:ring-[#00A4EF]/30 transition-all"
+                title={`View ${selectedCommunity.name} Info`}
+              >
+                <Avatar className="h-10 w-10">
+                  <AvatarImage src={selectedCommunity.creator?.avatarUrl} />
+                  <AvatarFallback>{selectedCommunity.name?.[0]?.toUpperCase() || selectedChat.display_name[0]}</AvatarFallback>
+                </Avatar>
+              </button>
+            ) : (
+              <Avatar className="h-10 w-10">
+                <AvatarImage src={selectedChat.avatar_url} />
+                <AvatarFallback>{selectedChat.display_name[0]}</AvatarFallback>
+              </Avatar>
+            )}
+
+            <div className="flex-1 min-w-0 space-y-1">
               <div className="flex items-center gap-1.5">
                 <h3 style={{ fontFamily: "'Syne', sans-serif" }} className="font-bold text-foreground tracking-tight truncate">{selectedChat.display_name}</h3>
 
@@ -808,6 +833,49 @@ const ChatView = ({
                 >
                   <History className="h-5 w-5" />
                 </button>
+              </div>
+            ) : selectedChat.chat_id.startsWith("community_") ? (
+              <div className="flex gap-1">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="icon" title="View Members">
+                      <UserIcon className="h-5 w-5" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-64 p-3" align="end">
+                    <div className="space-y-3">
+                      <h4 className="text-sm font-semibold">Members</h4>
+                      <div className="flex flex-wrap gap-3">
+                        {(selectedCommunity?.members || []).map((member) => (
+                          <button
+                            key={member.id}
+                            onClick={() => navigate(`/${member.user?.username}`)}
+                            className="flex flex-col items-center gap-1.5 p-2 rounded-lg hover:bg-secondary/60 transition-colors"
+                            title={member.user?.displayName || member.user?.username}
+                          >
+                            <Avatar className="h-12 w-12 ring-2 ring-border/40">
+                              <AvatarImage src={member.user?.avatarUrl} />
+                              <AvatarFallback className="text-xs font-bold bg-slate-100 text-slate-600">
+                                {(member.user?.displayName || member.user?.username || "M")[0]}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="text-[10px] font-medium truncate max-w-[64px] text-center leading-tight">
+                              {member.user?.displayName || member.user?.username}
+                            </span>
+                          </button>
+                        ))}
+                        {(!selectedCommunity?.members || selectedCommunity.members.length === 0) && (
+                          <span className="text-xs text-muted-foreground">No members available</span>
+                        )}
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+                <ChatMoreMenu
+                  chatId={selectedChat.chat_id}
+                  userInfo={{ id: selectedChat.user_id, displayName: selectedChat.display_name }}
+                  onChatCleared={() => setSelectedChat(null)}
+                />
               </div>
             ) : !(selectedChat.isOfficial && (user?.role !== 'admin' && user?.role !== 'staff')) && (
               <div className="flex gap-1">
@@ -1698,6 +1766,7 @@ const ChatPage = () => {
   const [isBlurred, setIsBlurred] = useState(false);
   const [isPreviewViewOnce, setIsPreviewViewOnce] = useState(false);
   const [isHoldingView, setIsHoldingView] = useState(false);
+  const [selectedCommunity, setSelectedCommunity] = useState<CommunityDetailView | null>(null);
 
   // Hide bottom navbar when in a chat on mobile
   useEffect(() => {
@@ -1708,6 +1777,16 @@ const ChatPage = () => {
     }
     return () => document.body.classList.remove('hide-navbar');
   }, [selectedChat, isMobile]);
+
+  // Sync selected chat state for BottomNavbar
+  useEffect(() => {
+    if (selectedChat) {
+      sessionStorage.setItem('chat_open', 'true');
+    } else {
+      sessionStorage.removeItem('chat_open');
+    }
+    window.dispatchEvent(new CustomEvent('chatChange', { detail: { isOpen: !!selectedChat } }));
+  }, [selectedChat]);
 
 
   // Blur when tab is hidden or window loses focus
@@ -2520,6 +2599,46 @@ const ChatPage = () => {
     }
   }, [user?.id, toast]);
 
+  useEffect(() => {
+    if (!selectedChat?.chat_id.startsWith("community_")) {
+      setSelectedCommunity(null);
+      return;
+    }
+
+    const communityId = parseInt(selectedChat.chat_id.replace("community_", ""));
+    if (Number.isNaN(communityId)) {
+      setSelectedCommunity(null);
+      return;
+    }
+
+    let active = true;
+
+    const loadCommunityDetails = async () => {
+      try {
+        const detail = await getCommunity(communityId) as CommunityDetailView;
+        if (active) {
+          setSelectedCommunity(detail);
+        }
+      } catch (err) {
+        console.error("Failed to load community details:", err);
+        if (active) {
+          setSelectedCommunity(null);
+        }
+      }
+    };
+
+    loadCommunityDetails();
+
+    return () => {
+      active = false;
+    };
+  }, [selectedChat?.chat_id]);
+
+  const openProfile = useCallback((username?: string) => {
+    if (!username) return;
+    navigate(`/profile/${encodeURIComponent(username)}`);
+  }, [navigate]);
+
   const filteredChats = chats.filter((c) =>
     c.display_name.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -2568,6 +2687,7 @@ const ChatPage = () => {
             botData={botData}
             setBotData={setBotData}
             setMessages={setMessages}
+            selectedCommunity={selectedCommunity}
           />
         ) : (
           <ConversationList
@@ -2587,6 +2707,7 @@ const ChatPage = () => {
           />
         )}
       <ProfileCompletionModal />
+      <FloatingCommunityButton />
     </div>
   );
 }
@@ -2650,9 +2771,11 @@ const ChatPage = () => {
           botData={botData}
           setBotData={setBotData}
           setMessages={setMessages}
+          selectedCommunity={selectedCommunity}
         />
       </div>
       <ProfileCompletionModal />
+      <FloatingCommunityButton />
     </div>
   );
 };

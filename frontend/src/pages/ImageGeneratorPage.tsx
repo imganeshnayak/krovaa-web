@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import {
   generateImage, getImageHistory, deleteGeneratedImage,
-  GeneratedImage, getSubscriptionStatus,
+  GeneratedImage, getSubscriptionStatus, getImageGeneratorStats,
 } from "@/lib/api";
 import {
   Dialog,
@@ -51,41 +51,46 @@ const ImageGeneratorPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [subscription, setSubscription] = useState<any>(null);
+  const [imageGeneratorConfig, setImageGeneratorConfig] = useState<{ provider: string; supportsImg2Img: boolean } | null>(null);
   const [prompt, setPrompt] = useState("");
-  const [sessions, setSessions] = useState<ChatSession[]>(() => {
+  const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [currentSessionId, setCurrentSessionId] = useState<string>("");
+
+  // Load sessions when user changes
+  useEffect(() => {
+    if (!user) return;
     try {
-      const saved = localStorage.getItem("krovai_generator_sessions");
+      const saved = localStorage.getItem(`krovai_generator_sessions_${user.id}`);
       if (saved) {
         const parsed = JSON.parse(saved);
-        return parsed.map((s: any) => ({
+        setSessions(parsed.map((s: any) => ({
           ...s,
           messages: s.messages.map((m: any) => ({
             ...m,
             timestamp: new Date(m.timestamp)
           }))
-        }));
-      }
-      // Migrate old single chat
-      const oldMessages = localStorage.getItem("krovai_generator_messages");
-      if (oldMessages) {
-        const parsed = JSON.parse(oldMessages).map((m: any) => ({ ...m, timestamp: new Date(m.timestamp) }));
-        if (parsed.length > 0) {
-           return [{ id: `session_${Date.now()}`, title: "Previous Chat", messages: parsed, updatedAt: Date.now() }];
-        }
+        })));
+      } else {
+        setSessions([{ id: `session_${Date.now()}`, title: "New Chat", messages: [], updatedAt: Date.now() }]);
       }
     } catch (e) {
       console.error("Failed to parse generator sessions", e);
+      setSessions([{ id: `session_${Date.now()}`, title: "New Chat", messages: [], updatedAt: Date.now() }]);
     }
-    return [{ id: `session_${Date.now()}`, title: "New Chat", messages: [], updatedAt: Date.now() }];
-  });
 
-  const [currentSessionId, setCurrentSessionId] = useState<string>(() => {
     try {
-      const saved = localStorage.getItem("krovai_generator_current_session");
-      if (saved) return saved;
-    } catch(e) {}
-    return `session_${Date.now()}`;
-  });
+      const savedId = localStorage.getItem(`krovai_generator_current_session_${user.id}`);
+      if (savedId) {
+        setCurrentSessionId(savedId);
+      } else {
+        setCurrentSessionId(`session_${Date.now()}`);
+      }
+    } catch(e) {
+      setCurrentSessionId(`session_${Date.now()}`);
+    }
+  }, [user]);
 
   const currentSession = sessions.find(s => s.id === currentSessionId) || sessions[0];
   const messages = currentSession?.messages || [];
@@ -106,9 +111,10 @@ const ImageGeneratorPage = () => {
   }, [currentSessionId]);
 
   useEffect(() => {
-    localStorage.setItem("krovai_generator_sessions", JSON.stringify(sessions));
-    localStorage.setItem("krovai_generator_current_session", currentSessionId);
-  }, [sessions, currentSessionId]);
+    if (!user || sessions.length === 0 || !currentSessionId) return;
+    localStorage.setItem(`krovai_generator_sessions_${user.id}`, JSON.stringify(sessions));
+    localStorage.setItem(`krovai_generator_current_session_${user.id}`, currentSessionId);
+  }, [sessions, currentSessionId, user]);
 
   const [historyTab, setHistoryTab] = useState<'chats' | 'images'>('chats');
   const [isLoading, setIsLoading] = useState(false);
@@ -173,9 +179,35 @@ const ImageGeneratorPage = () => {
     }
   }, [user]);
 
+  useEffect(() => {
+    getImageGeneratorStats()
+      .then((stats) => {
+        setImageGeneratorConfig({
+          provider: stats.provider,
+          supportsImg2Img: stats.supportsImg2Img,
+        });
+      })
+      .catch(console.error);
+  }, []);
+
+  useEffect(() => {
+    if (imageGeneratorConfig && !imageGeneratorConfig.supportsImg2Img && imagePreview) {
+      clearUploadedImage();
+    }
+  }, [imageGeneratorConfig, imagePreview]);
+
   const handleGenerate = async (promptText?: string) => {
     const textToGenerate = promptText || prompt;
     if (!textToGenerate.trim() || isLoading) return;
+
+    if (uploadedImage && imageGeneratorConfig && !imageGeneratorConfig.supportsImg2Img) {
+      toast({
+        title: "Reference images unavailable",
+        description: `The current provider (${imageGeneratorConfig.provider}) only supports text prompts. Remove the image or switch IMAGE_GENERATOR_PROVIDER to stability.`,
+        variant: "destructive",
+      });
+      return;
+    }
 
     const promptId = `prompt-${Date.now()}`;
     setMessages(prev => [...prev, {
@@ -188,9 +220,13 @@ const ImageGeneratorPage = () => {
     setIsLoading(true);
 
     try {
+      console.log('Generating image with:', { prompt: textToGenerate, image: uploadedImage ? 'present' : 'null' });
       const result = await generateImage({
         prompt: textToGenerate.trim(),
+        image: uploadedImage || undefined,
       });
+      
+      console.log('Generation result:', result);
 
       setMessages(prev => [...prev, {
         id: `image-${Date.now()}`,
@@ -200,6 +236,7 @@ const ImageGeneratorPage = () => {
         generatedImage: result,
       }]);
     } catch (error: any) {
+      console.error('Generation error:', error);
       const errorMessage = error instanceof Error ? error.message : "Failed to generate image";
       const isLimitError = error?.status === 429 || errorMessage.includes("limit");
       
@@ -265,6 +302,42 @@ const ImageGeneratorPage = () => {
   const handleSuggestedPrompt = (p: string) => {
     handleGenerate(p);
   };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (imageGeneratorConfig && !imageGeneratorConfig.supportsImg2Img) {
+      toast({
+        title: "Reference images unavailable",
+        description: `The current provider (${imageGeneratorConfig.provider}) only supports text prompts. Switch IMAGE_GENERATOR_PROVIDER to stability or puter to use image references.`,
+        variant: "destructive",
+      });
+      e.target.value = '';
+      return;
+    }
+
+    console.log('Image uploaded:', file.name, file.size, file.type);
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      console.log('Image converted to base64 for preview, length:', dataUrl.length);
+      setImagePreview(dataUrl);
+    };
+    reader.readAsDataURL(file);
+
+    setUploadedImage(file as any); // Store the actual File object instead of base64 string
+
+    e.target.value = '';
+  };
+
+  const clearUploadedImage = () => {
+    setUploadedImage(null);
+    setImagePreview(null);
+  };
+
+  const canUseReferenceImages = imageGeneratorConfig?.supportsImg2Img !== false;
 
   return (
     <div
@@ -592,35 +665,81 @@ const ImageGeneratorPage = () => {
         </div>
       )}
 
-      {/* Input Bar - Fixed Bottom */}
-      <div className="fixed bottom-16 left-0 right-0 border-t border-white/20 bg-white/60 backdrop-blur-xl z-40">
-        <div className="max-w-3xl mx-auto px-4 py-3">
-          <div className="flex items-center gap-2">
-            <div className="flex-1 relative">
-              <Input
-                ref={inputRef}
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleGenerate()}
-                placeholder="Describe the image you want..."
-                className="h-11 bg-white/60 border-white/40 text-[#1C1C1C] placeholder:text-[#1C1C1C]/40 rounded-full pr-12 focus-visible:ring-[#D946EF]/30 backdrop-blur-xl"
-                disabled={isLoading}
-              />
-              <Button
-                onClick={() => handleGenerate()}
-                disabled={!prompt.trim() || isLoading}
-                className="absolute right-1 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full bg-gradient-to-r from-[#D946EF] to-[#F97316] hover:opacity-90 text-white disabled:opacity-50"
-                size="icon"
-              >
-                {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              </Button>
+      {/* Image Upload UI */}
+          {imagePreview && canUseReferenceImages && (
+            <div className="mb-3 flex items-center gap-3">
+              <div className="relative">
+                <img src={imagePreview} alt="Uploaded" className="h-16 w-16 rounded-xl object-cover border-2 border-[#D946EF]/30" />
+                <button
+                  onClick={clearUploadedImage}
+                  className="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-red-500 text-white flex items-center justify-center text-xs hover:bg-red-600"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+              <span className="text-xs text-[#1C1C1C]/60">Using your image as reference</span>
+            </div>
+          )}
+
+          {/* Input Bar - Fixed Bottom */}
+          <div className="fixed bottom-16 left-0 right-0 border-t border-white/20 bg-white/60 backdrop-blur-xl z-40">
+            <div className="max-w-3xl mx-auto px-4 py-3">
+              {imagePreview && canUseReferenceImages && (
+                <div className="mb-3 flex items-center gap-3 animate-in">
+                  <div className="relative">
+                    <img src={imagePreview} alt="Uploaded" className="h-16 w-16 rounded-xl object-cover border-2 border-[#D946EF]/30" />
+                    <button
+                      onClick={clearUploadedImage}
+                      className="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-red-500 text-white flex items-center justify-center text-xs hover:bg-red-600"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                  <span className="text-xs text-[#1C1C1C]/60">Using your image as reference</span>
+                </div>
+              )}
+              <div className="flex items-center gap-2">
+                {!imagePreview && canUseReferenceImages && (
+                  <label className="flex items-center justify-center h-11 w-11 rounded-full bg-white/60 border border-white/40 hover:bg-[#D946EF]/10 hover:border-[#D946EF]/30 transition-all cursor-pointer shrink-0">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      className="hidden"
+                    />
+                    <Image className="h-5 w-5 text-[#1C1C1C]/40" />
+                  </label>
+                )}
+                {!canUseReferenceImages && (
+                  <div className="h-11 px-4 rounded-full bg-white/40 border border-white/40 text-xs text-[#1C1C1C]/50 flex items-center shrink-0">
+                    Reference images require Stability AI or Puter AI
+                  </div>
+                )}
+                <div className="flex-1 relative">
+                  <Input
+                    ref={inputRef}
+                    value={prompt}
+                    onChange={(e) => setPrompt(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleGenerate()}
+                    placeholder={imagePreview ? "Describe how you want to modify this image..." : "Describe the image you want..."}
+                    className="h-11 bg-white/60 border-white/40 text-[#1C1C1C] placeholder:text-[#1C1C1C]/40 rounded-full pr-12 focus-visible:ring-[#D946EF]/30 backdrop-blur-xl"
+                    disabled={isLoading}
+                  />
+                  <Button
+                    onClick={() => handleGenerate()}
+                    disabled={!prompt.trim() || isLoading}
+                    className="absolute right-1 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full bg-gradient-to-r from-[#D946EF] to-[#F97316] hover:opacity-90 text-white disabled:opacity-50"
+                    size="icon"
+                  >
+                    {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+              <p className="text-[10px] text-[#1C1C1C]/30 text-center mt-2">
+                AI-generated images may not always be accurate. Use responsibly.
+              </p>
             </div>
           </div>
-          <p className="text-[10px] text-[#1C1C1C]/30 text-center mt-2">
-            AI-generated images may not always be accurate. Use responsibly.
-          </p>
-        </div>
-      </div>
 
       {/* Image Preview Dialog */}
       <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>

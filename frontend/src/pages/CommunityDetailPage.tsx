@@ -1,41 +1,20 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getCommunity, joinCommunity, leaveCommunity, getCommunityShareLink, getCommunityMessages, sendCommunityMessage, Message, deleteCommunity } from '@/lib/api';
+import { getCommunity, joinCommunity, leaveCommunity, getCommunityShareLink, getCommunityMessages, sendCommunityMessage, Message, deleteCommunity, updateCommunityAvatar, approveCommunityMember } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Users, Lock, Globe, Calendar, ArrowLeft, 
-  MessageSquare, FolderKanban, Settings, 
-  UserPlus, LogOut, ChevronRight, Hash, 
-  Send, Link2, Copy, Check, X, Trash2
+  MessageSquare, FolderKanban, 
+  UserPlus, LogOut, Hash, 
+  Send, Link2, Copy, Check, Trash2, ArrowUpRight,
+  Camera, CheckCircle, Clock
 } from 'lucide-react';
-
-interface CommunityMember {
-  id: number;
-  userId: number;
-  role: string;
-  joinedAt: string;
-  user?: {
-    id: number;
-    username: string;
-    displayName: string;
-    avatarUrl?: string;
-  };
-}
-
-interface Project {
-  id: number;
-  name: string;
-  description?: string;
-  createdAt: string;
-  createdBy?: number;
-}
 
 const CommunityDetailPage = () => {
   const { id } = useParams();
@@ -51,25 +30,20 @@ const CommunityDetailPage = () => {
   const [copied, setCopied] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const toast = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
   useEffect(() => { if (id) load(); }, [id]);
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
   const load = async () => {
     setLoading(true);
     try {
       const res = await getCommunity(Number(id));
       setCommunity(res);
-      if (res.isMember) {
-        loadMessages();
-      }
+      if (res.isMember) loadMessages();
     } catch (err) {
-      console.error(err);
-      toast({ title: 'Error', description: err instanceof Error ? err.message : 'Failed to load', variant: 'destructive' });
+      toast({ title: 'Error', description: 'Failed to synchronize workspace data', variant: 'destructive' });
     } finally { setLoading(false); }
   };
 
@@ -77,48 +51,43 @@ const CommunityDetailPage = () => {
     try {
       const msgs = await getCommunityMessages(Number(id));
       setMessages(msgs || []);
-    } catch (err) {
-      console.error('Failed to load messages:', err);
-    }
+    } catch (err) { console.error('Failed to load messages:', err); }
   };
 
   const handleJoin = async () => {
     if (!id) return;
     setJoining(true);
     try {
-      await joinCommunity(Number(id));
-      toast({ title: 'Success', description: 'You have joined the community!' });
+      const res = await joinCommunity(Number(id));
+      if (res.status === 'pending') {
+        toast({ title: 'Request Sent', description: 'Your request to join is pending approval.' });
+      } else {
+        toast({ title: 'Joined', description: 'Collaborative access enabled.' });
+      }
       load();
-    } catch (err) {
-      toast({ title: 'Error', description: err instanceof Error ? err.message : 'Failed to join', variant: 'destructive' });
-    } finally {
-      setJoining(false);
+    } catch (err: any) { 
+      toast({ title: 'Error', description: err.message || 'Failed to establish connection.', variant: 'destructive' }); 
     }
+    finally { setJoining(false); }
   };
 
   const handleLeave = async () => {
     if (!id) return;
     try {
       await leaveCommunity(Number(id));
-      toast({ title: 'Left', description: 'You have left the community' });
+      toast({ title: 'Left', description: 'Cluster access removed.' });
       load();
-    } catch (err) {
-      toast({ title: 'Error', description: err instanceof Error ? err.message : 'Failed to leave', variant: 'destructive' });
-    }
+    } catch (err) { toast({ title: 'Error', description: 'Failed to disengage.', variant: 'destructive' }); }
   };
 
   const handleDelete = async () => {
-    if (!id || !window.confirm('Are you sure you want to delete this community? This action cannot be undone.')) return;
+    if (!id || !window.confirm('Delete this workspace node? This action is irreversible.')) return;
     setDeleting(true);
     try {
       await deleteCommunity(Number(id));
-      toast({ title: 'Deleted', description: 'Community has been deleted' });
       navigate('/communities');
-    } catch (err) {
-      toast({ title: 'Error', description: err instanceof Error ? err.message : 'Failed to delete', variant: 'destructive' });
-    } finally {
-      setDeleting(false);
-    }
+    } catch (err) { toast({ title: 'Error', description: 'Failed to terminate workspace.', variant: 'destructive' }); }
+    finally { setDeleting(false); }
   };
 
   const handleSendMessage = async () => {
@@ -128,22 +97,8 @@ const CommunityDetailPage = () => {
       const newMsg = await sendCommunityMessage(Number(id), messageInput.trim());
       setMessages(prev => [...prev, newMsg]);
       setMessageInput('');
-    } catch (err) {
-      toast({ title: 'Error', description: err instanceof Error ? err.message : 'Failed to send message', variant: 'destructive' });
-    } finally {
-      setSending(false);
-    }
-  };
-
-  const handleShare = async () => {
-    if (!id) return;
-    try {
-      const data = await getCommunityShareLink(Number(id));
-      setShareLink(data.shareLink);
-      setShowShareDialog(true);
-    } catch (err) {
-      toast({ title: 'Error', description: err instanceof Error ? err.message : 'Failed to get share link', variant: 'destructive' });
-    }
+    } catch (err) { toast({ title: 'Error', description: 'Transmission failed.', variant: 'destructive' }); }
+    finally { setSending(false); }
   };
 
   const copyShareLink = () => {
@@ -152,312 +107,286 @@ const CommunityDetailPage = () => {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  if (loading) {
-    return (
-      <div style={{ fontFamily: "'DM Sans', sans-serif" }} className="min-h-screen bg-[#F5F5F5] flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-[#00A4EF] border-t-transparent rounded-full animate-spin" />
-          <p className="text-[#1C1C1C]/60">Loading community...</p>
-        </div>
-      </div>
-    );
-  }
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0 || !id) return;
+    const file = e.target.files[0];
+    try {
+      toast({ title: 'Uploading', description: 'Updating community avatar...' });
+      await updateCommunityAvatar(Number(id), file);
+      toast({ title: 'Success', description: 'Community avatar updated.' });
+      load();
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message || 'Failed to update avatar.', variant: 'destructive' });
+    }
+  };
 
+  const handleApproveMember = async (userId: number) => {
+    if (!id) return;
+    try {
+      await approveCommunityMember(Number(id), userId);
+      toast({ title: 'Success', description: 'Member approved.' });
+      load();
+    } catch (err) {
+      toast({ title: 'Error', description: 'Failed to approve member.', variant: 'destructive' });
+    }
+  };
+
+  if (loading && !community) return <div className="min-h-screen bg-[#F5F5F5] flex items-center justify-center font-bold text-slate-400 animate-pulse">Syncing Cluster...</div>;
   if (!community) return null;
 
-  const members: CommunityMember[] = community.members || [];
-  const projects: Project[] = community.projects || [];
-  const isMember = community.isMember || false;
-  const isCreator = community.isCreator || false;
+  const { members = [], projects = [], isMember, isCreator, isPending } = community;
+  const approvedMembers = members.filter((m: any) => m.status === 'approved' || m.userId === community.creatorId);
+  const pendingMembers = members.filter((m: any) => m.status === 'pending');
 
   return (
     <div style={{ fontFamily: "'DM Sans', sans-serif" }} className="min-h-screen bg-[#F5F5F5] text-[#1C1C1C] pb-20">
-      <div className="max-w-4xl mx-auto px-4 py-8 space-y-6">
-        <button onClick={() => navigate('/communities')} className="text-[#1C1C1C]/60 hover:text-[#1C1C1C] transition-colors flex items-center gap-2">
-          <ArrowLeft className="w-5 h-5" />
-          Back
+      <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
+        
+        {/* Navigation Control */}
+        <button onClick={() => navigate('/communities')} className="text-[#1C1C1C]/40 hover:text-[#1C1C1C] transition-colors flex items-center gap-2 text-sm font-bold tracking-wider uppercase">
+          <ArrowLeft className="w-4 h-4" />
+          Navigate Back
         </button>
 
-        {/* Community Header */}
-        <div className="bg-white rounded-xl border border-[#E0E0E0] p-6">
-          <div className="flex items-start gap-6 mb-6">
-            <div className="w-20 h-20 rounded-lg bg-[#00A4EF]/10 flex items-center justify-center text-[#00A4EF] font-bold text-3xl shrink-0">
-              {community.name[0].toUpperCase()}
+        {/* Immersive Community Header Block */}
+        <div className="bg-white rounded-[2rem] border border-[#E0E0E0] p-8 shadow-sm">
+          <div className="flex flex-col sm:flex-row items-start gap-6 mb-8">
+            <div className="relative group">
+              <Avatar className="w-24 h-24 rounded-2xl border-2 border-[#00A4EF]/10 shadow-sm">
+                <AvatarImage src={community.avatarUrl} className="object-cover" />
+                <AvatarFallback className="bg-[#00A4EF]/10 text-[#00A4EF] font-bold text-4xl rounded-2xl">
+                  {community.name[0].toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              {isCreator && (
+                <button 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="absolute inset-0 bg-black/40 rounded-2xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <Camera className="w-6 h-6 text-white" />
+                </button>
+              )}
+              <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleAvatarChange} />
             </div>
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-2">
-                <h1 style={{ fontFamily: "'Syne', sans-serif" }} className="text-2xl font-bold text-[#1C1C1C]">{community.name}</h1>
+                <h1 style={{ fontFamily: "'Syne', sans-serif" }} className="text-3xl font-extrabold text-[#1C1C1C] tracking-tight">{community.name}</h1>
                 {community.isPrivate ? (
-                  <Badge className="bg-[#FF6B6B]/10 text-[#FF6B6B] border-0">
-                    <Lock className="w-3 h-3 mr-1" />
-                    Private
+                  <Badge className="bg-[#FF6B6B]/10 text-[#FF6B6B] border border-[#FF6B6B]/20 font-bold text-[10px] uppercase tracking-wider h-6 rounded-md">
+                    <Lock className="w-3 h-3 mr-1" /> Private
                   </Badge>
                 ) : (
-                  <Badge className="bg-[#00A4EF]/10 text-[#00A4EF] border-0">
-                    <Globe className="w-3 h-3 mr-1" />
-                    Public
+                  <Badge className="bg-[#E8F4FF] text-[#0066CC] border border-[#00A4EF]/10 font-bold text-[10px] uppercase tracking-wider h-6 rounded-md">
+                    <Globe className="w-3 h-3 mr-1" /> Public
                   </Badge>
                 )}
               </div>
-              <p className="text-[#1C1C1C]/60">{community.description || 'No description'}</p>
+              <p className="text-sm text-[#1C1C1C]/60 max-w-2xl leading-relaxed">{community.description || 'No descriptive structural parameters initialized for this workspace.'}</p>
             </div>
           </div>
+          
           <div className="flex gap-3">
-            <Button onClick={handleShare} variant="outline" className="border-[#E0E0E0] text-[#1C1C1C] hover:bg-[#F5F5F5]">
-              <Link2 className="w-4 h-4 mr-2" />
-              Share
+            <Button onClick={() => { getCommunityShareLink(Number(id)).then(d => { setShareLink(d.shareLink); setShowShareDialog(true); }) }} variant="outline" className="h-11 rounded-xl border-[#E0E0E0] font-bold text-xs hover:bg-slate-50">
+              <Link2 className="w-4 h-4 mr-2" /> Share Node
             </Button>
-            {!isCreator && !isMember ? (
-              <Button onClick={handleJoin} disabled={joining} className="bg-[#00A4EF] hover:bg-[#007BB5] text-white">
-                <UserPlus className="w-4 h-4 mr-2" />
-                {joining ? 'Joining...' : 'Join'}
+            {!isCreator && !isMember && !isPending ? (
+              <Button onClick={handleJoin} disabled={joining} className="h-11 rounded-xl bg-[#00A4EF] hover:bg-[#0087d1] text-white font-bold text-xs shadow-md shadow-[#00A4EF]/10">
+                <UserPlus className="w-4 h-4 mr-2" /> {joining ? 'Joining...' : 'Request Access'}
+              </Button>
+            ) : isPending ? (
+              <Button disabled variant="outline" className="h-11 rounded-xl border-[#00A4EF] text-[#00A4EF] font-bold text-xs">
+                <Clock className="w-4 h-4 mr-2" /> Request Pending
               </Button>
             ) : isMember && !isCreator ? (
-              <Button onClick={handleLeave} variant="outline" className="text-[#FF6B6B] border-[#FF6B6B] hover:bg-[#FF6B6B]/5">
-                <LogOut className="w-4 h-4 mr-2" />
-                Leave
+              <Button onClick={handleLeave} variant="outline" className="h-11 rounded-xl text-[#FF6B6B] border-[#FF6B6B] hover:bg-[#FF6B6B]/5 font-bold text-xs">
+                <LogOut className="w-4 h-4 mr-2" /> Disengage
               </Button>
             ) : (
-              <Button onClick={handleDelete} disabled={deleting} variant="outline" className="text-[#FF6B6B] border-[#FF6B6B] hover:bg-[#FF6B6B]/5">
-                <Trash2 className="w-4 h-4 mr-2" />
-                {deleting ? 'Deleting...' : 'Delete Community'}
+              <Button onClick={handleDelete} disabled={deleting} variant="outline" className="h-11 rounded-xl text-[#FF6B6B] border-[#FF6B6B] hover:bg-[#FF6B6B]/5 font-bold text-xs">
+                <Trash2 className="w-4 h-4 mr-2" /> Terminate Cluster
               </Button>
             )}
           </div>
         </div>
 
-        {/* Stats */}
+        {/* Dashboard Metrics Grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-white rounded-lg border border-[#E0E0E0] p-4 text-center">
-            <Users className="w-6 h-6 text-[#00A4EF] mx-auto mb-2" />
-            <div className="text-2xl font-bold text-[#1C1C1C]">{members.length}</div>
-            <div className="text-sm text-[#1C1C1C]/60">Members</div>
-          </div>
-          <div className="bg-white rounded-lg border border-[#E0E0E0] p-4 text-center">
-            <FolderKanban className="w-6 h-6 text-[#00A4EF] mx-auto mb-2" />
-            <div className="text-2xl font-bold text-[#1C1C1C]">{projects.length}</div>
-            <div className="text-sm text-[#1C1C1C]/60">Projects</div>
-          </div>
-          <div className="bg-white rounded-lg border border-[#E0E0E0] p-4 text-center">
-            <MessageSquare className="w-6 h-6 text-[#00A4EF] mx-auto mb-2" />
-            <div className="text-2xl font-bold text-[#1C1C1C]">{messages.length}</div>
-            <div className="text-sm text-[#1C1C1C]/60">Messages</div>
-          </div>
-          <div className="bg-white rounded-lg border border-[#E0E0E0] p-4 text-center">
-            <Calendar className="w-6 h-6 text-[#00A4EF] mx-auto mb-2" />
-            <div className="text-sm font-medium text-[#1C1C1C]">
-              {new Date(community.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+          {[ { icon: Users, val: community.memberCount, label: 'Members' }, { icon: FolderKanban, val: projects.length, label: 'Blueprints' }, { icon: MessageSquare, val: messages.length, label: 'Logs' }, { icon: Calendar, val: new Date(community.createdAt).getFullYear(), label: 'Provisioned' } ].map((s, i) => (
+            <div key={i} className="bg-white rounded-2xl border border-[#E0E0E0] p-5 text-center shadow-sm">
+              <s.icon className="w-5 h-5 text-[#00A4EF] mx-auto mb-2" />
+              <div className="text-xl font-extrabold text-[#1C1C1C]">{s.val}</div>
+              <div className="text-[10px] uppercase font-bold tracking-wider text-[#1C1C1C]/40">{s.label}</div>
             </div>
-            <div className="text-sm text-[#1C1C1C]/60">Created</div>
-          </div>
+          ))}
         </div>
 
-        {/* Tabs */}
+        {/* Workstream Tabs */}
         <Tabs defaultValue="chat" className="w-full">
-          <TabsList className="bg-white border-[#E0E0E0] border w-full justify-start rounded-lg p-1">
-            <TabsTrigger value="chat" className="data-[state=active]:bg-[#00A4EF] data-[state=active]:text-white rounded-md">
-              <MessageSquare className="w-4 h-4 mr-2" />
-              Chat
-            </TabsTrigger>
-            <TabsTrigger value="projects" className="data-[state=active]:bg-[#00A4EF] data-[state=active]:text-white rounded-md">
-              <FolderKanban className="w-4 h-4 mr-2" />
-              Projects
-            </TabsTrigger>
-            <TabsTrigger value="members" className="data-[state=active]:bg-[#00A4EF] data-[state=active]:text-white rounded-md">
-              <Users className="w-4 h-4 mr-2" />
-              Members ({members.length})
-            </TabsTrigger>
+          <TabsList className="bg-white border border-[#E0E0E0] p-1.5 rounded-2xl h-14 w-full flex overflow-x-auto no-scrollbar">
+            {['chat', 'projects', 'members'].map((t) => (
+              <TabsTrigger key={t} value={t} className="flex-1 data-[state=active]:bg-[#1C1C1C] data-[state=active]:text-white font-bold text-xs uppercase tracking-wider rounded-xl h-full px-4 transition-all whitespace-nowrap">
+                {t}
+              </TabsTrigger>
+            ))}
           </TabsList>
 
           <TabsContent value="chat" className="mt-6">
-            <div className="bg-white rounded-lg border border-[#E0E0E0] overflow-hidden">
-              <div className="h-[500px] flex flex-col">
-                {isMember ? (
-                  <>
-                    <div className="flex-1 overflow-auto p-4 space-y-4">
-                      {messages.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center h-full text-[#1C1C1C]/60">
-                          <MessageSquare className="w-12 h-12 text-[#00A4EF]/20 mb-4" />
-                          <p className="font-medium mb-2">No messages yet</p>
-                          <p className="text-sm">Be the first to send a message!</p>
-                        </div>
-                      ) : (
-                        messages.map((msg) => (
-                          <div key={msg.id} className="flex gap-3 hover:bg-[#F5F5F5] p-2 rounded-lg transition-colors">
-                            <Avatar className="h-10 w-10 shrink-0">
-                              <AvatarImage src={msg.sender?.avatarUrl} />
-                              <AvatarFallback className="bg-[#00A4EF]/10 text-[#00A4EF] text-sm">
-                                {msg.sender?.displayName?.[0] || msg.sender?.username?.[0] || '?'}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-baseline gap-2 mb-1">
-                                <span className="font-medium text-sm text-[#1C1C1C]">
-                                  {msg.sender?.displayName || msg.sender?.username}
-                                </span>
-                                <span className="text-xs text-[#1C1C1C]/40">
-                                  {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                </span>
-                              </div>
-                              <p className="text-sm text-[#1C1C1C] break-words">{msg.content}</p>
-                            </div>
+            <div className="bg-white rounded-[2rem] border border-[#E0E0E0] overflow-hidden shadow-sm h-[500px] flex flex-col">
+              {isMember ? (
+                <>
+                  <div className="flex-1 overflow-auto p-6 space-y-6">
+                    {messages.map((msg) => (
+                      <div key={msg.id} className="flex gap-4">
+                        <Avatar className="h-10 w-10 shrink-0 border border-[#E0E0E0]">
+                          <AvatarImage src={msg.sender?.avatarUrl} />
+                          <AvatarFallback className="bg-[#00A4EF]/5 text-[#00A4EF] font-bold text-xs">
+                            {msg.sender?.displayName?.[0] || '?'}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1">
+                          <div className="flex items-baseline gap-2 mb-1">
+                            <span className="font-bold text-sm text-[#1C1C1C]">{msg.sender?.displayName}</span>
+                            <span className="text-[10px] font-mono text-[#1C1C1C]/30">{new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                           </div>
-                        ))
-                      )}
-                      <div ref={messagesEndRef} />
-                    </div>
-                    <div className="p-4 border-t border-[#E0E0E0] bg-[#F5F5F5]">
-                      <div className="flex gap-2">
-                        <Input
-                          placeholder="Type a message..."
-                          value={messageInput}
-                          onChange={(e) => setMessageInput(e.target.value)}
-                          onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSendMessage())}
-                          className="flex-1 bg-white border-[#E0E0E0] focus:border-[#00A4EF]"
-                          disabled={sending}
-                        />
-                        <Button 
-                          onClick={handleSendMessage} 
-                          disabled={!messageInput.trim() || sending}
-                          className="bg-[#00A4EF] hover:bg-[#007BB5]"
-                        >
-                          {sending ? (
-                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                          ) : (
-                            <Send className="w-4 h-4" />
-                          )}
-                        </Button>
+                          <p className="text-sm text-[#1C1C1C]/70 leading-relaxed">{msg.content}</p>
+                        </div>
                       </div>
-                    </div>
-                  </>
-                ) : (
-                  <div className="flex flex-col items-center justify-center h-full text-[#1C1C1C]/60 p-8">
-                    <Lock className="w-12 h-12 text-[#00A4EF]/20 mb-4" />
-                    <p className="font-medium mb-2">Join to access chat</p>
-                    <p className="text-sm mb-4">You need to be a member to send messages</p>
-                    {!isCreator && (
-                      <Button onClick={handleJoin} disabled={joining} className="bg-[#00A4EF] hover:bg-[#007BB5]">
-                        <UserPlus className="w-4 h-4 mr-2" />
-                        {joining ? 'Joining...' : 'Join Community'}
-                      </Button>
-                    )}
+                    ))}
+                    <div ref={messagesEndRef} />
                   </div>
-                )}
-              </div>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="projects" className="mt-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-lg">Projects</h3>
-              {(isMember || isCreator) && (
-                <Button size="sm" className="bg-[#00A4EF] hover:bg-[#007BB5] text-white">
-                  <FolderKanban className="w-4 h-4 mr-2" />
-                  New Project
-                </Button>
+                  <div className="p-4 border-t border-[#E0E0E0] bg-[#F5F5F5]">
+                    <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }} className="flex gap-2">
+                      <Input value={messageInput} onChange={(e) => setMessageInput(e.target.value)} placeholder="Broadcast message..." className="bg-white border-[#E0E0E0] rounded-xl h-11" />
+                      <Button type="submit" disabled={sending} className="bg-[#00A4EF] hover:bg-[#007BB5] text-white rounded-xl h-11 w-11 shrink-0 p-0">
+                        <Send className="w-4 h-4" />
+                      </Button>
+                    </form>
+                  </div>
+                </>
+              ) : (
+                <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-[#1C1C1C]/40">
+                  <Lock className="w-12 h-12 mb-4 text-[#00A4EF]/10" />
+                  <p className="font-bold text-[#1C1C1C]">Restricted Pipeline</p>
+                  <p className="text-xs mb-6">Join to broadcast or view logs.</p>
+                </div>
               )}
             </div>
-            {projects.length === 0 ? (
-              <div className="bg-white rounded-lg border border-[#E0E0E0] py-12 text-center">
-                <FolderKanban className="w-12 h-12 text-[#00A4EF]/20 mx-auto mb-4" />
-                <h4 className="font-medium mb-2">No projects yet</h4>
-                <p className="text-[#1C1C1C]/60 text-sm">{(isMember || isCreator) ? 'Start a new project' : 'Join to create projects'}</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {projects.map((project) => (
-                  <div key={project.id} className="bg-white rounded-lg border border-[#E0E0E0] hover:border-[#00A4EF] p-4 transition-all">
-                    <div className="flex items-start justify-between mb-2">
-                      <h4 className="font-semibold text-[#1C1C1C]">{project.name}</h4>
-                    </div>
-                    <p className="text-sm text-[#1C1C1C]/60 line-clamp-2 mb-3">{project.description || 'No description'}</p>
-                    <div className="text-xs text-[#1C1C1C]/40">{new Date(project.createdAt).toLocaleDateString()}</div>
+          </TabsContent>
+          
+          <TabsContent value="projects" className="mt-6">
+            <div className="bg-white rounded-[2rem] border border-[#E0E0E0] p-8 shadow-sm min-h-[300px]">
+              {isMember ? (
+                projects.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {projects.map((p: any) => (
+                      <div key={p.id} className="p-4 rounded-xl border border-[#E0E0E0] hover:border-[#00A4EF]/30 transition-colors cursor-pointer flex items-center justify-between">
+                        <div>
+                          <h3 className="font-bold text-[#1C1C1C]">{p.name}</h3>
+                          <p className="text-sm text-[#1C1C1C]/60 line-clamp-1">{p.description}</p>
+                        </div>
+                        <ArrowUpRight className="w-4 h-4 text-[#1C1C1C]/40" />
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            )}
+                ) : (
+                  <div className="text-center py-12 text-[#1C1C1C]/40">
+                    <FolderKanban className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p>No blueprints initialized yet.</p>
+                  </div>
+                )
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center text-center text-[#1C1C1C]/40 py-12">
+                  <Lock className="w-12 h-12 mb-4 text-[#00A4EF]/10" />
+                  <p className="font-bold">Access Denied</p>
+                </div>
+              )}
+            </div>
           </TabsContent>
 
           <TabsContent value="members" className="mt-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-lg">Members</h3>
-              <Badge variant="secondary">{members.length} members</Badge>
-            </div>
-            {members.length === 0 ? (
-              <div className="bg-white rounded-lg border border-[#E0E0E0] py-12 text-center">
-                <Users className="w-12 h-12 text-[#00A4EF]/20 mx-auto mb-4" />
-                <h4 className="font-medium mb-2">No members yet</h4>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {members.map((member) => (
-                  <div 
-                    key={member.id}
-                    className="flex items-center gap-3 p-4 bg-white rounded-lg border border-[#E0E0E0] hover:border-[#00A4EF] transition-all"
-                  >
-                    <Avatar className="h-10 w-10">
-                      <AvatarImage src={member.user?.avatarUrl} />
-                      <AvatarFallback className="bg-[#00A4EF]/10 text-[#00A4EF] text-sm">
-                        {member.user?.displayName?.[0] || member.user?.username?.[0] || '?'}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-[#1C1C1C] truncate">
-                        {member.user?.displayName || member.user?.username}
+            <div className="bg-white rounded-[2rem] border border-[#E0E0E0] p-8 shadow-sm">
+              {isCreator && pendingMembers.length > 0 && (
+                <div className="mb-8">
+                  <h3 className="font-bold text-lg mb-4 text-[#1C1C1C] flex items-center gap-2">
+                    <Clock className="w-5 h-5 text-[#FF9900]" /> Pending Requests
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {pendingMembers.map((m: any) => (
+                      <div key={m.userId} className="flex items-center justify-between p-4 rounded-xl border border-[#E0E0E0]">
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-10 w-10 shrink-0">
+                            <AvatarImage src={m.user?.avatarUrl} />
+                            <AvatarFallback>{m.user?.displayName?.[0] || '?'}</AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="font-bold text-sm text-[#1C1C1C]">{m.user?.displayName}</p>
+                            <p className="text-xs text-[#1C1C1C]/60">Requested access</p>
+                          </div>
+                        </div>
+                        <Button size="sm" onClick={() => handleApproveMember(m.userId)} className="bg-[#00A4EF] hover:bg-[#0087d1] text-white rounded-lg px-3">
+                          <CheckCircle className="w-4 h-4 mr-1" /> Approve
+                        </Button>
                       </div>
-                      <div className="text-xs text-[#1C1C1C]/60 capitalize">
-                        {member.role}
+                    ))}
+                  </div>
+                  <hr className="my-8 border-[#E0E0E0]" />
+                </div>
+              )}
+
+              <h3 className="font-bold text-lg mb-4 text-[#1C1C1C]">Active Members ({community.memberCount})</h3>
+              {isMember ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {/* Ensure Creator is shown first if in the list */}
+                  {[
+                    ...(community.creator ? [{ user: community.creator, role: 'owner' }] : []),
+                    ...approvedMembers.filter((m: any) => m.userId !== community.creatorId)
+                  ].map((m: any) => (
+                    <div key={m.user?.id || Math.random()} className="flex items-center gap-4 p-4 rounded-xl border border-[#E0E0E0] bg-[#F9F9F9]">
+                      <Avatar className="h-12 w-12 shrink-0 border border-[#E0E0E0]">
+                        <AvatarImage src={m.user?.avatarUrl} />
+                        <AvatarFallback className="bg-white font-bold text-[#1C1C1C]">{m.user?.displayName?.[0] || '?'}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 overflow-hidden">
+                        <div className="font-bold text-sm text-[#1C1C1C] truncate">{m.user?.displayName}</div>
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-[#1C1C1C]/50 mt-1">
+                          {m.role === 'owner' || m.user?.id === community.creatorId ? 'Creator / Admin' : 'Member'}
+                        </div>
                       </div>
                     </div>
-                    {member.role === 'owner' && (
-                      <Badge className="bg-[#00A4EF]/10 text-[#00A4EF]">Owner</Badge>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                </div>
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center text-center text-[#1C1C1C]/40 py-12 border border-[#E0E0E0] rounded-xl bg-[#F9F9F9]">
+                  <Lock className="w-12 h-12 mb-4 text-[#00A4EF]/10" />
+                  <p className="font-bold">Access Denied</p>
+                  <p className="text-xs">Join community to view members.</p>
+                </div>
+              )}
+            </div>
           </TabsContent>
         </Tabs>
       </div>
-
+      
+      {/* Share Dialog */}
       <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md rounded-2xl">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Link2 className="w-5 h-5 text-[#00A4EF]" />
-              Share Community
-            </DialogTitle>
+            <DialogTitle className="font-bold text-xl">Share Workspace Node</DialogTitle>
+            <DialogDescription>
+              Anyone with this link can {community.isPrivate ? 'request access' : 'join'} the cluster.
+            </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <p className="text-sm text-[#1C1C1C]/60">
-              Share this link to invite others to join "{community?.name}"
-            </p>
-            <div className="flex gap-2">
-              <Input 
-                value={shareLink} 
+          <div className="flex items-center space-x-2 mt-4">
+            <div className="grid flex-1 gap-2">
+              <Input
                 readOnly
-                className="flex-1 bg-[#F5F5F5] border-[#E0E0E0]"
+                value={shareLink}
+                className="bg-[#F5F5F5] font-mono text-xs text-[#1C1C1C]/70"
               />
-              <Button onClick={copyShareLink} variant="outline" className="shrink-0 border-[#E0E0E0] hover:bg-[#F5F5F5]">
-                {copied ? (
-                  <>
-                    <Check className="w-4 h-4 mr-1" />
-                    Copied
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-4 h-4 mr-1" />
-                    Copy
-                  </>
-                )}
-              </Button>
             </div>
-            <div className="flex items-center gap-2 p-3 bg-[#00A4EF]/10 rounded-lg">
-              <Globe className="w-4 h-4 text-[#00A4EF]" />
-              <span className="text-sm text-[#00A4EF]">
-                {community?.isPrivate ? 'Only approved members can join' : 'Anyone with this link can join'}
-              </span>
-            </div>
+            <Button size="sm" onClick={copyShareLink} className="px-3 rounded-lg bg-[#1C1C1C] hover:bg-black text-white">
+              {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

@@ -48,9 +48,6 @@ const Navbar = () => {
             >
               Features
             </a>
-            <Link to="/communities" className="hover:text-[#00A4EF] transition-colors duration-200 hover:font-semibold">
-              Communities
-            </Link>
           </div>
 
           {/* Desktop Buttons */}
@@ -116,10 +113,6 @@ const Navbar = () => {
               >
                 Features
               </a>
-
-              <Link to="/communities" onClick={() => setMobileMenuOpen(false)} className="block text-sm font-medium text-[#1C1C1C60] hover:text-[#00A4EF] transition-colors">
-                Communities
-              </Link>
 
               <div className="pt-4 border-t border-[#E0E0E0] space-y-3 flex sm:hidden flex-col">
                 <Link to="/login" onClick={() => setMobileMenuOpen(false)}>

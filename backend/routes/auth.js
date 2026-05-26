@@ -183,6 +183,10 @@ router.post('/login', async (req, res) => {
         let { email, password } = req.body;
         email = email?.trim().toLowerCase();
 
+        if (!email || !password) {
+            return res.status(400).json({ error: 'Email and password are required.' });
+        }
+
         const user = await prisma.user.findUnique({ where: { email } });
         if (!user) {
             return res.status(401).json({ error: 'Invalid credentials.' });
@@ -197,9 +201,15 @@ router.post('/login', async (req, res) => {
             return res.status(401).json({ error: 'Invalid credentials.' });
         }
 
+        const jwtSecret = process.env.JWT_SECRET;
+        if (!jwtSecret) {
+            console.error('Login error: JWT_SECRET is not defined');
+            return res.status(500).json({ error: 'Server configuration error.' });
+        }
+
         const token = jwt.sign(
             { id: user.id, username: user.username, role: user.role },
-            process.env.JWT_SECRET,
+            jwtSecret,
             { expiresIn: '7d' }
         );
 
