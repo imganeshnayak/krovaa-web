@@ -38,7 +38,7 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 const CookieConsent = lazy(() => import("./components/CookieConsent"));
 const CommunitiesTabPage = lazy(() => import("./pages/CommunitiesTabPage"));
 const JoinCommunityPage = lazy(() => import("./pages/JoinCommunityPage"));
-const FloatingCommunityButton = lazy(() => import("./components/FloatingCommunityButton"));
+// FloatingCommunityButton is rendered by ChatPage only
 
 const queryClient = new QueryClient();
 
@@ -153,7 +153,6 @@ const App = () => (
         <BrowserRouter>
           <MainContent />
           <Suspense fallback={null}>
-            <FloatingCommunityButton />
             <CookieConsent />
           </Suspense>
         </BrowserRouter>
