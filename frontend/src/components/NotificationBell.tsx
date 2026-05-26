@@ -98,14 +98,22 @@ export default function NotificationBell() {
 
         // Handle redirection based on metadata
         if (n.metadata) {
-            const meta = typeof n.metadata === 'string' ? JSON.parse(n.metadata) : n.metadata;
+            try {
+                const meta = typeof n.metadata === 'string' ? JSON.parse(n.metadata) : n.metadata;
 
-            if (meta.type === 'escrow') {
-                navigate(`/escrow?id=${meta.dealId}${meta.chatId ? `&chatId=${meta.chatId}` : ''}`);
-            } else if (meta.type === 'wallet') {
-                navigate('/wallet');
-            } else if (meta.type === 'chat' || meta.chatId) {
-                navigate(`/chat?id=${meta.chatId}`);
+                if (meta?.redirect) {
+                    navigate(meta.redirect);
+                } else if (meta?.type === 'job' || meta?.jobId) {
+                    navigate(`/jobs/${meta.jobId}`);
+                } else if (meta?.type === 'escrow') {
+                    navigate(`/escrow?id=${meta.dealId}${meta.chatId ? `&chatId=${meta.chatId}` : ''}`);
+                } else if (meta?.type === 'wallet') {
+                    navigate('/wallet');
+                } else if (meta?.type === 'chat' || meta?.chatId) {
+                    navigate(`/chat?id=${meta.chatId}`);
+                }
+            } catch (err) {
+                console.error('Failed to parse notification metadata:', err);
             }
         }
 

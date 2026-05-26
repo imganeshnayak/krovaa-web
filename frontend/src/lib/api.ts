@@ -1227,6 +1227,7 @@ export interface Job {
   mode: string;
   description: string;
   attachments?: JobAttachment[];
+  terms?: string[];
   createdAt: string;
 }
 
@@ -1288,6 +1289,9 @@ export function postJob(data: {
   mode: string;
   description: string;
   attachments?: File[];
+  duration?: string;
+  skills?: string[];
+  terms?: string;
 }): Promise<Job> {
   const hasAttachments = (data.attachments?.length || 0) > 0;
 
@@ -1299,6 +1303,9 @@ export function postJob(data: {
     formData.append('budget', data.budget);
     formData.append('mode', data.mode);
     formData.append('description', data.description);
+    if (data.duration) formData.append('duration', data.duration);
+    if (data.skills) formData.append('skills', JSON.stringify(data.skills));
+    if (data.terms) formData.append('terms', data.terms);
 
     data.attachments?.forEach((file) => {
       formData.append('attachments', file);

@@ -13,6 +13,7 @@ const PostJobPage = () => {
   const [duration, setDuration] = useState(""); // New field for context
   const [skills, setSkills] = useState(""); // New field for alignment
   const [description, setDescription] = useState("");
+  const [terms, setTerms] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -61,7 +62,8 @@ const PostJobPage = () => {
         description, 
         attachments,
         duration,
-        skills: skills.split(",").map(s => s.trim()).filter(Boolean)
+        skills: skills.split(",").map(s => s.trim()).filter(Boolean),
+        terms: terms.trim() || undefined
       });
       setCreatedJob(job);
       setSubmitted(true);
@@ -249,6 +251,16 @@ const PostJobPage = () => {
                   placeholder="Enumerate exact system milestones, engineering requirements, architectural responsibilities, and criteria metrics..."
                   className="min-h-[160px] w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm normal-case font-normal text-slate-900 outline-none transition focus:border-[#00A4EF] focus:ring-4 focus:ring-[#00A4EF]/10 leading-relaxed"
                   required
+                />
+              </label>
+
+              <label className="flex flex-col gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                <span>Terms & Conditions (Optional)</span>
+                <textarea
+                  value={terms}
+                  onChange={(event) => setTerms(event.target.value)}
+                  placeholder="Specify any terms, conditions, or prerequisites for this job..."
+                  className="min-h-[100px] w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm normal-case font-normal text-slate-900 outline-none transition focus:border-[#00A4EF] focus:ring-4 focus:ring-[#00A4EF]/10 leading-relaxed"
                 />
               </label>
 

@@ -196,6 +196,16 @@ const JobDetailsPage = () => {
                   </div>
                 </div>
 
+                {/* Terms and Conditions Block */}
+                {job.terms && job.terms.length > 0 && (
+                  <div className="border-t border-slate-100 pt-6">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Terms & Conditions</h3>
+                    <div className="text-sm leading-7 text-slate-600 whitespace-pre-wrap font-normal">
+                      {job.terms.join('\n')}
+                    </div>
+                  </div>
+                )}
+
                 {/* Render Attached Reference Media & Assets Grid */}
                 {job.attachments && job.attachments.length > 0 && (
                   <div className="mt-8 pt-6 border-t border-slate-100">
@@ -471,7 +481,7 @@ const JobDetailsPage = () => {
 
       {/* Floating Sticky Footer Actions Deck */}
       {job && !isLoading && !error && !job.isOwner && !isApplied && (
-        <div className="fixed bottom-0 left-0 right-0 z-40 px-4 py-4 bg-white/80 backdrop-blur-xl border-t border-slate-200/60 shadow-[0_-10px_40px_rgba(0,0,0,0.04)] sm:px-6">
+        <div className={`fixed bottom-16 left-0 right-0 z-40 px-4 py-4 bg-white/80 backdrop-blur-xl border-t border-slate-200/60 shadow-[0_-10px_40px_rgba(0,0,0,0.04)] sm:px-6 ${!showApplyModal ? 'lg:hidden' : ''}`}>
           <div className="mx-auto max-w-3xl">
             <AnimatePresence mode="wait">
               {!showApplyModal ? (

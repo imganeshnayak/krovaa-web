@@ -77,6 +77,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import FloatingCommunityButton from "@/components/FloatingCommunityButton";
 
 type LocalMessage = MessageType & { message_type?: string; isUploading?: boolean; sender?: { role?: string; avatarUrl?: string; displayName?: string } };
 
@@ -2713,6 +2714,7 @@ const ChatPage = () => {
           />
         )}
       <ProfileCompletionModal />
+      <FloatingCommunityButton />
     </div>
   );
 }
@@ -2780,6 +2782,7 @@ const ChatPage = () => {
         />
       </div>
       <ProfileCompletionModal />
+      <FloatingCommunityButton />
     </div>
   );
 };

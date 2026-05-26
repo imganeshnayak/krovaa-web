@@ -150,7 +150,6 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <MainContent />
-          <FloatingCommunityButton />
           <CookieConsent />
         </BrowserRouter>
       </TooltipProvider>

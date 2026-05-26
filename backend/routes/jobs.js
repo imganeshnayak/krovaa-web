@@ -70,6 +70,8 @@ const destroyUploadedFile = async (publicId, resourceType) => {
     }
 };
 
+const getUserDisplayName = (user) => user?.displayName || user?.username || 'Someone';
+
 // GET /api/jobs
 router.get('/', async (req, res) => {
     try {
@@ -428,6 +430,46 @@ router.post('/', auth, uploadJobAttachments, async (req, res) => {
                 },
             });
         });
+
+        const io = req.app.get('io');
+        const poster = await prisma.user.findUnique({
+            where: { id: req.user.id },
+            select: { displayName: true, username: true }
+        });
+        const posterName = getUserDisplayName(poster);
+        const jobNotificationMetadata = {
+            type: 'job',
+            jobId: job.id,
+            redirect: `/jobs/${job.id}`,
+            skipChatMirror: true,
+        };
+
+        const activeUsers = await prisma.user.findMany({
+            where: {
+                status: 'active',
+                NOT: { id: req.user.id }
+            },
+            select: { id: true }
+        });
+
+        await Promise.allSettled([
+            sendUserNotification(
+                io,
+                req.user.id,
+                '✅ Job Posted Successfully',
+                `Your job "${job.title}" is now live and visible to applicants.`,
+                'success',
+                jobNotificationMetadata
+            ),
+            ...activeUsers.map((user) => sendUserNotification(
+                io,
+                user.id,
+                `🆕 New Job: ${job.title}`,
+                `${posterName} posted a new ${job.mode.toLowerCase()} job at ${job.company} in ${job.location}.`,
+                'info',
+                jobNotificationMetadata
+            )),
+        ]);
 
         res.status(201).json(job);
     } catch (err) {
