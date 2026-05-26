@@ -2,10 +2,9 @@ import { lazy, Suspense } from "react";
 const Toaster = lazy(() => import("@/components/ui/toaster").then(m => ({ default: m.Toaster })));
 import { useAuth } from "./contexts/AuthContext";
 import LoadingScreen from "./components/ui/LoadingScreen";
-import BottomNavbar from "./components/BottomNavbar";
+const BottomNavbar = lazy(() => import("./components/BottomNavbar"));
 const Sonner = lazy(() => import("@/components/ui/sonner").then(m => ({ default: m.Toaster })));
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+const TooltipProvider = lazy(() => import("@/components/ui/tooltip").then(m => ({ default: m.TooltipProvider })));
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import Landing from "./pages/Landing";
@@ -40,7 +39,18 @@ const CommunitiesTabPage = lazy(() => import("./pages/CommunitiesTabPage"));
 const JoinCommunityPage = lazy(() => import("./pages/JoinCommunityPage"));
 const FloatingCommunityButton = lazy(() => import("./components/FloatingCommunityButton"));
 
-const queryClient = new QueryClient();
+// Lazy wrapper that bundles QueryClientProvider with its own QueryClient instance
+// This defers @tanstack/react-query evaluation off the critical path
+const QueryWrapper = lazy(() =>
+  import("@tanstack/react-query").then(({ QueryClient, QueryClientProvider }) => {
+    const queryClient = new QueryClient();
+    return {
+      default: ({ children }: { children: React.ReactNode }) => (
+        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      ),
+    };
+  })
+);
 
 // Protected Route component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -137,29 +147,37 @@ const MainContent = () => {
         <Route path="*" element={<NotFound />} />
       </Routes>
       </Suspense>
-      {showNavbar && <BottomNavbar />}
+      {showNavbar && (
+        <Suspense fallback={null}>
+          <BottomNavbar />
+        </Suspense>
+      )}
     </main>
   );
 };
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <TooltipProvider>
+  <Suspense fallback={<LoadingScreen />}>
+    <QueryWrapper>
+      <AuthProvider>
         <Suspense fallback={null}>
-          <Toaster />
-          <Sonner />
+          <TooltipProvider>
+            <Suspense fallback={null}>
+              <Toaster />
+              <Sonner />
+            </Suspense>
+            <BrowserRouter>
+              <MainContent />
+              <Suspense fallback={null}>
+                <FloatingCommunityButton />
+                <CookieConsent />
+              </Suspense>
+            </BrowserRouter>
+          </TooltipProvider>
         </Suspense>
-        <BrowserRouter>
-          <MainContent />
-          <Suspense fallback={null}>
-            <FloatingCommunityButton />
-            <CookieConsent />
-          </Suspense>
-        </BrowserRouter>
-      </TooltipProvider>
-    </AuthProvider>
-  </QueryClientProvider>
+      </AuthProvider>
+    </QueryWrapper>
+  </Suspense>
 );
 
 export default App;

@@ -1,5 +1,4 @@
 import { Link, useNavigate } from "react-router-dom";
-import { themeColors } from "@/lib/themeColors";
 import {
   MessageSquare, Shield, Share2, IndianRupee,
   ArrowRight, Send, CheckCircle2, Zap,
@@ -79,24 +78,14 @@ const Landing = () => {
   const SlideIcon = slide.icon;
 
   return (
-    <div
-      style={{ fontFamily: "'Inter', sans-serif", background: "#FFFFFF" }}
-      className="min-h-screen text-[#1C1C1C] selection:bg-[#00A4EF] selection:text-white overflow-x-hidden"
-    >
+    <div className="min-h-screen bg-white text-[#1C1C1C] selection:bg-[#00A4EF] selection:text-white overflow-x-hidden font-rubik">
 
       {/* ── Ambient glows ── */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[700px] h-[400px] rounded-full blur-[130px]" style={{ background: "#00A4EF08" }} />
-        <div className="absolute top-[60%] -right-32 w-[400px] h-[400px] rounded-full blur-[120px]" style={{ background: "#0FB88108" }} />
+        <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[700px] h-[400px] rounded-full blur-[130px] bg-[#00A4EF08]" />
+        <div className="absolute top-[60%] -right-32 w-[400px] h-[400px] rounded-full blur-[120px] bg-[#0FB88108]" />
         {/* grid */}
-        <div
-          className="absolute inset-0 opacity-[0.02]"
-          style={{
-            backgroundImage:
-              `linear-gradient(to right, #00A4EF 1px, transparent 1px), linear-gradient(to bottom, #00A4EF 1px, transparent 1px)`,
-            backgroundSize: "72px 72px",
-          }}
-        />
+        <div className="absolute inset-0 opacity-[0.02] bg-grid-pattern" />
       </div>
 
       <Navbar />
@@ -110,7 +99,7 @@ const Landing = () => {
             const Icon = item.icon;
             return (
               <div key={idx} className="flex items-center gap-4 px-12 shrink-0 group">
-                <div className="p-2 rounded-lg bg-white transition-colors" style={{ border: "1px solid #E0E0E0" }}>
+                <div className="p-2 rounded-lg bg-white border border-[#E0E0E0] transition-colors">
                   <Icon className="h-5 w-5 text-[#1C1C1C40] transition-colors" />
                 </div>
                 <span className="text-sm font-medium text-[#1C1C1C40] group-hover:text-[#1C1C1C] transition-colors uppercase tracking-widest whitespace-nowrap">
@@ -141,24 +130,16 @@ const Landing = () => {
 
       {/* ── CTA ── */}
       <section className="px-6 py-28">
-        <div className="rounded-lg relative overflow-hidden text-center p-10 md:p-20" style={{
-          background: "linear-gradient(135deg, #00A4EF, #007BB5)"
-        }}>
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[2px]" style={{
-            background: `linear-gradient(to right, transparent, #FFFFFF50, transparent)`
-          }} />
+        <div className="rounded-lg relative overflow-hidden text-center p-10 md:p-20 bg-cta-gradient">
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[2px] bg-cta-line" />
 
           <div className="relative z-10 text-white">
-            <div style={{
-              border: "1px solid #FFFFFF40",
-              background: "#FFFFFF12",
-              color: "#FFFFFF"
-            }} className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold tracking-widest uppercase mb-8">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold tracking-widest uppercase mb-8 border border-white/40 bg-white/10 text-white">
               <Zap className="h-3 w-3 fill-current" />
               {landingContent.cta.tag}
             </div>
 
-            <h2 style={{ fontFamily: "'Inter', sans-serif" }} className="text-3xl md:text-5xl font-extrabold mb-5 tracking-tight text-white">
+            <h2 className="text-3xl md:text-5xl font-extrabold mb-5 tracking-tight text-white">
               {landingContent.cta.title}
             </h2>
             <p className="text-white/80 mb-10 text-base max-w-md mx-auto leading-relaxed font-light">
@@ -169,12 +150,7 @@ const Landing = () => {
               <Link to="/register">
                 <Button
                   size="lg"
-                  style={{
-                    background: "#FFFFFF",
-                    color: "#00A4EF",
-                    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)"
-                  }}
-                  className="h-12 px-10 text-base font-semibold transition-all hover:scale-[1.03]"
+                  className="h-12 px-10 text-base font-semibold transition-all hover:scale-[1.03] bg-white text-[#00A4EF] shadow-[0_4px_12px_rgba(0,164,239,0.2)]"
                 >
                   {landingContent.cta.ctaPrimary}
                   <ArrowRight className="ml-2 h-4 w-4" />
