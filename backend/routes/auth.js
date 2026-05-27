@@ -10,6 +10,13 @@ import { validatePassword } from '../utils/passwordValidator.js';
 const prisma = new PrismaClient();
 const router = express.Router();
 
+const cookieOptions = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+};
+
 // ─────────────────────────────────────────────────────────────────
 // STEP 1: Send OTP to email before registration
 // POST /api/auth/send-otp
@@ -168,6 +175,7 @@ router.post('/register', async (req, res) => {
             console.error('Failed to create welcome support message:', e);
         }
 
+        res.cookie('token', token, cookieOptions);
         res.status(201).json({ user, token });
     } catch (err) {
         console.error('Register error:', err);
@@ -216,6 +224,7 @@ router.post('/login', async (req, res) => {
         await prisma.activityLog.create({ data: { userId: user.id, action: 'Logged in' } });
 
         const { password: _, ...userWithoutPassword } = user;
+        res.cookie('token', token, cookieOptions);
         res.json({ user: userWithoutPassword, token });
     } catch (err) {
         console.error('Login error:', err.message, err.stack);
@@ -453,12 +462,25 @@ router.post('/telegram', async (req, res) => {
 
         await prisma.activityLog.create({ data: { userId: user.id, action: 'Logged in via Telegram' } });
 
+        res.cookie('token', token, cookieOptions);
         res.json({ user, token });
 
     } catch (err) {
         console.error('Telegram Auth Error:', err);
         res.status(500).json({ error: 'Telegram authentication failed.' });
     }
+});
+
+// ─────────────────────────────────────────────────────────────────
+// POST /api/auth/logout
+// ─────────────────────────────────────────────────────────────────
+router.post('/logout', (req, res) => {
+    res.clearCookie('token', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax'
+    });
+    res.json({ success: true, message: 'Logged out successfully.' });
 });
 
 export default router;

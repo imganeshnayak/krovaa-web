@@ -7,6 +7,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import compression from 'compression';
+import cookieParser from 'cookie-parser';
 
 // Resolve __dirname for ESM and load .env from the project root
 const __filename = fileURLToPath(import.meta.url);
@@ -35,6 +36,7 @@ import subscriptionRoutes from './routes/subscriptions.js';
 import teamsRoutes from './routes/teams.js';
 import groupsRoutes from './routes/groups.js';
 import communitiesRoutes from './routes/communities.js';
+import communityJobsRoutes from './routes/communityJobs.js';
 import setupSocket from './socket/chat.js';
 
 const app = express();
@@ -72,6 +74,7 @@ const allowedOrigins = [
 
 // Middleware
 app.use(compression());
+app.use(cookieParser());
 app.use(cors({
     origin: (origin, callback) => {
         // Allow requests with no origin (like mobile apps/curl)
@@ -152,7 +155,8 @@ app.use('/api/image-generator', imageGeneratorRoutes);
 app.use('/api/subscriptions', subscriptionRoutes);
 app.use('/api/teams', teamsRoutes);
 app.use('/api/groups', groupsRoutes);
-app.use('/api/communities', communitiesRoutes);
+    app.use('/api/communities', communitiesRoutes);
+    app.use('/api/communities', communityJobsRoutes);
 
 // Global Error Handler
 app.use((err, req, res, next) => {

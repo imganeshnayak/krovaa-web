@@ -10,6 +10,10 @@ const router = express.Router();
 const prisma = new PrismaClient();
 const upload = multer({ storage: multer.memoryStorage() });
 
+// Module-level config variables
+const provider = process.env.IMAGE_GENERATOR_PROVIDER || 'pollinations';
+const supportsImg2Img = provider === 'stability';
+
 // Generate image using AI
 router.post('/generate', auth, upload.single('image'), async (req, res) => {
     try {
@@ -80,7 +84,6 @@ router.post('/generate', auth, upload.single('image'), async (req, res) => {
 
         // ---- Image generation logic start ----
         let imageUrl;
-        const provider = process.env.IMAGE_GENERATOR_PROVIDER || 'pollinations';
         console.log(`[ImageGen] Using provider: ${provider}`);
 
         // Helper: upload buffer to Cloudinary
@@ -101,7 +104,6 @@ router.post('/generate', auth, upload.single('image'), async (req, res) => {
         };
 
         // Determine if the request is image-to-image
-        const supportsImg2Img = provider === 'stability';
         const requestedImg2Img = Boolean(base64Image);
         if (requestedImg2Img && !supportsImg2Img) {
             console.warn('[ImageGen] Reference image provided but provider does not support image-to-image. Falling back to text-to-image.');
@@ -282,6 +284,26 @@ router.get('/history', auth, async (req, res) => {
     } catch (error) {
         console.error('Get history error:', error.message);
         res.status(500).json({ error: 'Failed to fetch generation history' });
+    }
+});
+
+// Get configuration (public - accessible to all authenticated users)
+router.get('/config', auth, async (req, res) => {
+    try {
+        const settings = await prisma.systemSetting.findMany();
+        const settingsMap = {};
+        settings.forEach(s => { settingsMap[s.key] = s.value; });
+
+        const isEnabled = settingsMap['image_generator_enabled'] !== 'false';
+
+        res.json({
+            isEnabled,
+            provider,
+            supportsImg2Img
+        });
+    } catch (error) {
+        console.error('Get config error:', error.message);
+        res.status(500).json({ error: 'Failed to fetch image generator config' });
     }
 });
 

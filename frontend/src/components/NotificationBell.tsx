@@ -54,7 +54,7 @@ export default function NotificationBell() {
     useEffect(() => {
         if (!token || !user) return;
 
-        const socket = socketIO(SOCKET_URL, { auth: { token } });
+        const socket = socketIO(SOCKET_URL, { withCredentials: true });
 
         socket.on("connect", () => {
             socket.emit("join", { userId: user.id, chatId: "global" });

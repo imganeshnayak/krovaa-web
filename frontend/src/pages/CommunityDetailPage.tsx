@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 import { 
   Users, Lock, Globe, Calendar, ArrowLeft, 
   MessageSquare, FolderKanban, 
@@ -15,10 +16,12 @@ import {
   Send, Link2, Copy, Check, Trash2, ArrowUpRight,
   Camera, CheckCircle, Clock
 } from 'lucide-react';
+import { JobsTab } from '@/components/community/JobsTab';
 
 const CommunityDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [community, setCommunity] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [joining, setJoining] = useState(false);
@@ -223,12 +226,16 @@ const CommunityDetailPage = () => {
         {/* Workstream Tabs */}
         <Tabs defaultValue="chat" className="w-full">
           <TabsList className="bg-white border border-[#E0E0E0] p-1.5 rounded-2xl h-14 w-full flex overflow-x-auto no-scrollbar">
-            {['chat', 'projects', 'members'].map((t) => (
+            {['chat', 'jobs', 'projects', 'members'].map((t) => (
               <TabsTrigger key={t} value={t} className="flex-1 data-[state=active]:bg-[#1C1C1C] data-[state=active]:text-white font-bold text-xs uppercase tracking-wider rounded-xl h-full px-4 transition-all whitespace-nowrap">
                 {t}
               </TabsTrigger>
             ))}
           </TabsList>
+
+          <TabsContent value="jobs" className="mt-6">
+            <JobsTab communityId={Number(id)} isMember={isMember} />
+          </TabsContent>
 
           <TabsContent value="chat" className="mt-6">
             <div className="bg-white rounded-[2rem] border border-[#E0E0E0] overflow-hidden shadow-sm h-[500px] flex flex-col">
@@ -352,6 +359,16 @@ const CommunityDetailPage = () => {
                           {m.role === 'owner' || m.user?.id === community.creatorId ? 'Creator / Admin' : 'Member'}
                         </div>
                       </div>
+                      {user && m.user?.id && m.user?.id !== user.id && (
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => navigate(`/escrow?chatId=community_${community.id}&vendorId=${m.user?.id}&vendorUsername=${m.user?.username || m.user?.displayName}`)}
+                          className="shrink-0 text-xs font-bold border-[#00A4EF] text-[#00A4EF] hover:bg-[#00A4EF]/10 rounded-lg"
+                        >
+                          Start Deal
+                        </Button>
+                      )}
                     </div>
                   ))}
                 </div>

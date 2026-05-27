@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import {
   generateImage, getImageHistory, deleteGeneratedImage,
-  GeneratedImage, getSubscriptionStatus, getImageGeneratorStats,
+  GeneratedImage, getSubscriptionStatus, getImageGeneratorConfig,
 } from "@/lib/api";
 import {
   Dialog,
@@ -180,11 +180,11 @@ const ImageGeneratorPage = () => {
   }, [user]);
 
   useEffect(() => {
-    getImageGeneratorStats()
-      .then((stats) => {
+    getImageGeneratorConfig()
+      .then((config) => {
         setImageGeneratorConfig({
-          provider: stats.provider,
-          supportsImg2Img: stats.supportsImg2Img,
+          provider: config.provider,
+          supportsImg2Img: config.supportsImg2Img,
         });
       })
       .catch(console.error);

@@ -3,10 +3,7 @@ import { apiUrl } from "./config";
 // src/lib/api.ts
 
 export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
-  const token = localStorage.getItem("authToken");
-
   const headers: Record<string, string> = {
-    ...(token && { 'Authorization': `Bearer ${token}` }),
     ...(options?.headers as Record<string, string> || {}),
   };
 
@@ -113,6 +110,12 @@ export function loginWithTelegram(data: any): Promise<AuthResponse> {
   return apiFetch<AuthResponse>("/api/auth/telegram", {
     method: "POST",
     body: JSON.stringify(data),
+  });
+}
+
+export function logoutUser(): Promise<{ success: boolean }> {
+  return apiFetch<{ success: boolean }>("/api/auth/logout", {
+    method: "POST",
   });
 }
 
@@ -460,14 +463,10 @@ export async function uploadFile(data: {
   if (data.content) formData.append("content", data.content);
   if (data.is_view_once) formData.append("is_view_once", "true");
 
-  const token = localStorage.getItem("authToken");
-
   const res = await fetch(apiUrl("/api/messages/upload"), {
     method: "POST",
-    headers: {
-      ...(token && { 'Authorization': `Bearer ${token}` }),
-    },
     body: formData,
+    credentials: "include",
   });
 
   if (!res.ok) {
@@ -1395,10 +1394,8 @@ export function deleteAd(id: number): Promise<{ success: boolean }> {
 }
 
 export function createAd(formData: FormData): Promise<Ad> {
-  const token = localStorage.getItem("authToken");
   return fetch(apiUrl("/api/ads"), {
     method: "POST",
-    headers: { ...(token && { Authorization: `Bearer ${token}` }) },
     body: formData,
     credentials: "include",
   }).then(async (res) => {
@@ -1411,10 +1408,8 @@ export function createAd(formData: FormData): Promise<Ad> {
 }
 
 export function updateAd(id: number, formData: FormData): Promise<Ad> {
-  const token = localStorage.getItem("authToken");
   return fetch(apiUrl(`/api/ads/${id}`), {
     method: "PUT",
-    headers: { ...(token && { Authorization: `Bearer ${token}` }) },
     body: formData,
     credentials: "include",
   }).then(async (res) => {
@@ -1461,14 +1456,12 @@ export interface Post {
 }
 
 export function createPost(text: string, files: File[]): Promise<Post> {
-  const token = localStorage.getItem("authToken");
   const formData = new FormData();
   if (text) formData.append("text", text);
   files.forEach((file) => formData.append("files", file));
 
   return fetch(apiUrl("/api/posts"), {
     method: "POST",
-    headers: { ...(token && { Authorization: `Bearer ${token}` }) },
     body: formData,
     credentials: "include",
   }).then(async (res) => {
@@ -1578,6 +1571,14 @@ export function getImageGeneratorStats(): Promise<{
   return apiFetch("/api/image-generator/stats");
 }
 
+export function getImageGeneratorConfig(): Promise<{
+  isEnabled: boolean;
+  provider: string;
+  supportsImg2Img: boolean;
+}> {
+  return apiFetch("/api/image-generator/config");
+}
+
 export interface DailyLimitInfo {
   limit: number;
   used: number;
@@ -1683,5 +1684,71 @@ export function sendGroupMessage(groupId: number, data: { content: string; messa
   return apiFetch<any>(`/api/groups/${groupId}/messages`, { method: 'POST', body: JSON.stringify(data) });
 }
 
+// ============ Community Jobs API ============
 
+export interface CommunityJob {
+  id: number;
+  communityId: number;
+  clientId: number;
+  title: string;
+  description: string;
+  budget: number;
+  deadline?: string;
+  skills: string[];
+  status: string;
+  escrowDealId?: number;
+  createdAt: string;
+  client?: { id: number; username: string; displayName: string; avatarUrl?: string };
+  _count?: { bids: number };
+}
 
+export interface CommunityBidMember {
+  id: number;
+  userId: number;
+  role?: string;
+  paymentPercent: number;
+  user?: { id: number; username: string; displayName: string; avatarUrl?: string };
+}
+
+export interface CommunityBid {
+  id: number;
+  jobId: number;
+  leaderId: number;
+  isGroup: boolean;
+  coverLetter?: string;
+  bidAmount: number;
+  estimatedDays?: number;
+  status: string;
+  createdAt: string;
+  leader?: { id: number; username: string; displayName: string; avatarUrl?: string };
+  members: CommunityBidMember[];
+}
+
+export function getCommunityJobs(communityId: number, status?: string): Promise<CommunityJob[]> {
+  const query = status ? `?status=${status}` : '';
+  return apiFetch<CommunityJob[]>(`/api/communities/${communityId}/jobs${query}`);
+}
+
+export function postCommunityJob(communityId: number, data: { title: string; description: string; budget: number; deadline?: string; skills?: string[] }): Promise<CommunityJob> {
+  return apiFetch<CommunityJob>(`/api/communities/${communityId}/jobs`, { method: 'POST', body: JSON.stringify(data) });
+}
+
+export function getCommunityJobDetail(communityId: number, jobId: number): Promise<CommunityJob & { bids: CommunityBid[] }> {
+  return apiFetch<CommunityJob & { bids: CommunityBid[] }>(`/api/communities/${communityId}/jobs/${jobId}`);
+}
+
+export function submitCommunityBid(communityId: number, jobId: number, data: { isGroup: boolean; coverLetter?: string; bidAmount: number; estimatedDays?: number; members?: { userId: number; role?: string; paymentPercent: number }[] }): Promise<CommunityBid> {
+  return apiFetch<CommunityBid>(`/api/communities/${communityId}/jobs/${jobId}/bids`, { method: 'POST', body: JSON.stringify(data) });
+}
+
+export function withdrawCommunityBid(communityId: number, jobId: number, bidId: number): Promise<{ success: boolean }> {
+  return apiFetch<{ success: boolean }>(`/api/communities/${communityId}/jobs/${jobId}/bids/${bidId}`, { method: 'DELETE' });
+}
+
+export function acceptCommunityBid(communityId: number, jobId: number, bidId: number): Promise<any> {
+  return apiFetch<any>(`/api/communities/${communityId}/jobs/${jobId}/bids/${bidId}/accept`, { method: 'POST' });
+}
+
+export function rateCommunityJob(communityId: number, jobId: number, data: { reviewedId: number; rating: number; feedback?: string }): Promise<any> {
+  return apiFetch<any>(`/api/communities/${communityId}/jobs/${jobId}/ratings`, { method: 'POST', body: JSON.stringify(data) });
+}
