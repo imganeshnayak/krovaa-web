@@ -1999,7 +1999,7 @@ const ChatPage = () => {
 
       setChats(data);
           // Inject KrovAI chat row
-          const isImageGeneratorEnabled = localStorage.getItem("image_generator_enabled") !== "false";
+          const isImageGeneratorEnabled = localStorage.getItem("image_generator_enabled") === "true";
           const krovaiChatId = `krovai_${user?.id}`;
           const hasKrovaiChat = data.some((chat) => chat.chat_id === krovaiChatId);
           if (isImageGeneratorEnabled && !hasKrovaiChat && user?.role !== 'admin' && user?.role !== 'staff' && user?.id) {

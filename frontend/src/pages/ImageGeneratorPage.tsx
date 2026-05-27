@@ -140,11 +140,11 @@ const ImageGeneratorPage = () => {
   }, [messages]);
 
   useEffect(() => {
-    const enabled = localStorage.getItem("image_generator_enabled");
-    if (enabled === "false") {
+    const enabled = localStorage.getItem("image_generator_enabled") === "true";
+    if (!enabled) {
       toast({
         title: "Feature Disabled",
-        description: "AI Image Generator has been disabled in settings.",
+        description: "AI Image Generator is disabled in your settings.",
         variant: "destructive",
       });
       navigate("/chat");

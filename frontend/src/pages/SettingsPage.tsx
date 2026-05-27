@@ -32,7 +32,7 @@ const SettingsPage = () => {
     const [agreeToTerms, setAgreeToTerms] = useState(false);
     const [isImageGeneratorEnabled, setIsImageGeneratorEnabled] = useState(() => {
         const saved = localStorage.getItem("image_generator_enabled");
-        return saved !== "false";
+        return saved === "true";
     });
     const [dailyLimitInfo, setDailyLimitInfo] = useState<DailyLimitInfo | null>(null);
     const [isLoadingLimit, setIsLoadingLimit] = useState(false);
