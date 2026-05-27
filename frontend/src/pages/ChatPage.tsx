@@ -14,8 +14,6 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { useScreenshotProtection } from "@/hooks/useScreenshotProtection";
-import { useMobileScreenshotProtection } from "@/hooks/useMobileScreenshotProtection";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Dialog,
@@ -63,7 +61,6 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { socketService } from "@/lib/socket";
 import { getCloudinaryDownloadUrl, downloadFile } from "@/lib/cloudinary";
 import LoadingScreen from "@/components/ui/LoadingScreen";
-import { detectDevice, applyPlatformSpecificProtections } from "@/lib/mobileProtectionService";
 import { createScreenshotNotification } from "@/lib/screenshotNotification";
 import { notifyScreenshotAttempt } from "@/lib/api";
 import FilePreviewDialog from "@/components/chat/FilePreviewDialog";
@@ -243,17 +240,12 @@ const ConversationList = ({
   const [showWelcomeBanner, setShowWelcomeBanner] = useState(() => localStorage.getItem("show_welcome_banner") === "true");
 
   useEffect(() => {
-    if (showWelcomeBanner && isMobile && !searchQuery.trim() && filteredChats.length <= 1) {
-      const timer = setTimeout(() => {
-        setShowWelcomeBanner(false);
-        localStorage.removeItem("show_welcome_banner");
-      }, 5000);
-      return () => clearTimeout(timer);
-    }
+    // Removed auto-dismiss timer to prevent layout shift.
+    // The banner will stay until the user manually dismisses it.
   }, [showWelcomeBanner, isMobile, searchQuery, filteredChats.length]);
 
   return (
-    <div className="flex flex-col h-full min-h-0 bg-white overflow-hidden font-dm-sans">
+    <div className="flex flex-col min-h-screen bg-white overflow-hidden font-dm-sans">
 
       {/* Header */}
       <div className="p-4 border-b border-[#E0E0E0] sticky top-0 z-10 bg-white/80 backdrop-blur-xl">
@@ -910,22 +902,21 @@ const ChatView = ({
         )}
       </div>
 
-      {/* Persistent Ad Banner below header */}
-      {!adDismissed && chatAd && selectedChat && !selectedChat.isOfficial && (
-        <div className="z-10 shadow-lg border-b border-white/5 bg-background/60 backdrop-blur-md">
-          <AdBanner
-            ad={chatAd}
-            onDismiss={() => {
-              setAdDismissed(true);
-              sessionStorage.setItem(`ad_dismissed_${selectedChat!.chat_id}`, '1');
-            }}
-          />
-        </div>
-      )}
-
       {/* Messages */}
       <div className="flex-1 relative overflow-hidden min-h-0 bg-[#050810]/30" data-nocontext>
 
+        {/* Persistent Ad Banner below header (Floating to prevent Layout Shift) */}
+        {!adDismissed && chatAd && selectedChat && !selectedChat.isOfficial && (
+          <div className="absolute top-0 left-0 right-0 z-20 shadow-lg border-b border-white/5 bg-background/60 backdrop-blur-md animate-in slide-in-from-top-2 duration-300">
+            <AdBanner
+              ad={chatAd}
+              onDismiss={() => {
+                setAdDismissed(true);
+                sessionStorage.setItem(`ad_dismissed_${selectedChat!.chat_id}`, '1');
+              }}
+            />
+          </div>
+        )}
 
         <div
           className={`h-full overflow-y-auto scrollbar-thin scrollbar-thumb-primary/20 scroll-smooth relative z-10 ${selectedChat?.isKrovAI ? 'bg-[#FDF4FF]/30' : ''}`}

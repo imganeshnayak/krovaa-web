@@ -41,47 +41,52 @@ const JoinCommunityPage = lazy(() => import("./pages/JoinCommunityPage"));
 // FloatingCommunityButton is rendered by ChatPage only
 import { ENABLE_COMMUNITIES } from "./lib/features";
 
-const queryClient = new QueryClient();
+const QueryWrapper = lazy(() =>
+  import("@tanstack/react-query").then(({ QueryClient, QueryClientProvider }) => {
+    const queryClient = new QueryClient();
 
-// Protected Route component
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+    return {
+      default: ({ children }: { children: ReactNode }) => (
+        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      ),
+    };
+  })
+);
+
+const AdminRoute = ({ children }: { children: ReactNode }) => {
   const { user, isLoading } = useAuth();
+
   if (isLoading) return <LoadingScreen />;
   if (!user) return <Navigate to="/login" replace />;
+  if (user.role !== "admin") return <Navigate to="/chat" replace />;
+
   return <>{children}</>;
 };
 
-// Admin Route component
-const AdminRoute = ({ children }: { children: React.ReactNode }) => {
+const ClientRoute = ({ children }: { children: ReactNode }) => {
   const { user, isLoading } = useAuth();
+
   if (isLoading) return <LoadingScreen />;
   if (!user) return <Navigate to="/login" replace />;
-  if (user.role !== 'admin') return <Navigate to="/chat" replace />;
+  if (user.role === "staff") return <Navigate to="/admin" replace />;
+
   return <>{children}</>;
 };
 
-// Client Only Route (Regular users + Admins, but NOT staff)
-const ClientRoute = ({ children }: { children: React.ReactNode }) => {
+const PublicRoute = ({ children }: { children: ReactNode }) => {
   const { user, isLoading } = useAuth();
-  if (isLoading) return <LoadingScreen />;
-  if (!user) return <Navigate to="/login" replace />;
-  if (user.role === 'staff') return <Navigate to="/admin" replace />;
-  return <>{children}</>;
-};
 
-// Public Route component (redirects to chat if already logged in)
-const PublicRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, isLoading } = useAuth();
   if (isLoading) return <LoadingScreen />;
   if (user) {
-    return <Navigate to={(user.role === 'admin' || user.role === 'staff') ? "/admin" : "/chat"} replace />;
+    return <Navigate to={user.role === "admin" || user.role === "staff" ? "/admin" : "/chat"} replace />;
   }
+
   return <>{children}</>;
 };
 
-// Redirect component: /profile/:username -> /:username
 const ProfileRedirect = () => {
   const { username } = useParams<{ username: string }>();
+
   return <Navigate to={`/${username}`} replace />;
 };
 
@@ -147,28 +152,38 @@ const MainContent = () => {
         <Route path="*" element={<NotFound />} />
       </Routes>
       </Suspense>
-      {showNavbar && <BottomNavbar />}
+
+      {showNavbar && (
+        <Suspense fallback={null}>
+          <BottomNavbar />
+        </Suspense>
+      )}
     </main>
   );
 };
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <TooltipProvider>
+  <Suspense fallback={<LoadingScreen />}>
+    <QueryWrapper>
+      <AuthProvider>
         <Suspense fallback={null}>
-          <Toaster />
-          <Sonner />
+          <TooltipProvider>
+            <Suspense fallback={null}>
+              <Toaster />
+              <Sonner />
+            </Suspense>
+
+            <BrowserRouter>
+              <MainContent />
+              <Suspense fallback={null}>
+                <CookieConsent />
+              </Suspense>
+            </BrowserRouter>
+          </TooltipProvider>
         </Suspense>
-        <BrowserRouter>
-          <MainContent />
-          <Suspense fallback={null}>
-            <CookieConsent />
-          </Suspense>
-        </BrowserRouter>
-      </TooltipProvider>
-    </AuthProvider>
-  </QueryClientProvider>
+      </AuthProvider>
+    </QueryWrapper>
+  </Suspense>
 );
 
 export default App;

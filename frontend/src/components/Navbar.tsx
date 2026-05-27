@@ -3,7 +3,6 @@ import { useState, useEffect } from "react";
 import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Logo from "@/components/Logo";
-import { motion, AnimatePresence } from "framer-motion";
 
 const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -34,7 +33,6 @@ const Navbar = () => {
             </div>
           </Link>
 
-          {/* Desktop Navigation */}
           <div className="hidden md:flex gap-8 text-sm font-medium text-[#1C1C1C60]">
             <a
               href="#how"
@@ -50,7 +48,6 @@ const Navbar = () => {
             </a>
           </div>
 
-          {/* Desktop Buttons */}
           <div className="hidden sm:flex items-center gap-3">
             <Link to="/login">
               <Button
@@ -62,18 +59,13 @@ const Navbar = () => {
             </Link>
             <Link to="/register">
               <Button
-                style={{
-                  background: "#00A4EF",
-                  boxShadow: "0 4px 12px rgba(0, 164, 239, 0.2)",
-                }}
-                className="text-white text-sm transition-all hover:scale-[1.02] hover:shadow-lg"
+                className="text-white text-sm transition-all hover:scale-[1.02] hover:shadow-lg bg-[#00A4EF] shadow-[0_4px_12px_rgba(0,164,239,0.2)]"
               >
                 Get Started
               </Button>
             </Link>
           </div>
 
-          {/* Mobile Menu Button */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="md:hidden p-2 hover:bg-[#F5F5F5] rounded-lg transition-colors"
@@ -88,57 +80,42 @@ const Navbar = () => {
         </div>
       </nav>
 
-      {/* Mobile Menu */}
-      <AnimatePresence>
-        {mobileMenuOpen && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.3 }}
-            className="md:hidden border-b border-[#E0E0E0] bg-white/95 backdrop-blur-sm overflow-hidden"
+      <div className={`md:hidden border-b border-[#E0E0E0] bg-white/95 backdrop-blur-sm overflow-hidden transition-[max-height,opacity] duration-300 ease-out ${mobileMenuOpen ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0 pointer-events-none"}`}>
+        <div className="px-4 py-6 space-y-4">
+          <a
+            href="#how"
+            className="block text-sm font-medium text-[#1C1C1C60] hover:text-[#00A4EF] transition-colors"
+            onClick={() => setMobileMenuOpen(false)}
           >
-            <div className="px-4 py-6 space-y-4">
-              <a
-                href="#how"
-                className="block text-sm font-medium text-[#1C1C1C60] hover:text-[#00A4EF] transition-colors"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                How it works
-              </a>
-              <a
-                href="#features"
-                className="block text-sm font-medium text-[#1C1C1C60] hover:text-[#00A4EF] transition-colors"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Features
-              </a>
+            How it works
+          </a>
+          <a
+            href="#features"
+            className="block text-sm font-medium text-[#1C1C1C60] hover:text-[#00A4EF] transition-colors"
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            Features
+          </a>
 
-              <div className="pt-4 border-t border-[#E0E0E0] space-y-3 flex sm:hidden flex-col">
-                <Link to="/login" onClick={() => setMobileMenuOpen(false)}>
-                  <Button
-                    variant="ghost"
-                    className="w-full text-[#1C1C1C60] hover:text-[#1C1C1C] hover:bg-[#F5F5F5] text-sm"
-                  >
-                    Sign In
-                  </Button>
-                </Link>
-                <Link to="/register" onClick={() => setMobileMenuOpen(false)}>
-                  <Button
-                    style={{
-                      background: "#00A4EF",
-                      boxShadow: "0 4px 12px rgba(0, 164, 239, 0.2)",
-                    }}
-                    className="w-full text-white text-sm transition-all"
-                  >
-                    Get Started
-                  </Button>
-                </Link>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          <div className="pt-4 border-t border-[#E0E0E0] space-y-3 flex sm:hidden flex-col">
+            <Link to="/login" onClick={() => setMobileMenuOpen(false)}>
+              <Button
+                variant="ghost"
+                className="w-full text-[#1C1C1C60] hover:text-[#1C1C1C] hover:bg-[#F5F5F5] text-sm"
+              >
+                Sign In
+              </Button>
+            </Link>
+            <Link to="/register" onClick={() => setMobileMenuOpen(false)}>
+              <Button
+                className="w-full text-white text-sm transition-all bg-[#00A4EF] shadow-[0_4px_12px_rgba(0,164,239,0.2)]"
+              >
+                Get Started
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </div>
     </>
   );
 };
