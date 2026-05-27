@@ -12,7 +12,8 @@ const prisma = new PrismaClient();
 
 const auth = async (req, res, next) => {
     const authHeader = req.header('Authorization');
-    const token = authHeader?.replace('Bearer ', '');
+    // Support both HttpOnly cookie and fallback to Authorization header
+    const token = req.cookies?.token || authHeader?.replace('Bearer ', '');
 
     if (!token) {
         // Temporary Bypass for Development only if no token provided

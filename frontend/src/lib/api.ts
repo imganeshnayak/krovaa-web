@@ -1684,7 +1684,6 @@ export function sendGroupMessage(groupId: number, data: { content: string; messa
   return apiFetch<any>(`/api/groups/${groupId}/messages`, { method: 'POST', body: JSON.stringify(data) });
 }
 
-<<<<<<< HEAD
 // ============ Community Jobs API ============
 
 export interface CommunityJob {
@@ -1753,7 +1752,3 @@ export function acceptCommunityBid(communityId: number, jobId: number, bidId: nu
 export function rateCommunityJob(communityId: number, jobId: number, data: { reviewedId: number; rating: number; feedback?: string }): Promise<any> {
   return apiFetch<any>(`/api/communities/${communityId}/jobs/${jobId}/ratings`, { method: 'POST', body: JSON.stringify(data) });
 }
-=======
-
-
->>>>>>> d8fafdda48171a9981abc46f73f282a9d0b1032e

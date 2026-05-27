@@ -21,7 +21,7 @@ model User {
   status               String                @default("active")
   telegramId           String?               @map("telegram_id")
   createdAt            DateTime              @default(now()) @map("created_at")
-  updatedAt            DateTime              @updatedAt @map("updated_at")
+  updatedAt            DateTime              @default(now()) @updatedAt @map("updated_at")
   socialLinks          Json?                 @default("[]") @map("social_links")
   permissions          Json?                 @default("[]")
   profession           String?
@@ -92,6 +92,13 @@ model User {
   createdProjects      Project[]
   projectMessages      ProjectMessage[]
   uploadedProjectFiles ProjectFile[]
+
+  // Job Board relations
+  clientJobs        CommunityJob[]        @relation("ClientJobs")
+  ledBids           CommunityBid[]        @relation("BidLeader")
+  bidMemberships    CommunityBidMember[]  @relation("BidMemberships")
+  jobRatingsGiven   JobRating[]           @relation("JobRatingsGiven")
+  jobRatingsReceived JobRating[]          @relation("JobRatingsReceived")
 
   @@map("users")
 }
@@ -660,6 +667,7 @@ model Community {
   members     CommunityMember[]
   messages    CommunityMessage[]
   projects    Project[]
+  jobs        CommunityJob[]
   groupChat   GroupChat?
   createdAt   DateTime          @default(now()) @map("created_at")
   updatedAt   DateTime          @updatedAt @map("updated_at")
@@ -754,4 +762,74 @@ model JobAnalytics {
 
   @@unique([jobId, month, year])
   @@map("job_analytics")
+}
+
+// Job Board Models
+model CommunityJob {
+  id           Int               @id @default(autoincrement())
+  communityId  Int               @map("community_id")
+  community    Community         @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  clientId     Int               @map("client_id")
+  client       User              @relation("ClientJobs", fields: [clientId], references: [id])
+  title        String
+  description  String
+  budget       Float                                        // max budget in ₹
+  deadline     DateTime?
+  skills       Json?             @default("[]")             // ["React", "Node.js", etc.]
+  status       String            @default("open")           // open | in_progress | completed | cancelled
+  escrowDealId Int?              @unique @map("escrow_deal_id")  // set after a bid is accepted
+  bids         CommunityBid[]
+  jobRatings   JobRating[]
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
+
+  @@map("community_jobs")
+}
+
+model CommunityBid {
+  id            Int                  @id @default(autoincrement())
+  jobId         Int                  @map("job_id")
+  job           CommunityJob         @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  leaderId      Int                  @map("leader_id")          // the one who submitted the bid
+  leader        User                 @relation("BidLeader", fields: [leaderId], references: [id])
+  isGroup       Boolean              @default(false) @map("is_group")  // individual or team bid
+  coverLetter   String?              @map("cover_letter")
+  bidAmount     Float                @map("bid_amount")              // total bid in ₹
+  estimatedDays Int?                 @map("estimated_days")
+  status        String               @default("pending")             // pending | accepted | rejected | withdrawn
+  members       CommunityBidMember[]                                // empty for individual bids
+  createdAt     DateTime             @default(now()) @map("created_at")
+
+  @@unique([jobId, leaderId])      // one bid submission per person per job
+  @@map("community_bids")
+}
+
+model CommunityBidMember {
+  id             Int          @id @default(autoincrement())
+  bidId          Int          @map("bid_id")
+  bid            CommunityBid @relation(fields: [bidId], references: [id], onDelete: Cascade)
+  userId         Int          @map("user_id")
+  user           User         @relation("BidMemberships", fields: [userId], references: [id])
+  role           String?                                     // "Frontend Developer", "Designer", etc.
+  paymentPercent Float        @map("payment_percent")        // must sum to 100 across all members in bid
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  @@unique([bidId, userId])
+  @@map("community_bid_members")
+}
+
+model JobRating {
+  id          Int          @id @default(autoincrement())
+  jobId       Int          @map("job_id")
+  job         CommunityJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  reviewerId  Int          @map("reviewer_id")
+  reviewer    User         @relation("JobRatingsGiven", fields: [reviewerId], references: [id])
+  reviewedId  Int          @map("reviewed_id")
+  reviewed    User         @relation("JobRatingsReceived", fields: [reviewedId], references: [id])
+  rating      Int          // 1 to 5
+  feedback    String?
+  createdAt   DateTime     @default(now()) @map("created_at")
+
+  @@unique([jobId, reviewerId, reviewedId])
+  @@map("job_ratings")
 }
