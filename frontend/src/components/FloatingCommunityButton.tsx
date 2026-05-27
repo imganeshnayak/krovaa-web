@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Users } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { ENABLE_COMMUNITIES } from '@/lib/features';
 
 const FloatingCommunityButton = () => {
   const navigate = useNavigate();
@@ -22,6 +23,7 @@ const FloatingCommunityButton = () => {
     };
   }, []);
 
+  if (!ENABLE_COMMUNITIES) return null;
   if (!user || user.role === 'staff') return null;
   if (isChatOpen) return null;
 

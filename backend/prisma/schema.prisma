@@ -92,6 +92,8 @@ model User {
   createdProjects      Project[]
   projectMessages      ProjectMessage[]
   uploadedProjectFiles ProjectFile[]
+  companyMemberships   CompanyMembership[]   @relation("CompanyMemberships")
+  professionalContracts Contract[]            @relation("ProfessionalContracts")
 
   // Job Board relations
   clientJobs        CommunityJob[]        @relation("ClientJobs")
@@ -655,6 +657,32 @@ model GroupMessage {
 }
 
 // Community and project workspace models
+model Company {
+  id            Int                 @id @default(autoincrement())
+  name          String
+  billingConfig Json?               @default("{}") @map("billing_config")
+  createdAt     DateTime            @default(now()) @map("created_at")
+  updatedAt     DateTime            @updatedAt @map("updated_at")
+  memberships   CompanyMembership[]
+  communities   Community[]
+  invitations   Invitation[]
+
+  @@map("companies")
+}
+
+model CompanyMembership {
+  id        Int      @id @default(autoincrement())
+  companyId Int      @map("company_id")
+  userId    Int      @map("user_id")
+  role      String   @default("MEMBER") // OWNER, ADMIN, MEMBER
+  joinedAt  DateTime @default(now()) @map("joined_at")
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user      User     @relation("CompanyMemberships", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, userId])
+  @@map("company_memberships")
+}
+
 model Community {
   id          Int               @id @default(autoincrement())
   name        String
@@ -663,14 +691,19 @@ model Community {
   isPrivate   Boolean           @default(false)
   avatarUrl   String?           @map("avatar_url")
   creatorId   Int               @map("creator_id")
+  companyId   Int?              @map("company_id") // Links Workspace Team to Company billing root
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+  
   creator     User              @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  company     Company?          @relation(fields: [companyId], references: [id], onDelete: Cascade)
   members     CommunityMember[]
   messages    CommunityMessage[]
   projects    Project[]
   jobs        CommunityJob[]
   groupChat   GroupChat?
-  createdAt   DateTime          @default(now()) @map("created_at")
-  updatedAt   DateTime          @updatedAt @map("updated_at")
+  contracts   Contract[]
+  invitations Invitation[]
 
   @@map("communities")
 }
@@ -679,14 +712,47 @@ model CommunityMember {
   id          Int       @id @default(autoincrement())
   communityId Int       @map("community_id")
   userId      Int       @map("user_id")
-  role        String    @default("member")
-  status      String    @default("approved")
+  role        String    @default("VIEWER") // TEAM_ADMIN, MANAGER, VIEWER
+  status      String    @default("approved") // approved, pending
   joinedAt    DateTime  @default(now()) @map("joined_at")
   community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([communityId, userId])
   @@map("community_members")
+}
+
+model Contract {
+  id             Int       @id @default(autoincrement())
+  communityId    Int       @map("community_id") // Team/Workspace Isolation
+  professionalId Int       @map("professional_id")
+  title          String
+  rate           Float     // Total contract rate (escrow target value)
+  status         String    @default("Active") // Active, Paused, Closed
+  escrowDealId   Int?      @unique @map("escrow_deal_id") // Points to the linked Escrow Deal
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  
+  community      Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  professional   User      @relation("ProfessionalContracts", fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@map("contracts")
+}
+
+model Invitation {
+  id          Int       @id @default(autoincrement())
+  companyId   Int       @map("company_id")
+  communityId Int?      @map("community_id") // Optional specific Workspace Team assignment
+  email       String
+  token       String    @unique
+  role        String    @default("VIEWER") // TEAM_ADMIN, MANAGER, VIEWER
+  expiresAt   DateTime  @map("expires_at")
+  status      String    @default("Pending") // Pending, Accepted, Expired
+  createdAt   DateTime  @default(now()) @map("created_at")
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  community   Community? @relation(fields: [communityId], references: [id], onDelete: Cascade)
+
+  @@map("invitations")
 }
 
 model CommunityMessage {

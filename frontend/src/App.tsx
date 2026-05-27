@@ -39,6 +39,7 @@ const CookieConsent = lazy(() => import("./components/CookieConsent"));
 const CommunitiesTabPage = lazy(() => import("./pages/CommunitiesTabPage"));
 const JoinCommunityPage = lazy(() => import("./pages/JoinCommunityPage"));
 // FloatingCommunityButton is rendered by ChatPage only
+import { ENABLE_COMMUNITIES } from "./lib/features";
 
 const queryClient = new QueryClient();
 
@@ -113,10 +114,10 @@ const MainContent = () => {
         <Route path="/image-generator/pricing" element={<ImageGeneratorPricingPage />} />
         <Route path="/posts" element={<ClientRoute><PostsPage /></ClientRoute>} />
         <Route path="/explore" element={<ClientRoute><ExplorePage /></ClientRoute>} />
-        <Route path="/communities" element={<ClientRoute><CommunitiesPage /></ClientRoute>} />
-        <Route path="/communities/tab" element={<ClientRoute><CommunitiesTabPage /></ClientRoute>} />
-        <Route path="/communities/:id" element={<ClientRoute><CommunityDetailPage /></ClientRoute>} />
-        <Route path="/join/:slug" element={<ClientRoute><JoinCommunityPage /></ClientRoute>} />
+        <Route path="/communities" element={ENABLE_COMMUNITIES ? <ClientRoute><CommunitiesPage /></ClientRoute> : <Navigate to="/chat" replace />} />
+        <Route path="/communities/tab" element={ENABLE_COMMUNITIES ? <ClientRoute><CommunitiesTabPage /></ClientRoute> : <Navigate to="/chat" replace />} />
+        <Route path="/communities/:id" element={ENABLE_COMMUNITIES ? <ClientRoute><CommunityDetailPage /></ClientRoute> : <Navigate to="/chat" replace />} />
+        <Route path="/join/:slug" element={ENABLE_COMMUNITIES ? <ClientRoute><JoinCommunityPage /></ClientRoute> : <Navigate to="/chat" replace />} />
         <Route path="/post-job" element={<ClientRoute><PostJobPage /></ClientRoute>} />
         <Route path="/jobs/:jobId" element={<ClientRoute><JobDetailsPage /></ClientRoute>} />
         <Route path="/my-listings" element={<ClientRoute><MyListingsPage /></ClientRoute>} />

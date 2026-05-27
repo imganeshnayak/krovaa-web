@@ -430,6 +430,71 @@ export function approveCommunityMember(communityId: number, userId: number): Pro
   });
 }
 
+// ============ Workspace Teams & Contracts API ============
+
+export interface WorkspaceInvitation {
+  id: number;
+  email: string;
+  role: string;
+  expiresAt: string;
+  status: string;
+  inviteLink: string;
+}
+
+export interface WorkspaceAnalytics {
+  totalFinancialSpend: number;
+  activeContractsCount: number;
+  totalHoursTracked: number;
+}
+
+export interface Contract {
+  id: number;
+  communityId: number;
+  professionalId: number;
+  title: string;
+  rate: number;
+  status: string;
+  escrowDealId?: number;
+  createdAt: string;
+  professional?: { id: number; username: string; displayName: string; avatarUrl?: string };
+}
+
+export function inviteToWorkspace(communityId: number, email: string, role: string): Promise<{ success: boolean; invitation: WorkspaceInvitation }> {
+  return apiFetch<{ success: boolean; invitation: WorkspaceInvitation }>(`/api/communities/${communityId}/invite`, {
+    method: 'POST',
+    body: JSON.stringify({ email, role })
+  });
+}
+
+export function acceptWorkspaceInvitation(token: string): Promise<any> {
+  return apiFetch<any>('/api/communities/invitations/accept', {
+    method: 'POST',
+    body: JSON.stringify({ token })
+  });
+}
+
+export function getWorkspaceAnalytics(communityId: number): Promise<WorkspaceAnalytics> {
+  return apiFetch<WorkspaceAnalytics>(`/api/communities/${communityId}/analytics`);
+}
+
+export function getWorkspaceContracts(communityId: number): Promise<Contract[]> {
+  return apiFetch<Contract[]>(`/api/contracts?communityId=${communityId}`);
+}
+
+export function createWorkspaceContract(data: { communityId: number; professionalId: number; title: string; rate: number }): Promise<Contract> {
+  return apiFetch<Contract>('/api/contracts', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+}
+
+export function transferWorkspaceContract(contractId: number, targetCommunityId: number): Promise<any> {
+  return apiFetch<any>(`/api/contracts/${contractId}/transfer`, {
+    method: 'POST',
+    body: JSON.stringify({ targetCommunityId })
+  });
+}
+
 export interface ShareLinkData {
   shareLink: string;
   slug: string;

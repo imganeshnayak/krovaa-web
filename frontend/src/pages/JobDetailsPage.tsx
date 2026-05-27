@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { getJob, applyJob, JobDetails } from "@/lib/api";
 
 const formatPostedAt = (createdAt: string) => {
   return new Date(createdAt).toLocaleDateString(undefined, {
@@ -408,15 +409,15 @@ const JobDetailsPage = () => {
 
                 {/* Apply Now button in sidebar for non-owners who haven't applied */}
                 {!isJobOwner && !isApplied && (
-                  <>
-                    <hr className="border-slate-100" />
+                  <div className="hidden lg:block">
+                    <hr className="border-slate-100 mb-6" />
                     <Button
                       className="w-full rounded-2xl bg-slate-950 h-12 text-sm font-semibold text-white hover:bg-slate-800 shadow-lg shadow-slate-950/10 active:scale-[0.98] transition-all"
                       onClick={openApplyModal}
                     >
                       Apply Now
                     </Button>
-                  </>
+                  </div>
                 )}
 
                 {/* Already applied badge in sidebar */}
@@ -481,34 +482,23 @@ const JobDetailsPage = () => {
       </AnimatePresence>
 
       {/* Floating Sticky Footer Actions Deck */}
-      {job && !isLoading && !error && !isJobOwner && !isApplied && (
-        <div className={`fixed bottom-16 left-0 right-0 z-40 px-4 py-4 bg-white/80 backdrop-blur-xl border-t border-slate-200/60 shadow-[0_-10px_40px_rgba(0,0,0,0.04)] sm:px-6 ${!showApplyModal ? 'lg:hidden' : ''}`}>
-          <div className="mx-auto max-w-3xl">
-            <AnimatePresence mode="wait">
-              {!showApplyModal ? (
-                <motion.div
-                  key="actions"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="flex gap-3"
-                >
-                  <Button
-                    className="flex-1 rounded-2xl bg-slate-950 h-12 text-sm font-semibold text-white hover:bg-slate-800 shadow-lg shadow-slate-950/10 active:scale-[0.98] transition-all"
-                    onClick={openApplyModal}
-                  >
-                    Apply Now
-                  </Button>
-                </motion.div>
-        <div className="fixed bottom-[60px] md:bottom-0 left-0 right-0 z-40 px-4 py-4 bg-white/80 backdrop-blur-xl border-t border-slate-200/60 lg:hidden">
-          <Button
-            className="w-full rounded-2xl bg-slate-950 h-12 text-sm font-semibold text-white hover:bg-slate-800 shadow-lg shadow-slate-950/10 active:scale-[0.98] transition-all"
-            onClick={openApplyModal}
+      <AnimatePresence>
+        {job && !isLoading && !error && !isJobOwner && !isApplied && !showApplyModal && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="fixed bottom-[60px] md:bottom-0 left-0 right-0 z-40 px-4 py-4 bg-white/80 backdrop-blur-xl border-t border-slate-200/60 lg:hidden shadow-[0_-10px_40px_rgba(0,0,0,0.04)]"
           >
-            Apply Now
-          </Button>
-        </div>
-      )}
+            <Button
+              className="w-full rounded-2xl bg-slate-950 h-12 text-sm font-semibold text-white hover:bg-slate-800 shadow-lg shadow-slate-950/10 active:scale-[0.98] transition-all"
+              onClick={openApplyModal}
+            >
+              Apply Now
+            </Button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Apply Dialog Modal */}
       <Dialog open={showApplyModal} onOpenChange={setShowApplyModal}>
