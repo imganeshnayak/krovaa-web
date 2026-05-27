@@ -459,6 +459,7 @@ model Job {
   mode        String        @default("Remote")
   description String
   terms       Json?         @default("[]")
+  deadline    DateTime?
   postedById  Int           @map("posted_by_id")
   createdAt   DateTime      @default(now()) @map("created_at")
   postedBy    User          @relation("PostedJobs", fields: [postedById], references: [id], onDelete: Cascade)
@@ -491,6 +492,7 @@ model Application {
   bidAmount    Float?   @map("bid_amount")
   deliveryTime String?  @map("delivery_time")
   coverLetter  String?  @map("cover_letter")
+  terms        String?
   status       String   @default("pending")
   createdAt    DateTime @default(now()) @map("created_at")
   job          Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)

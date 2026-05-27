@@ -62,19 +62,27 @@ router.get('/chats/list', auth, async (req, res) => {
         });
         const unreadMap = new Map(unreadCounts.map(u => [u.chatId, u._count.id]));
 
-        // Group by chatId and get latest message per chat
+        // Group by user ID to prevent duplicate listings for the same account
         const chatMap = new Map();
         for (const msg of messages) {
-            if (!chatMap.has(msg.chatId)) {
-                let otherUser;
-                if (msg.chatId.startsWith('support_') && req.user.role === 'admin') {
-                    // For admins in support chats, the "other user" is the user being assisted
-                    const userIdFromChat = parseInt(msg.chatId.split('_')[1]);
-                    otherUser = msg.senderId === userIdFromChat ? msg.sender : msg.receiver;
-                } else {
-                    otherUser = msg.senderId === req.user.id ? msg.receiver : msg.sender;
-                }
-                chatMap.set(msg.chatId, {
+            let otherUser;
+            const isSupport = msg.chatId.startsWith('support_');
+
+            if (isSupport && req.user.role === 'admin') {
+                // For admins in support chats, the "other user" is the user being assisted
+                const userIdFromChat = parseInt(msg.chatId.split('_')[1]);
+                otherUser = msg.senderId === userIdFromChat ? msg.sender : msg.receiver;
+            } else {
+                otherUser = msg.senderId === req.user.id ? msg.receiver : msg.sender;
+            }
+
+            if (!otherUser) continue;
+
+            // Group by support chat ID or unique other user ID
+            const mapKey = isSupport ? msg.chatId : `user_${otherUser.id}`;
+
+            if (!chatMap.has(mapKey)) {
+                chatMap.set(mapKey, {
                     chat_id: msg.chatId,
                     last_message: msg.isViewOnce && !msg.isOpened ? (msg.messageType === 'image' || msg.messageType === 'file' ? "Photo" : "View Once Message") : (msg.messageType === 'image' || (msg.attachmentUrl && msg.attachmentUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i)) ? ((msg.content?.startsWith('Sent a file:') || msg.content === 'File shared') ? "Photo" : msg.content) : msg.content),
                     last_message_time: msg.createdAt,
@@ -85,6 +93,10 @@ router.get('/chats/list', auth, async (req, res) => {
                     unread_count: unreadMap.get(msg.chatId) || 0,
                     verified: otherUser.verified || false,
                 });
+            } else {
+                // Accumulate unread counts for all conversations with the same user
+                const existing = chatMap.get(mapKey);
+                existing.unread_count += unreadMap.get(msg.chatId) || 0;
             }
         }
 
@@ -349,19 +361,53 @@ router.post('/upload', auth, upload.single('file'), async (req, res) => {
 // PUT /api/messages/read/:chatId - Mark all messages in a chat as read
 router.put('/read/:chatId', auth, async (req, res) => {
     try {
+        const { chatId } = req.params;
+
+        // Base where clause to mark as read
+        let whereClause = {
+            chatId: chatId,
+            receiverId: req.user.id,
+            read: false,
+        };
+
+        // If it's a regular user-to-user chat, we also want to mark all other chat sessions
+        // with the same sender as read to prevent unread count bugs.
+        if (!chatId.startsWith('support_') && !chatId.startsWith('group_') && !chatId.startsWith('community_')) {
+            // Find a message in this chat to identify the other user (sender)
+            const sampleMessage = await prisma.message.findFirst({
+                where: {
+                    chatId: chatId,
+                    OR: [
+                        { senderId: req.user.id },
+                        { receiverId: req.user.id }
+                    ]
+                }
+            });
+
+            if (sampleMessage) {
+                const otherUserId = sampleMessage.senderId === req.user.id 
+                    ? sampleMessage.receiverId 
+                    : sampleMessage.senderId;
+
+                // Update where clause to target all unread messages from this user to me,
+                // regardless of the chatId they were sent in!
+                whereClause = {
+                    senderId: otherUserId,
+                    receiverId: req.user.id,
+                    read: false
+                };
+            }
+        }
+
         await prisma.message.updateMany({
-            where: {
-                chatId: req.params.chatId,
-                receiverId: req.user.id,
-                read: false,
-            },
+            where: whereClause,
             data: { read: true },
         });
 
         const io = req.app.get('io');
         if (io) {
-            io.to(req.params.chatId).emit('messagesRead', {
-                chatId: req.params.chatId,
+            io.to(chatId).emit('messagesRead', {
+                chatId: chatId,
                 readerId: req.user.id,
             });
         }

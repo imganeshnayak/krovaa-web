@@ -13,6 +13,7 @@ const PostJobPage = () => {
   const [mode, setMode] = useState("Remote");
   const [duration, setDuration] = useState(""); // New field for context
   const [skills, setSkills] = useState(""); // New field for alignment
+  const [deadline, setDeadline] = useState(""); // Deadline date & time
   const [description, setDescription] = useState("");
   const [terms, setTerms] = useState("");
   const [submitted, setSubmitted] = useState(false);
@@ -64,7 +65,8 @@ const PostJobPage = () => {
         attachments,
         duration,
         skills: skills.split(",").map(s => s.trim()).filter(Boolean),
-        terms: terms.trim() || undefined
+        terms: terms.trim() || undefined,
+        deadline: deadline || undefined
       });
       setCreatedJob(job);
       setSubmitted(true);
@@ -88,8 +90,8 @@ const PostJobPage = () => {
           <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
           Back to jobs
         </button>
-        <h1 className="text-2xl sm:text-3xl font-bold text-slate-950 tracking-tight">Post a job</h1>
-        <p className="text-sm text-slate-500 mt-1">Deploy a brand-new scope profile tracking direct developer matching parameters.</p>
+        <h1 className="text-2xl sm:text-3xl font-bold text-slate-950 tracking-tight">Post a Job</h1>
+        <p className="text-sm text-slate-500 mt-1">Create a new job listing to find developers, creators, or experts.</p>
       </div>
 
       <div className="space-y-6">
@@ -100,28 +102,29 @@ const PostJobPage = () => {
                 <CheckCircle className="h-6 w-6 text-emerald-600" />
               </div>
               <div>
-                <h2 className="text-lg font-bold tracking-tight">Job Cluster Initialized Successfully</h2>
-                <p className="text-sm text-slate-600 mt-0.5">Your assignment listing pipeline has been accurately propagated to the infrastructure database.</p>
+                <h2 className="text-lg font-bold tracking-tight">Job Posted Successfully!</h2>
+                <p className="text-sm text-slate-600 mt-0.5">Your job listing has been published and is now visible to applicants.</p>
               </div>
             </div>
             
             <div className="rounded-2xl border border-slate-200 bg-white p-6 grid gap-4 text-sm text-slate-700">
               <p className="border-b border-slate-50 pb-2"><strong className="text-slate-400 font-semibold uppercase text-[10px] tracking-wider block">Job Title</strong> <span className="font-semibold text-slate-900">{createdJob?.title || title}</span></p>
-              <p className="border-b border-slate-50 pb-2"><strong className="text-slate-400 font-semibold uppercase text-[10px] tracking-wider block">Company</strong> {createdJob?.company || company}</p>
+              <p className="border-b border-slate-50 pb-2"><strong className="text-slate-400 font-semibold uppercase text-[10px] tracking-wider block">Company Name</strong> {createdJob?.company || company}</p>
               <div className="grid sm:grid-cols-3 gap-4 border-b border-slate-50 pb-2">
                 <p><strong className="text-slate-400 font-semibold uppercase text-[10px] tracking-wider block">Location</strong> {createdJob?.location || location}</p>
-                <p><strong className="text-slate-400 font-semibold uppercase text-[10px] tracking-wider block">Mode</strong> {createdJob?.mode || mode}</p>
-                <p><strong className="text-slate-400 font-semibold uppercase text-[10px] tracking-wider block">Budget Matrix</strong> {createdJob?.budget || budget}</p>
+                <p><strong className="text-slate-400 font-semibold uppercase text-[10px] tracking-wider block">Job Mode</strong> {createdJob?.mode || mode}</p>
+                <p><strong className="text-slate-400 font-semibold uppercase text-[10px] tracking-wider block">Budget</strong> {createdJob?.budget || budget}</p>
               </div>
-              {skills && <p className="border-b border-slate-50 pb-2"><strong className="text-slate-400 font-semibold uppercase text-[10px] tracking-wider block">Skills Mapped</strong> {skills}</p>}
-              <p><strong className="text-slate-400 font-semibold uppercase text-[10px] tracking-wider block">Detailed Scope Context</strong> <span className="block mt-1 text-slate-600 whitespace-pre-wrap leading-relaxed text-xs">{createdJob?.description || description}</span></p>
+              {skills && <p className="border-b border-slate-50 pb-2"><strong className="text-slate-400 font-semibold uppercase text-[10px] tracking-wider block">Required Skills</strong> {skills}</p>}
+              {deadline && <p className="border-b border-slate-50 pb-2"><strong className="text-slate-400 font-semibold uppercase text-[10px] tracking-wider block">Application Deadline</strong> {new Date(deadline).toLocaleString()}</p>}
+              <p><strong className="text-slate-400 font-semibold uppercase text-[10px] tracking-wider block">Detailed Scope & Deliverables</strong> <span className="block mt-1 text-slate-600 whitespace-pre-wrap leading-relaxed text-xs">{createdJob?.description || description}</span></p>
             </div>
 
             <Button 
               className="w-full sm:w-auto rounded-xl bg-slate-950 text-white font-semibold text-xs h-11 px-6 hover:bg-slate-800"
               onClick={() => navigate('/jobs')}
             >
-              Return to Listing Continuum
+              Return to Job Listings
             </Button>
           </div>
         ) : (
@@ -136,23 +139,23 @@ const PostJobPage = () => {
             <div className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm space-y-5">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
                 <Briefcase className="h-4 w-4 text-[#00A4EF]" />
-                Primary Identifier Data
+                Job Essentials
               </h3>
               
               <div className="grid gap-5 sm:grid-cols-2">
                 <label className="flex flex-col gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400">
-                  <span>Job title <span className="text-rose-500">*</span></span>
+                  <span>Job Title <span className="text-rose-500">*</span></span>
                   <input
                     value={title}
                     onChange={(event) => setTitle(event.target.value)}
-                    placeholder="e.g. Lead Full-Stack Architect (Next.js)"
+                    placeholder="e.g. Lead Full-Stack Developer (React / Node.js)"
                     className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-2.5 text-sm normal-case font-normal text-slate-900 outline-none transition focus:border-[#00A4EF] focus:ring-4 focus:ring-[#00A4EF]/10"
                     required
                   />
                 </label>
 
                 <label className="flex flex-col gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400">
-                  <span>Company Registry <span className="text-rose-500">*</span></span>
+                  <span>Company Name <span className="text-rose-500">*</span></span>
                   <div className="relative flex items-center">
                     <Building className="absolute left-4 h-4 w-4 text-slate-400" />
                     <input
@@ -171,23 +174,23 @@ const PostJobPage = () => {
             <div className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm space-y-5">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
                 <MapPin className="h-4 w-4 text-[#00A4EF]" />
-                Workspace Operational Alignment
+                Job Settings &amp; Timeline
               </h3>
 
-              <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid gap-5 sm:grid-cols-2 md:grid-cols-3">
                 <label className="flex flex-col gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400">
-                  <span>Location Hub <span className="text-rose-500">*</span></span>
+                  <span>Job Location <span className="text-rose-500">*</span></span>
                   <input
                     value={location}
                     onChange={(event) => setLocation(event.target.value)}
-                    placeholder="e.g. Remote / Mangaluru"
+                    placeholder="e.g. Remote / Bangalore"
                     className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-2.5 text-sm normal-case font-normal text-slate-900 outline-none transition focus:border-[#00A4EF] focus:ring-4 focus:ring-[#00A4EF]/10"
                     required
                   />
                 </label>
 
                 <label className="flex flex-col gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400">
-                  <span>Mode Matrix <span className="text-rose-500">*</span></span>
+                  <span>Job Mode <span className="text-rose-500">*</span></span>
                   <select
                     value={mode}
                     onChange={(event) => setMode(event.target.value)}
@@ -201,7 +204,7 @@ const PostJobPage = () => {
                 </label>
 
                 <label className="flex flex-col gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400">
-                  <span>Budget Scope <span className="text-rose-500">*</span></span>
+                  <span>Estimated Budget <span className="text-rose-500">*</span></span>
                   <div className="relative flex items-center">
                     <IndianRupee className="absolute left-4 h-3.5 w-3.5 text-slate-400" />
                     <input
@@ -215,14 +218,26 @@ const PostJobPage = () => {
                 </label>
 
                 <label className="flex flex-col gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400">
-                  <span>Expected Duration</span>
+                  <span>Project Duration</span>
                   <div className="relative flex items-center">
                     <Clock className="absolute left-4 h-4 w-4 text-slate-400" />
                     <input
                       value={duration}
                       onChange={(event) => setDuration(event.target.value)}
-                      placeholder="e.g. 3 Months / Initial Scope"
+                      placeholder="e.g. 3 Months"
                       className="w-full rounded-xl border border-slate-200 bg-slate-50/50 pl-11 pr-4 py-2.5 text-sm normal-case font-normal text-slate-900 outline-none transition focus:border-[#00A4EF] focus:ring-4 focus:ring-[#00A4EF]/10"
+                    />
+                  </div>
+                </label>
+
+                <label className="flex flex-col gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                  <span>Application Deadline</span>
+                  <div className="relative flex items-center">
+                    <input
+                      type="datetime-local"
+                      value={deadline}
+                      onChange={(event) => setDeadline(event.target.value)}
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-2.5 text-sm normal-case font-normal text-slate-900 outline-none transition focus:border-[#00A4EF] focus:ring-4 focus:ring-[#00A4EF]/10"
                     />
                   </div>
                 </label>
@@ -231,7 +246,7 @@ const PostJobPage = () => {
               <label className="flex flex-col gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 pt-2">
                 <span className="flex items-center gap-1">
                   <Code2 className="h-3.5 w-3.5 text-slate-400" />
-                  Target Skill Arrays
+                  Key Skills Required
                 </span>
                 <input
                   value={skills}
@@ -245,18 +260,18 @@ const PostJobPage = () => {
             {/* Block 3: Assignment Specifications & Assets */}
             <div className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm space-y-6">
               <label className="flex flex-col gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400">
-                <span>Detailed Deliverables Specification <span className="text-rose-500">*</span></span>
+                <span>Detailed Project Scope &amp; Deliverables <span className="text-rose-500">*</span></span>
                 <textarea
                   value={description}
                   onChange={(event) => setDescription(event.target.value)}
-                  placeholder="Enumerate exact system milestones, engineering requirements, architectural responsibilities, and criteria metrics..."
+                  placeholder="Describe the exact requirements, responsibilities, deliverables, and criteria for success..."
                   className="min-h-[160px] w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm normal-case font-normal text-slate-900 outline-none transition focus:border-[#00A4EF] focus:ring-4 focus:ring-[#00A4EF]/10 leading-relaxed"
                   required
                 />
               </label>
 
               <label className="flex flex-col gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400">
-                <span>Terms & Conditions (Optional)</span>
+                <span>Terms &amp; Conditions (Optional)</span>
                 <textarea
                   value={terms}
                   onChange={(event) => setTerms(event.target.value)}

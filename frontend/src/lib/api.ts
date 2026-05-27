@@ -1329,6 +1329,7 @@ export interface Job {
   description: string;
   attachments?: JobAttachment[];
   terms?: string[];
+  deadline?: string;
   createdAt: string;
 }
 
@@ -1393,6 +1394,7 @@ export function postJob(data: {
   duration?: string;
   skills?: string[];
   terms?: string;
+  deadline?: string;
 }): Promise<Job> {
   const hasAttachments = (data.attachments?.length || 0) > 0;
 
@@ -1407,6 +1409,7 @@ export function postJob(data: {
     if (data.duration) formData.append('duration', data.duration);
     if (data.skills) formData.append('skills', JSON.stringify(data.skills));
     if (data.terms) formData.append('terms', data.terms);
+    if (data.deadline) formData.append('deadline', data.deadline);
 
     data.attachments?.forEach((file) => {
       formData.append('attachments', file);
@@ -1432,6 +1435,12 @@ export function applyJob(jobId: number, data: {
   return apiFetch<{ message: string; application: any }>(`/api/jobs/${jobId}/apply`, {
     method: 'POST',
     body: JSON.stringify(data),
+  });
+}
+
+export function withdrawJobApplication(jobId: number): Promise<{ message: string }> {
+  return apiFetch<{ message: string }>(`/api/jobs/${jobId}/withdraw`, {
+    method: 'DELETE',
   });
 }
 
