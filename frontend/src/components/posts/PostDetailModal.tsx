@@ -1,5 +1,5 @@
 import { Post, addPostComment, deletePostComment, likePost, deletePost } from "@/lib/api";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { X, Heart, MessageCircle, Trash2, Send } from "lucide-react";
@@ -33,6 +33,12 @@ export default function PostDetailModal({
   const { user } = useAuth();
   const { toast } = useToast();
 
+  useEffect(() => {
+    setLikeCount(post.likes?.length || 0);
+    setIsLiked(!!user?.id && !!post.likes?.some((like) => like.userId === user.id));
+    setComments(post.comments || []);
+  }, [post, user?.id]);
+
   if (!isOpen) return null;
 
   const getMediaUrl = (url: string) => {
@@ -43,7 +49,7 @@ export default function PostDetailModal({
     try {
       const result = await likePost(post.id);
       setIsLiked(result.liked);
-      setLikeCount(result.liked ? likeCount + 1 : likeCount - 1);
+      setLikeCount((current) => Math.max(0, result.liked ? current + 1 : current - 1));
     } catch (err) {
       toast({ title: "Error", description: "Failed to like post", variant: "destructive" });
     }
@@ -117,6 +123,8 @@ export default function PostDetailModal({
               <button
                 onClick={handleDeletePost}
                 disabled={isDeleting}
+                aria-label="Delete post"
+                title="Delete post"
                 className="p-2 hover:bg-red-50 rounded-lg transition-colors"
               >
                 <Trash2 className="h-5 w-5 text-red-500" />
@@ -124,6 +132,8 @@ export default function PostDetailModal({
             )}
             <button
               onClick={onClose}
+              aria-label="Close post details"
+              title="Close post details"
               className="p-2 hover:bg-[#F5F5F5] rounded-lg transition-colors"
             >
               <X className="h-5 w-5 text-[#1C1C1C]" />
@@ -135,52 +145,53 @@ export default function PostDetailModal({
         <div className="flex-1 overflow-y-auto">
           {/* Media */}
           {post.media && post.media.length > 0 && (
-            <div className="bg-black flex items-center justify-center" style={{ maxHeight: "400px" }}>
+            <div className="w-full bg-black flex items-center justify-center max-h-[400px] overflow-hidden">
               {post.media[0].resource_type === "video" ? (
                 <video
                   src={getMediaUrl(post.media[0].url)}
                   controls
-                  className="max-w-full max-h-full"
+                  className="block w-full max-h-[400px] object-contain"
                 />
               ) : (
                 <img
                   src={getMediaUrl(post.media[0].url)}
                   alt="Post"
-                  className="max-w-full max-h-full object-contain"
+                  className="block w-full max-h-[400px] object-contain"
                 />
               )}
             </div>
           )}
 
-          {/* Text content */}
-          {post.text && (
-            <div className="p-4 border-b border-[#E0E0E0]">
+          <div className="border-b border-[#E0E0E0] bg-white px-4 py-4 space-y-4">
+            {/* Post text */}
+            {post.text && (
               <p className="text-sm text-[#1C1C1C] whitespace-pre-wrap">{post.text}</p>
-            </div>
-          )}
+            )}
 
-          {/* Actions */}
-          <div className="p-4 border-b border-[#E0E0E0] flex gap-4">
-            <button
-              onClick={handleLike}
-              className="flex items-center gap-2 transition-colors group"
-            >
-              <Heart
-                className={`h-6 w-6 transition-all ${
-                  isLiked ? "fill-red-500 text-red-500" : "text-[#1C1C1C]/60 group-hover:text-red-500"
+            {/* Stats and actions */}
+            <div className="flex flex-wrap items-center gap-6 border-t border-[#E0E0E0] pt-3">
+              <button
+                onClick={handleLike}
+                className={`flex items-center gap-2 transition-colors ${
+                  isLiked ? "text-red-500" : "text-[#1C1C1C]/60 hover:text-red-500"
                 }`}
-              />
-              <span className="text-sm text-[#1C1C1C]/60">{likeCount} Likes</span>
-            </button>
+              >
+                <Heart
+                  className="h-5 w-5 transition-all"
+                  fill={isLiked ? "currentColor" : "none"}
+                />
+                <span className="text-sm font-medium">{likeCount} Likes</span>
+              </button>
 
-            <div className="flex items-center gap-2 text-[#1C1C1C]/60">
-              <MessageCircle className="h-6 w-6" />
-              <span className="text-sm">{comments.length} Comments</span>
+              <div className="flex items-center gap-2 text-[#1C1C1C]/60">
+                <MessageCircle className="h-5 w-5" />
+                <span className="text-sm font-medium">{comments.length} Comments</span>
+              </div>
             </div>
           </div>
 
           {/* Comments section */}
-          <div className="p-4 space-y-4">
+          <div className="p-4 space-y-4 bg-white">
             {comments.length > 0 ? (
               <div className="space-y-3">
                 {comments.map((comment) => (
@@ -205,6 +216,8 @@ export default function PostDetailModal({
                     {user?.id === comment.user.id && (
                       <button
                         onClick={() => handleDeleteComment(comment.id)}
+                        aria-label="Delete comment"
+                        title="Delete comment"
                         className="text-[#1C1C1C]/40 hover:text-red-500 transition-colors"
                       >
                         <X className="h-4 w-4" />
@@ -234,6 +247,8 @@ export default function PostDetailModal({
           <button
             type="submit"
             disabled={!newComment.trim() || isSubmittingComment}
+            aria-label="Send comment"
+            title="Send comment"
             className="px-3 py-2 bg-[#00A4EF] hover:bg-[#007BB5] text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Send className="h-4 w-4" />

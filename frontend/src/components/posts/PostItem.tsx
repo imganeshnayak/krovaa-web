@@ -1,7 +1,7 @@
 import { Post, PostMedia, likePost, deletePost } from "@/lib/api";
 import { formatDistanceToNow } from "date-fns";
 import { Heart, MessageCircle, Trash2, Share2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
@@ -19,6 +19,11 @@ export default function PostItem({ post, onPostDeleted }: PostItemProps) {
   const { user } = useAuth();
   const { toast } = useToast();
 
+  useEffect(() => {
+    setLikeCount(post.likes?.length || 0);
+    setIsLiked(!!user?.id && !!post.likes?.some((like) => like.userId === user.id));
+  }, [post, user?.id]);
+
   const formatDate = (dateStr: string) => {
     try {
       return formatDistanceToNow(new Date(dateStr), { addSuffix: true });
@@ -35,7 +40,7 @@ export default function PostItem({ post, onPostDeleted }: PostItemProps) {
     try {
       const result = await likePost(post.id);
       setIsLiked(result.liked);
-      setLikeCount(result.liked ? likeCount + 1 : likeCount - 1);
+      setLikeCount((current) => Math.max(0, result.liked ? current + 1 : current - 1));
     } catch (err) {
       toast({ title: "Error", description: "Failed to like post", variant: "destructive" });
     }
@@ -76,6 +81,8 @@ export default function PostItem({ post, onPostDeleted }: PostItemProps) {
             <button
               onClick={handleDelete}
               disabled={isDeleting}
+              aria-label="Delete post"
+              title="Delete post"
               className="p-1 hover:bg-red-50 rounded-lg transition-colors"
             >
               <Trash2 className="h-4 w-4 text-red-500" />
@@ -131,20 +138,27 @@ export default function PostItem({ post, onPostDeleted }: PostItemProps) {
           >
             <Heart
               className={`h-5 w-5 transition-all ${
-                isLiked
-                  ? "fill-red-500 text-red-500"
-                  : "text-[#1C1C1C]/60 group-hover:text-red-500"
+                isLiked ? "text-red-500" : "text-[#1C1C1C]/60 group-hover:text-red-500"
               }`}
+              fill={isLiked ? "currentColor" : "none"}
             />
             <span className="text-xs text-[#1C1C1C]/60">{likeCount}</span>
           </button>
 
-          <button className="flex items-center gap-1 transition-colors hover:text-[#00A4EF]">
+          <button
+            className="flex items-center gap-1 transition-colors hover:text-[#00A4EF]"
+            aria-label="View comments"
+            title="View comments"
+          >
             <MessageCircle className="h-5 w-5 text-[#1C1C1C]/60" />
             <span className="text-xs text-[#1C1C1C]/60">{post.comments?.length || 0}</span>
           </button>
 
-          <button className="flex items-center gap-1 transition-colors hover:text-[#00A4EF]">
+          <button
+            className="flex items-center gap-1 transition-colors hover:text-[#00A4EF]"
+            aria-label="Share post"
+            title="Share post"
+          >
             <Share2 className="h-5 w-5 text-[#1C1C1C]/60" />
           </button>
         </div>

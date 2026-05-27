@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { AuthUser, loginUser as apiLogin, registerUser as apiRegister, loginWithTelegram as apiTelegramLogin, getCurrentUser, logoutUser as apiLogout } from '@/lib/api';
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+
+import { AuthUser, getCurrentUser, loginUser as apiLogin, loginWithTelegram as apiTelegramLogin, logoutUser as apiLogout, registerUser as apiRegister } from "@/lib/api";
 
 interface AuthContextType {
   user: AuthUser | null;
@@ -16,84 +17,55 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const readCachedUser = () => {
   try {
-    const rawUser = localStorage.getItem('authUser');
-    return rawUser ? JSON.parse(rawUser) as AuthUser : null;
+    const rawUser = localStorage.getItem("authUser");
+    return rawUser ? (JSON.parse(rawUser) as AuthUser) : null;
   } catch {
     return null;
   }
 };
 
 const persistSession = (token: string, user: AuthUser) => {
-  localStorage.setItem('authToken', token);
-  localStorage.setItem('authUser', JSON.stringify(user));
+  localStorage.setItem("authToken", token);
+  localStorage.setItem("authUser", JSON.stringify(user));
 };
 
 const clearSession = () => {
-  localStorage.removeItem('authToken');
-  localStorage.removeItem('authUser');
+  localStorage.removeItem("authToken");
+  localStorage.removeItem("authUser");
 };
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-<<<<<<< HEAD
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(() => readCachedUser());
-  const [token, setToken] = useState<string | null>(localStorage.getItem('authToken'));
-  const [isLoading, setIsLoading] = useState(() => !localStorage.getItem('authToken'));
-=======
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [token, setToken] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
->>>>>>> ee2d0fe7d18be5d32b2c610c7fbe95a0649a9269
+  const [token, setToken] = useState<string | null>(() => localStorage.getItem("authToken"));
+  const [isLoading, setIsLoading] = useState(() => !localStorage.getItem("authToken"));
 
-  // Restore user on mount via cookie
   useEffect(() => {
     const restoreSession = async () => {
-<<<<<<< HEAD
-      const storedToken = localStorage.getItem('authToken');
+      const storedToken = localStorage.getItem("authToken");
       const cachedUser = readCachedUser();
 
       if (storedToken) {
         setToken(storedToken);
         if (cachedUser) {
           setUser(cachedUser);
-          setIsLoading(false);
         }
+
         try {
           const userData = await getCurrentUser();
           setUser(userData);
-          localStorage.setItem('authUser', JSON.stringify(userData));
+          persistSession(storedToken, userData);
         } catch (error) {
-          // Only clear token on explicit auth errors; keep token for transient failures
-          const status = (error as any)?.status;
+          const status = (error as { status?: number })?.status;
           if (status === 401 || status === 403) {
             clearSession();
             setToken(null);
             setUser(null);
-          } else {
-            // transient error (network/provider); keep token and schedule a retry
-            setTimeout(async () => {
-              try {
-                const retryUser = await getCurrentUser();
-                setUser(retryUser);
-                localStorage.setItem('authUser', JSON.stringify(retryUser));
-              } catch (e) {
-                // On retry failure, don't aggressively clear token here
-              }
-            }, 3000);
+          } else if (cachedUser) {
+            setUser(cachedUser);
           }
         }
-=======
-      try {
-        const userData = await getCurrentUser();
-        setUser(userData);
-        // We set a dummy token so other parts of the app know we are logged in,
-        // though the actual token is in the HttpOnly cookie.
-        setToken("cookie_session");
-      } catch (error) {
-        // User is not logged in or cookie is invalid
-        setToken(null);
-        setUser(null);
->>>>>>> ee2d0fe7d18be5d32b2c610c7fbe95a0649a9269
       }
+
       setIsLoading(false);
     };
 
@@ -106,10 +78,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const response = await apiLogin({ email, password });
       setToken(response.token || "cookie_session");
       setUser(response.user);
-<<<<<<< HEAD
-      persistSession(response.token, response.user);
-=======
->>>>>>> ee2d0fe7d18be5d32b2c610c7fbe95a0649a9269
+      persistSession(response.token || "cookie_session", response.user);
       return response.user;
     } finally {
       setIsLoading(false);
@@ -122,10 +91,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const response = await apiTelegramLogin(data);
       setToken(response.token || "cookie_session");
       setUser(response.user);
-<<<<<<< HEAD
-      persistSession(response.token, response.user);
-=======
->>>>>>> ee2d0fe7d18be5d32b2c610c7fbe95a0649a9269
+      persistSession(response.token || "cookie_session", response.user);
       return response.user;
     } finally {
       setIsLoading(false);
@@ -138,10 +104,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const response = await apiRegister({ username, email, password, display_name: displayName, otp, profession });
       setToken(response.token || "cookie_session");
       setUser(response.user);
-<<<<<<< HEAD
-      persistSession(response.token, response.user);
-=======
->>>>>>> ee2d0fe7d18be5d32b2c610c7fbe95a0649a9269
+      persistSession(response.token || "cookie_session", response.user);
       return response.user;
     } finally {
       setIsLoading(false);
@@ -151,29 +114,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     try {
       await apiLogout();
-    } catch (e) {
-      console.error("Logout failed", e);
+    } catch (error) {
+      console.error("Logout failed", error);
     }
+
     setUser(null);
     setToken(null);
-<<<<<<< HEAD
     clearSession();
-=======
-    // Clean up old localStorage if present
-    localStorage.removeItem('authToken');
->>>>>>> ee2d0fe7d18be5d32b2c610c7fbe95a0649a9269
   };
 
   const refreshUser = async () => {
     try {
       const userData = await getCurrentUser();
       setUser(userData);
-<<<<<<< HEAD
-      localStorage.setItem('authUser', JSON.stringify(userData));
-=======
-      setToken("cookie_session");
->>>>>>> ee2d0fe7d18be5d32b2c610c7fbe95a0649a9269
-    } catch (error) {
+      persistSession(token || "cookie_session", userData);
+    } catch {
       logout();
     }
   };
@@ -188,7 +143,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within AuthProvider');
+    throw new Error("useAuth must be used within AuthProvider");
   }
   return context;
 }
