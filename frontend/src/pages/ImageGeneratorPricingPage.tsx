@@ -212,8 +212,10 @@ const ImageGeneratorPricingPage = () => {
   return (
     <div className="min-h-screen bg-[#FDF4FF] text-[#1C1C1C] font-sans">
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
-        .font-sans { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .font-sans {
+          font-family: 'Plus Jakarta Sans', 'Rubik', 'Segoe UI', system-ui, sans-serif;
+          font-size-adjust: 0.53;
+        }
       `}</style>
 
       {/* Ambient Background */}

@@ -151,7 +151,7 @@ const ExplorePage = () => {
           
           {/* Main Keyword Engine Input */}
           <div className="relative flex-1 flex items-center bg-white border border-slate-200/60 rounded-xl shadow-sm">
-            <Search className="absolute left-3.5 h-4 w-4 text-slate-400 pointer-events-none" />
+            <Search className="absolute left-3.5 h-4 w-4 text-slate-600 pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
@@ -165,7 +165,7 @@ const ExplorePage = () => {
           <div className="grid grid-cols-2 gap-2 md:flex md:items-center shrink-0">
             {/* Quick Context Location Box */}
             <div className="relative md:w-44 flex items-center bg-white border border-slate-200/60 rounded-xl shadow-sm">
-              <MapPin className="absolute left-3.5 h-4 w-4 text-slate-400 pointer-events-none" />
+              <MapPin className="absolute left-3.5 h-4 w-4 text-slate-600 pointer-events-none" />
               <input
                 type="text"
                 value={locationFilter}
@@ -177,7 +177,7 @@ const ExplorePage = () => {
 
             {/* Workplace Alignment Dropdown Field */}
             <div className="relative md:w-40 flex items-center bg-white border border-slate-200/60 rounded-xl shadow-sm">
-              <Filter className="absolute left-3.5 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+              <Filter className="absolute left-3.5 h-3.5 w-3.5 text-slate-600 pointer-events-none" />
               <select
                 value={selectedMode}
                 onChange={(e) => setSelectedMode(e.target.value)}
@@ -190,7 +190,7 @@ const ExplorePage = () => {
                   </option>
                 ))}
               </select>
-              <ChevronDown className="pointer-events-none absolute right-3.5 h-3.5 w-3.5 text-slate-400" />
+              <ChevronDown className="pointer-events-none absolute right-3.5 h-3.5 w-3.5 text-slate-600" />
             </div>
           </div>
 
@@ -221,12 +221,12 @@ const ExplorePage = () => {
               <div className="space-y-4">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 truncate">{job.company}</p>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-600 truncate">{job.company}</p>
                     <h2 className="mt-1 text-base font-bold text-slate-950 tracking-tight line-clamp-1 group-hover:text-[#00A4EF] transition-colors">
                       {job.title}
                     </h2>
                   </div>
-                  <span className="shrink-0 text-[10px] font-semibold text-slate-400 bg-slate-50 border border-slate-100 px-2 py-0.5 rounded-md">
+                  <span className="shrink-0 text-[10px] font-semibold text-slate-600 bg-slate-50 border border-slate-100 px-2 py-0.5 rounded-md">
                     {formatPostedAgo(job.createdAt)}
                   </span>
                 </div>
@@ -237,7 +237,7 @@ const ExplorePage = () => {
 
                 <div className="flex flex-wrap items-center gap-y-2 gap-x-3 text-[11px] font-medium text-slate-600 pt-2 border-t border-slate-50">
                   <div className="flex items-center gap-1">
-                    <MapPin className="h-3.5 w-3.5 text-slate-400" />
+                    <MapPin className="h-3.5 w-3.5 text-slate-600" />
                     <span className="truncate max-w-[80px]">{job.location}</span>
                   </div>
                   <div className="flex items-center gap-1 text-[#0066CC] bg-[#E8F4FF] px-2 py-0.5 rounded-md">
@@ -253,12 +253,12 @@ const ExplorePage = () => {
 
               <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between">
                 {job.attachments && job.attachments.length > 0 ? (
-                  <div className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    <Paperclip className="h-3.5 w-3.5 text-slate-400" />
+                  <div className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                    <Paperclip className="h-3.5 w-3.5 text-slate-600" />
                     <span>{job.attachments.length} Asset{job.attachments.length === 1 ? "" : "s"}</span>
                   </div>
                 ) : (
-                  <div className="text-[10px] font-medium text-slate-400 italic">No attachments</div>
+                  <div className="text-[10px] font-medium text-slate-600 italic">No attachments</div>
                 )}
                 
                 <span className="inline-flex items-center gap-1 text-xs font-semibold text-[#00A4EF] transition-transform group-hover:translate-x-1">
@@ -276,12 +276,12 @@ const ExplorePage = () => {
       
       {/* Scroll Metric Updates */}
       {isLoadingMore && !isLoading && (
-        <div className="mt-4 rounded-2xl border border-slate-100 bg-slate-50/50 p-4 text-center text-xs font-medium text-slate-400 animate-pulse">
+        <div className="mt-4 rounded-2xl border border-slate-100 bg-slate-50/50 p-4 text-center text-xs font-medium text-slate-600 animate-pulse">
           Syncing trailing page registers...
         </div>
       )}
       {!hasMore && !isLoading && visibleJobs.length > 0 && (
-        <div className="mt-6 rounded-2xl border border-slate-100 bg-slate-50/50 p-4 text-center text-xs font-semibold text-slate-400 tracking-wide">
+        <div className="mt-6 rounded-2xl border border-slate-100 bg-slate-50/50 p-4 text-center text-xs font-semibold text-slate-600 tracking-wide">
           End of listing continuum reached.
         </div>
       )}

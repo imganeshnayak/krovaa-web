@@ -14,25 +14,51 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const readCachedUser = () => {
+  try {
+    const rawUser = localStorage.getItem('authUser');
+    return rawUser ? JSON.parse(rawUser) as AuthUser : null;
+  } catch {
+    return null;
+  }
+};
+
+const persistSession = (token: string, user: AuthUser) => {
+  localStorage.setItem('authToken', token);
+  localStorage.setItem('authUser', JSON.stringify(user));
+};
+
+const clearSession = () => {
+  localStorage.removeItem('authToken');
+  localStorage.removeItem('authUser');
+};
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(() => readCachedUser());
   const [token, setToken] = useState<string | null>(localStorage.getItem('authToken'));
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(() => !localStorage.getItem('authToken'));
 
   // Restore user on mount if token exists
   useEffect(() => {
     const restoreSession = async () => {
       const storedToken = localStorage.getItem('authToken');
+      const cachedUser = readCachedUser();
+
       if (storedToken) {
         setToken(storedToken);
+        if (cachedUser) {
+          setUser(cachedUser);
+          setIsLoading(false);
+        }
         try {
           const userData = await getCurrentUser();
           setUser(userData);
+          localStorage.setItem('authUser', JSON.stringify(userData));
         } catch (error) {
           // Only clear token on explicit auth errors; keep token for transient failures
           const status = (error as any)?.status;
           if (status === 401 || status === 403) {
-            localStorage.removeItem('authToken');
+            clearSession();
             setToken(null);
             setUser(null);
           } else {
@@ -41,6 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               try {
                 const retryUser = await getCurrentUser();
                 setUser(retryUser);
+                localStorage.setItem('authUser', JSON.stringify(retryUser));
               } catch (e) {
                 // On retry failure, don't aggressively clear token here
               }
@@ -60,7 +87,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const response = await apiLogin({ email, password });
       setToken(response.token);
       setUser(response.user);
-      localStorage.setItem('authToken', response.token);
+      persistSession(response.token, response.user);
       return response.user;
     } finally {
       setIsLoading(false);
@@ -73,7 +100,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const response = await apiTelegramLogin(data);
       setToken(response.token);
       setUser(response.user);
-      localStorage.setItem('authToken', response.token);
+      persistSession(response.token, response.user);
       return response.user;
     } finally {
       setIsLoading(false);
@@ -86,7 +113,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const response = await apiRegister({ username, email, password, display_name: displayName, otp, profession });
       setToken(response.token);
       setUser(response.user);
-      localStorage.setItem('authToken', response.token);
+      persistSession(response.token, response.user);
       return response.user;
     } finally {
       setIsLoading(false);
@@ -96,7 +123,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = () => {
     setUser(null);
     setToken(null);
-    localStorage.removeItem('authToken');
+    clearSession();
   };
 
   const refreshUser = async () => {
@@ -104,6 +131,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const userData = await getCurrentUser();
       setUser(userData);
+      localStorage.setItem('authUser', JSON.stringify(userData));
     } catch (error) {
       logout();
     }

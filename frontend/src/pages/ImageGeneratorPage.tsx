@@ -55,40 +55,42 @@ const ImageGeneratorPage = () => {
   const [prompt, setPrompt] = useState("");
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [sessions, setSessions] = useState<ChatSession[]>(() => {
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [currentSessionId, setCurrentSessionId] = useState<string>("");
+
+  // Load sessions when user changes
+  useEffect(() => {
+    if (!user) return;
     try {
-      const saved = localStorage.getItem("krovai_generator_sessions");
+      const saved = localStorage.getItem(`krovai_generator_sessions_${user.id}`);
       if (saved) {
         const parsed = JSON.parse(saved);
-        return parsed.map((s: any) => ({
+        setSessions(parsed.map((s: any) => ({
           ...s,
           messages: s.messages.map((m: any) => ({
             ...m,
             timestamp: new Date(m.timestamp)
           }))
-        }));
-      }
-      // Migrate old single chat
-      const oldMessages = localStorage.getItem("krovai_generator_messages");
-      if (oldMessages) {
-        const parsed = JSON.parse(oldMessages).map((m: any) => ({ ...m, timestamp: new Date(m.timestamp) }));
-        if (parsed.length > 0) {
-           return [{ id: `session_${Date.now()}`, title: "Previous Chat", messages: parsed, updatedAt: Date.now() }];
-        }
+        })));
+      } else {
+        setSessions([{ id: `session_${Date.now()}`, title: "New Chat", messages: [], updatedAt: Date.now() }]);
       }
     } catch (e) {
       console.error("Failed to parse generator sessions", e);
+      setSessions([{ id: `session_${Date.now()}`, title: "New Chat", messages: [], updatedAt: Date.now() }]);
     }
-    return [{ id: `session_${Date.now()}`, title: "New Chat", messages: [], updatedAt: Date.now() }];
-  });
 
-  const [currentSessionId, setCurrentSessionId] = useState<string>(() => {
     try {
-      const saved = localStorage.getItem("krovai_generator_current_session");
-      if (saved) return saved;
-    } catch(e) {}
-    return `session_${Date.now()}`;
-  });
+      const savedId = localStorage.getItem(`krovai_generator_current_session_${user.id}`);
+      if (savedId) {
+        setCurrentSessionId(savedId);
+      } else {
+        setCurrentSessionId(`session_${Date.now()}`);
+      }
+    } catch(e) {
+      setCurrentSessionId(`session_${Date.now()}`);
+    }
+  }, [user]);
 
   const currentSession = sessions.find(s => s.id === currentSessionId) || sessions[0];
   const messages = currentSession?.messages || [];
@@ -109,9 +111,10 @@ const ImageGeneratorPage = () => {
   }, [currentSessionId]);
 
   useEffect(() => {
-    localStorage.setItem("krovai_generator_sessions", JSON.stringify(sessions));
-    localStorage.setItem("krovai_generator_current_session", currentSessionId);
-  }, [sessions, currentSessionId]);
+    if (!user || sessions.length === 0 || !currentSessionId) return;
+    localStorage.setItem(`krovai_generator_sessions_${user.id}`, JSON.stringify(sessions));
+    localStorage.setItem(`krovai_generator_current_session_${user.id}`, currentSessionId);
+  }, [sessions, currentSessionId, user]);
 
   const [historyTab, setHistoryTab] = useState<'chats' | 'images'>('chats');
   const [isLoading, setIsLoading] = useState(false);
