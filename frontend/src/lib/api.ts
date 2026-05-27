@@ -75,6 +75,7 @@ export interface AuthUser {
   age?: number;
   userGoal?: string;
   skills?: string[];
+  walletBalance?: number;
 }
 
 export interface AuthResponse {
@@ -137,16 +138,52 @@ export function getUserByShareId(shareId: string): Promise<AuthUser> {
   return apiFetch<AuthUser>(`/api/users/share-id/${encodeURIComponent(shareId)}`);
 }
 
+export interface ProfileFull {
+  user: AuthUser & { averageRating: number; ratingCount: number };
+  posts: Post[];
+  ratingEligibility: { canRate: boolean; reason?: string | null };
+}
+
+export function getProfileFull(userId: number): Promise<ProfileFull> {
+  return apiFetch<ProfileFull>(`/api/users/${userId}/profile-full`);
+}
+
 export function searchUsers(query: string): Promise<AuthUser[]> {
   return apiFetch<AuthUser[]>(`/api/users/search?q=${encodeURIComponent(query)}`);
 }
 
-export function getBestProfiles(params: { city?: string; pincode?: string; profession?: string }): Promise<AuthUser[]> {
+export interface BestProfileUser extends AuthUser {
+  score: number;
+  avgRating: number;
+  ratingCount: number;
+  matchedSkills: string[];
+  profileCompleteness: number;
+}
+
+export interface BestProfilesResponse {
+  users: BestProfileUser[];
+  total: number;
+  page: number;
+  limit: number;
+  hasMore: boolean;
+}
+
+export function getBestProfiles(params: {
+  profession?: string;
+  city?: string;
+  pincode?: string;
+  skills?: string[];
+  page?: number;
+  limit?: number;
+}): Promise<BestProfilesResponse> {
   const query = new URLSearchParams();
+  if (params.profession) query.append("profession", params.profession);
   if (params.city) query.append("city", params.city);
   if (params.pincode) query.append("pincode", params.pincode);
-  if (params.profession) query.append("profession", params.profession);
-  return apiFetch<AuthUser[]>(`/api/users/best-profiles?${query.toString()}`);
+  if (params.skills && params.skills.length > 0) query.append("skills", JSON.stringify(params.skills));
+  if (params.page) query.append("page", String(params.page));
+  if (params.limit) query.append("limit", String(params.limit));
+  return apiFetch<BestProfilesResponse>(`/api/users/best-profiles?${query.toString()}`);
 }
 
 export function rateUser(data: {

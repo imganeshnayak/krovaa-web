@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { updateUserProfile } from "@/lib/api";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -436,6 +437,7 @@ const StepBio = ({ formData, setFormData }: StepProps) => (
 
 export function ProfileCompletionModal() {
   const { user, refreshUser } = useAuth();
+  const queryClient = useQueryClient();
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [forceClose, setForceClose] = useState(false);
@@ -509,7 +511,7 @@ export function ProfileCompletionModal() {
 
     setIsSubmitting(true);
     try {
-      await updateUserProfile(user.id, {
+      const updatedUser = await updateUserProfile(user.id, {
         displayName:  formData.displayName,
         phoneNumber:  formData.phoneNumber.startsWith("+91") ? formData.phoneNumber : `+91${formData.phoneNumber}`,
         city:         formData.city,
@@ -520,6 +522,19 @@ export function ProfileCompletionModal() {
         age,
         userGoal:     formData.userGoal,
       });
+
+      queryClient.setQueryData(['profile', user.id], (existing: any) => {
+        if (!existing) return existing;
+        return {
+          ...existing,
+          user: {
+            ...existing.user,
+            ...updatedUser,
+          },
+        };
+      });
+      queryClient.invalidateQueries({ queryKey: ['profile', user.id] });
+
       toast.success("Profile completed configuration sequence!");
       setForceClose(true);
       setTimeout(() => refreshUser(), 100);

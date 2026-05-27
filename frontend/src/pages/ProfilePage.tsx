@@ -12,11 +12,12 @@ import {
   MoreHorizontal, Flag, AlertCircle, Loader2
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useProfileById, useInvalidateProfile } from "@/hooks/useProfileCache";
 import {
   getUser, getUserByUsername, getUserByShareId, updateUserProfile, uploadAvatar,
   rateUser, AuthUser, applyForVerification, getVerificationStatus,
   getVerificationFee, VerificationRequest, getRatingEligibility, uploadCoverPhoto,
-  deleteAvatar, deleteCoverPhoto
+  deleteAvatar, deleteCoverPhoto, Post
 } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { remoteUrl } from "@/lib/config";
@@ -35,7 +36,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import Logo from "@/components/Logo";
-import { getUserPosts, Post } from "@/lib/api";
 import PostCreate from "@/components/posts/PostCreate";
 import PostGrid from "@/components/posts/PostGrid";
 
@@ -131,6 +131,13 @@ const ProfilePage = () => {
   const { user: currentUser, isLoading: authLoading, logout, refreshUser } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const invalidateProfile = useInvalidateProfile();
+  
+  // Use React Query hook for current user profile (caches + deduplicates)
+  const { data: profileFullData, isLoading: isLoadingProfileFull, refetch: refetchProfile } = useProfileById(
+    !username && !shareId && currentUser?.id ? currentUser.id : null
+  );
+  
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -203,45 +210,9 @@ const ProfilePage = () => {
           } catch { setCanRateUser(false); }
         }
       } else if (currentUser?.id) {
-        const userData = await getUser(currentUser.id);
-        setUser(userData);
-        if (userData.avatarUrl) setLocalAvatarOverride(null);
-        if (userData.coverPhotoUrl) setLocalCoverOverride(null);
-        setEditForm({
-          displayName: userData.displayName || "",
-          bio: userData.bio || "",
-          email: userData.email || "",
-          city: userData.city || "",
-          pincode: userData.pincode || "",
-          phoneNumber: userData.phoneNumber || "",
-          profession: userData.profession || "",
-          gender: userData.gender || "",
-          age: userData.age ? userData.age.toString() : "",
-          skills: userData.skills || [],
-          socialLinks: userData.socialLinks || [],
-          userGoal: userData.userGoal || ""
-        });
-
-        const currentProf = userData.profession;
-        if (currentProf) {
-          if (currentProf === "None") setSelectedCategory("none");
-          else if (currentProf === "Freelancer") setSelectedCategory("freelancer");
-          else if (currentProf === "Student") setSelectedCategory("student");
-          else {
-            let found = false;
-            for (const [cat, subProfs] of Object.entries(SUB_PROFESSIONS)) {
-              if (subProfs.includes(currentProf)) {
-                setSelectedCategory(cat);
-                found = true;
-                break;
-              }
-            }
-            if (!found) {
-              setSelectedCategory("other");
-              setCustomProfession(currentProf);
-            }
-          }
-        }
+        // For current user, use cached profile data from React Query
+        // This will be handled in useEffect below
+        return;
       } else {
         setError("Please log in to view your profile.");
       }
@@ -250,23 +221,64 @@ const ProfilePage = () => {
     } finally { setIsLoading(false); }
   };
 
+  // Effect to handle React Query profile data for current user
+  useEffect(() => {
+    if (profileFullData && !username && !shareId) {
+      const userData = profileFullData.user;
+      setUser(userData);
+      setPosts(profileFullData.posts);
+      setCanRateUser(profileFullData.ratingEligibility.canRate);
+      setRatingEligibilityReason(profileFullData.ratingEligibility.reason || "");
+      
+      if (userData.avatarUrl) setLocalAvatarOverride(null);
+      if (userData.coverPhotoUrl) setLocalCoverOverride(null);
+      
+      setEditForm({
+        displayName: userData.displayName || "",
+        bio: userData.bio || "",
+        email: userData.email || "",
+        city: userData.city || "",
+        pincode: userData.pincode || "",
+        phoneNumber: userData.phoneNumber || "",
+        profession: userData.profession || "",
+        gender: userData.gender || "",
+        age: userData.age ? userData.age.toString() : "",
+        skills: userData.skills || [],
+        socialLinks: userData.socialLinks || [],
+        userGoal: userData.userGoal || ""
+      });
+
+      const currentProf = userData.profession;
+      if (currentProf) {
+        if (currentProf === "None") setSelectedCategory("none");
+        else if (currentProf === "Freelancer") setSelectedCategory("freelancer");
+        else if (currentProf === "Student") setSelectedCategory("student");
+        else {
+          let found = false;
+          for (const [cat, subProfs] of Object.entries(SUB_PROFESSIONS)) {
+            if (subProfs.includes(currentProf)) {
+              setSelectedCategory(cat);
+              found = true;
+              break;
+            }
+          }
+          if (!found) {
+            setSelectedCategory("other");
+            setCustomProfession(currentProf);
+          }
+        }
+      }
+      
+      setIsLoading(false);
+    }
+  }, [profileFullData, username, shareId]);
+
   const loadVerificationData = async () => {
     try {
       const [status, feeData] = await Promise.all([getVerificationStatus(), getVerificationFee()]);
       setVerificationRequest(status);
       setVerificationFee(feeData.fee);
     } catch { }
-  };
-
-  const loadPosts = async () => {
-    if (!user) return;
-    setIsLoadingPosts(true);
-    try {
-      const userPosts = await getUserPosts(user.id);
-      setPosts(userPosts);
-    } catch { } finally {
-      setIsLoadingPosts(false);
-    }
   };
 
   const handlePostCreated = (post: Post) => {
@@ -287,9 +299,8 @@ const ProfilePage = () => {
   }, [username, currentUser, authLoading]);
 
   useEffect(() => {
-    if (user) {
+    if (user && document.title) {
       document.title = `${user.displayName || user.username} · Krovaa`;
-      loadPosts();
     }
   }, [user]);
 
@@ -341,6 +352,12 @@ const ProfilePage = () => {
     else if (selectedCategory === "other") finalProfession = customProfession || "Other";
     else if (editForm.profession === "Other") finalProfession = customProfession || "Other";
 
+    const trimmedPincode = editForm.pincode.trim();
+    if (trimmedPincode && !/^\d{6}$/.test(trimmedPincode)) {
+      toast({ title: "Validation Error", description: "Pincode must be exactly 6 digits.", variant: "destructive" });
+      return;
+    }
+
     setIsSaving(true);
     try {
       const updated = await updateUserProfile(user.id, {
@@ -359,6 +376,7 @@ const ProfilePage = () => {
       });
       setUser(updated);
       setIsEditing(false);
+      invalidateProfile(user.id); // Invalidate profile cache
       await refreshUser();
       toast({ title: "Saved!", description: "Your profile has been updated." });
     } catch (err) {
@@ -398,6 +416,7 @@ const ProfilePage = () => {
       
       setUser((prevUser) => prevUser ? { ...prevUser, avatarUrl } : prevUser);
       
+      invalidateProfile(user.id); // Invalidate profile cache
       await refreshUser();
       
       toast({ title: "Avatar updated!" });
@@ -439,6 +458,7 @@ const ProfilePage = () => {
       
       setUser((prevUser) => prevUser ? { ...prevUser, coverPhotoUrl } : prevUser);
       
+      invalidateProfile(user.id); // Invalidate profile cache
       await refreshUser();
       
       toast({ title: "Cover updated!" });
@@ -804,14 +824,14 @@ const ProfilePage = () => {
                     {user.age && (
                       <div>
                         <span className="block text-[8px] text-[#1C1C1C]/40 uppercase tracking-wider font-medium mb-1.5">Age</span>
-                        <span className="text-sm font-semibold text-[#1C1C1C]">{user.age}</span>
+                        <span className="text-lg font-bold text-[#1C1C1C]">{user.age}</span>
                         <span className="text-[10px] text-[#1C1C1C]/40"> years</span>
                       </div>
                     )}
                     {user.gender && (
                       <div>
                         <span className="block text-[8px] text-[#1C1C1C]/40 uppercase tracking-wider font-medium mb-1.5">Gender</span>
-                        <span className="text-sm font-semibold text-[#1C1C1C]">{user.gender}</span>
+                        <span className="text-lg font-bold text-[#1C1C1C]">{user.gender}</span>
                       </div>
                     )}
                   </div>
@@ -840,19 +860,54 @@ const ProfilePage = () => {
                   <div>
                     <span className="block text-[8px] text-[#1C1C1C]/40 uppercase tracking-wider font-medium mb-1.5">Username</span>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-[#1C1C1C]">@{user.username}</span>
+                      <span className="text-lg font-bold text-[#1C1C1C]">@{user.username}</span>
                       <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-[#00A4EF]/10 text-[#00A4EF] font-medium">Verified</span>
                     </div>
                   </div>
                   
+                  {user.email && (
+                    <div className="pt-2 border-t border-[#E0E0E0]/50">
+                      <span className="block text-[8px] text-[#1C1C1C]/40 uppercase tracking-wider font-medium mb-2 flex items-center gap-1.5">
+                        Email
+                      </span>
+                      <span className="text-lg font-bold text-[#1C1C1C]">{user.email}</span>
+                    </div>
+                  )}
+
                   {user.phoneNumber && (
                     <div className="pt-2 border-t border-[#E0E0E0]/50">
                       <span className="block text-[8px] text-[#1C1C1C]/40 uppercase tracking-wider font-medium mb-2 flex items-center gap-1.5">
                         <Phone className="h-2.5 w-2.5" /> Phone
                       </span>
-                      <span className="text-sm font-semibold text-[#00A4EF]">{user.phoneNumber}</span>
+                      <span className="text-lg font-bold text-[#00A4EF]">{user.phoneNumber}</span>
                     </div>
                   )}
+                </div>
+              </div>
+
+              {/* Account Status Card */}
+              <div className="p-5 rounded-xl bg-gradient-to-br from-white to-[#F9F9F9] border border-[#E0E0E0] hover:shadow-[0_4px_12px_rgba(0,164,239,0.05)] transition-all duration-300 space-y-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-1.5 h-4 bg-gradient-to-b from-purple-500 to-purple-400 rounded-full" />
+                  <span className="text-[9px] font-bold tracking-[0.2em] uppercase text-[#1C1C1C]/50">Account Status</span>
+                </div>
+                
+                <div className="space-y-4">
+                  <div>
+                    <span className="block text-[8px] text-[#1C1C1C]/40 uppercase tracking-wider font-medium mb-1.5">Wallet Balance</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-3xl font-bold text-emerald-600">₹{user.walletBalance?.toLocaleString('en-IN') || '0'}</span>
+                    </div>
+                  </div>
+                  
+                  <div className="pt-2 border-t border-[#E0E0E0]/50">
+                    <span className="block text-[8px] text-[#1C1C1C]/40 uppercase tracking-wider font-medium mb-2 flex items-center gap-1.5">
+                      Account Created
+                    </span>
+                    <span className="text-sm font-semibold text-[#1C1C1C]">
+                      {new Date(user.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -897,8 +952,9 @@ const ProfilePage = () => {
                 </div>
                 <Field label="Pincode" icon={null}
                   placeholder="400001"
+                  maxLength={6}
                   value={editForm.pincode}
-                  onChange={(e: any) => setEditForm({ ...editForm, pincode: e.target.value })}
+                  onChange={(e: any) => setEditForm({ ...editForm, pincode: e.target.value.replace(/\D/g, '') })}
                 />
                 <Field label="Phone (private)" icon={Phone}
                   placeholder="+91 98765 43210"

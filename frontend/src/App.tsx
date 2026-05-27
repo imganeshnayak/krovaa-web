@@ -1,11 +1,11 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 const Toaster = lazy(() => import("@/components/ui/toaster").then(m => ({ default: m.Toaster })));
 import { useAuth } from "./contexts/AuthContext";
 import LoadingScreen from "./components/ui/LoadingScreen";
 import BottomNavbar from "./components/BottomNavbar";
 const Sonner = lazy(() => import("@/components/ui/sonner").then(m => ({ default: m.Toaster })));
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import Landing from "./pages/Landing";
@@ -87,6 +87,15 @@ const ProfileRedirect = () => {
 const MainContent = () => {
   const location = useLocation();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
+  
+  // Clear profile cache on logout
+  useEffect(() => {
+    if (!user) {
+      queryClient.removeQueries({ queryKey: ['profile'] });
+    }
+  }, [user, queryClient]);
+
   // Hide navbar on auth pages and on public profile pages when not logged in
   const isAuthPage = ["/login", "/register", "/", "/forgot-password"].includes(location.pathname);
   const showNavbar = !isAuthPage && !!user;

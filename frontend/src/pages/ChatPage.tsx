@@ -10,7 +10,7 @@ import {
   Search, Send, Paperclip, Smile, ArrowLeft, Image, FileText,
   Mic, MoreVertical, IndianRupee, User as UserIcon, Plus,
   Trash2, Ban, AlertTriangle, Download, X, CheckCircle2, Loader2, LogOut, Settings, User, HelpCircle, ShieldCheck, EyeOff, Eye, Lock, Shield, Camera, Film, Square,
-  Sparkles, History
+  Sparkles, History, MapPin
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -56,7 +56,8 @@ import {
   deleteMessage, deleteMessagesBatch, getSupportChat, openViewOnceMessage,
   getBestProfiles, getGroupChats, getGroupMessages, sendGroupMessage,
   listCommunities, getCommunity, getCommunityMessages, sendCommunityMessage,
-  Chat as ChatType, Message as MessageType, AuthUser
+  Chat as ChatType, Message as MessageType, AuthUser,
+  BestProfileUser
 } from "@/lib/api";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { socketService } from "@/lib/socket";
@@ -542,6 +543,10 @@ const ChatView = ({
   botData,
   setBotData,
   setMessages,
+  recommendationCards,
+  setRecommendationCards,
+  recommendationMeta,
+  setRecommendationMeta,
   selectedCommunity,
 }: {
   selectedChat: ChatType | null;
@@ -565,11 +570,15 @@ const ChatView = ({
   pendingFile: File | null;
   setPendingFile: (file: File | null) => void;
   handleConfirmUpload: (caption: string, viewOnce: boolean) => void;
-  botState: 'IDLE' | 'AWAITING_PROFESSION' | 'AWAITING_CITY' | 'AWAITING_PINCODE' | 'SEARCHING';
-  setBotState: (state: 'IDLE' | 'AWAITING_PROFESSION' | 'AWAITING_CITY' | 'AWAITING_PINCODE' | 'SEARCHING') => void;
-  botData: { city?: string; pincode?: string; profession?: string };
-  setBotData: (data: { city?: string; pincode?: string; profession?: string } | ((prev: { city?: string; pincode?: string; profession?: string }) => { city?: string; pincode?: string; profession?: string })) => void;
+  botState: 'IDLE' | 'AWAITING_PROFESSION' | 'AWAITING_LOCATION' | 'SEARCHING';
+  setBotState: (state: 'IDLE' | 'AWAITING_PROFESSION' | 'AWAITING_LOCATION' | 'SEARCHING') => void;
+  botData: { city?: string; pincode?: string; profession?: string; skills?: string[] };
+  setBotData: (data: { city?: string; pincode?: string; profession?: string; skills?: string[] } | ((prev: { city?: string; pincode?: string; profession?: string; skills?: string[] }) => { city?: string; pincode?: string; profession?: string; skills?: string[] })) => void;
   setMessages: React.Dispatch<React.SetStateAction<MessageType[]>>;
+  recommendationCards: Record<number, BestProfileUser[]>;
+  setRecommendationCards: React.Dispatch<React.SetStateAction<Record<number, BestProfileUser[]>>>;
+  recommendationMeta: Record<number, { total: number; hasMore: boolean }>;
+  setRecommendationMeta: React.Dispatch<React.SetStateAction<Record<number, { total: number; hasMore: boolean }>>>;
   isLoading: boolean;
   isRecordingVoice: boolean;
   recordingSeconds: number;
@@ -1114,7 +1123,14 @@ const ChatView = ({
 
                             {/* Message body */}
                             <div className={`text-[13px] leading-relaxed font-normal ${(msg.messageType === 'escrow_released' || msg.message_type === 'escrow_released') ? 'text-[#0B8C62]/80' : 'text-[#1C1C1C]'}`}>
-                              {isAdminMsg ? (
+                              {isAdminMsg && msg.content.startsWith('__REC__') ? (
+                                <RecommendationCards
+                                  cards={recommendationCards[msg.id] || []}
+                                  meta={recommendationMeta[msg.id]}
+                                  navigate={navigate}
+                                  username={selectedChat?.username || ''}
+                                />
+                              ) : isAdminMsg ? (
                                 msg.content.split('\n').map((line, i) => (
                                   <React.Fragment key={i}>
                                     {line.split(/(\*\*.*?\*\*)/).map((part, j) => {
@@ -1309,11 +1325,45 @@ const ChatView = ({
           </div>
         )}
 
+        {selectedChat?.isOfficial && botState === 'AWAITING_LOCATION' && (
+          <div className="flex flex-col gap-2 mb-3 max-w-[320px]">
+            <p className="text-[10px] text-muted-foreground font-medium px-1">City or Pincode (optional):</p>
+            <div className="flex gap-2">
+              <Input
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                placeholder="e.g. Mumbai or 400001"
+                className="h-9 bg-card border-border rounded-xl text-sm flex-1"
+                onKeyDown={(e) => { if (e.key === 'Enter' && newMessage.trim()) handleSend(); }}
+              />
+              <Button
+                onClick={handleSend}
+                size="sm"
+                className="bg-primary hover:bg-primary/90 rounded-xl"
+                disabled={!newMessage.trim()}
+              >
+                Search
+              </Button>
+            </div>
+            {(user?.city || user?.pincode) && (
+              <button
+                onClick={() => {
+                  setBotData(prev => ({ ...prev, city: user.city, pincode: user.pincode }));
+                  setBotState('SEARCHING');
+                }}
+                className="text-[10px] text-primary font-semibold hover:underline flex items-center gap-1 self-start"
+              >
+                <MapPin className="w-3 h-3" /> Use my location{user?.city ? ` (${user.city}${user?.pincode ? `, ${user.pincode}` : ''})` : ''}
+              </button>
+            )}
+          </div>
+        )}
+
         {botState !== 'IDLE' && (
           <div className="flex items-center justify-between mb-2">
             <span className="text-[10px] uppercase tracking-widest font-bold text-primary animate-pulse flex items-center gap-1.5">
               <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-              Bot: {botState === 'AWAITING_PROFESSION' ? "Awaiting Profession..." : botState === 'AWAITING_CITY' ? "Awaiting City..." : botState === 'AWAITING_PINCODE' ? "Awaiting Pincode..." : "Searching Profiles..."}
+              Bot: {botState === 'AWAITING_PROFESSION' ? "Awaiting Profession..." : botState === 'AWAITING_LOCATION' ? "Awaiting Location..." : "Searching Profiles..."}
             </span>
             <button
               onClick={() => {
@@ -1575,6 +1625,63 @@ const ChatView = ({
   );
 };
 
+const RecommendationCards = ({ cards, meta, navigate, username }: {
+  cards: BestProfileUser[];
+  meta?: { total: number; hasMore: boolean };
+  navigate: ReturnType<typeof useNavigate>;
+  username: string;
+}) => {
+  if (cards.length === 0) return null;
+  return (
+    <div className="space-y-2 py-1">
+      <p className="text-xs font-bold opacity-80 mb-2">
+        {meta?.total || cards.length} matching profile{cards.length !== 1 ? 's' : ''}
+        {meta?.hasMore ? ` (${meta.total - cards.length} more)` : ''}
+      </p>
+      <div className="grid grid-cols-2 gap-2">
+        {cards.slice(0, 6).map(user => (
+          <div
+            key={user.id}
+            onClick={() => navigate(`/${user.username}`)}
+            className="flex items-center gap-2.5 bg-white border border-slate-200 rounded-xl p-2.5 cursor-pointer hover:border-blue-300 hover:shadow-sm transition-all active:scale-[0.97]"
+          >
+            <Avatar className="h-10 w-10 shrink-0 ring-2 ring-slate-100">
+              <AvatarImage src={user.avatarUrl || undefined} />
+              <AvatarFallback className="bg-blue-100 text-blue-700 text-xs font-bold">
+                {(user.displayName || user.username)[0]?.toUpperCase() || '?'}
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-bold text-slate-900 truncate leading-tight">
+                {user.displayName || user.username}
+              </p>
+              <p className="text-[9px] text-slate-500 truncate leading-tight">
+                {user.profession || ''}
+              </p>
+              <div className="flex items-center gap-1 mt-0.5">
+                {user.verified && (
+                  <span className="text-[8px] bg-blue-100 text-blue-600 font-bold px-1 rounded">✓</span>
+                )}
+                {user.avgRating > 0 && (
+                  <span className="text-[8px] text-amber-600 font-bold">★{user.avgRating}</span>
+                )}
+                {user.score > 0 && (
+                  <span className="text-[8px] text-green-600 font-medium">{Math.round(user.score * 100)}%</span>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      {cards.length > 6 && (
+        <p className="text-[10px] text-blue-600 font-semibold text-center pt-1">
+          +{cards.length - 6} more profiles
+        </p>
+      )}
+    </div>
+  );
+};
+
 const ChatMoreMenu = ({
   chatId,
   userInfo,
@@ -1749,8 +1856,10 @@ const ChatPage = () => {
   const [newMessage, setNewMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
-  const [botState, setBotState] = useState<'IDLE' | 'AWAITING_PROFESSION' | 'AWAITING_CITY' | 'AWAITING_PINCODE' | 'SEARCHING'>('IDLE');
-  const [botData, setBotData] = useState<{ city?: string; pincode?: string; profession?: string }>({});
+  const [botState, setBotState] = useState<'IDLE' | 'AWAITING_PROFESSION' | 'AWAITING_LOCATION' | 'SEARCHING'>('IDLE');
+  const [botData, setBotData] = useState<{ city?: string; pincode?: string; profession?: string; skills?: string[] }>({});
+  const [recommendationCards, setRecommendationCards] = useState<Record<number, BestProfileUser[]>>({});
+  const [recommendationMeta, setRecommendationMeta] = useState<Record<number, { total: number; hasMore: boolean }>>({});
   const [error, setError] = useState("");
   const messageInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -2168,9 +2277,8 @@ const ChatPage = () => {
     if (selectedChat?.isOfficial) {
       if (botState === 'AWAITING_PROFESSION') {
         setBotData(prev => ({ ...prev, profession: messageToSend }));
-        setBotState('AWAITING_CITY');
+        setBotState('AWAITING_LOCATION');
 
-        // Add user message to UI immediately for better UX
         const userMsg: MessageType = {
           id: Date.now(),
           senderId: user.id,
@@ -2183,14 +2291,13 @@ const ChatPage = () => {
         };
         setMessages(prev => [...prev, userMsg]);
 
-        // Add Bot reply
         setTimeout(() => {
           const botReply: MessageType = {
             id: Date.now() + 1,
             senderId: selectedChat.user_id,
             receiverId: user.id,
             chatId: selectedChat.chat_id,
-            content: "Got it. Now, which City are you looking in?",
+            content: "Got it! Now enter a city or pincode (optional) to find matching profiles near you.",
             messageType: 'text',
             read: true,
             createdAt: new Date().toISOString()
@@ -2198,43 +2305,15 @@ const ChatPage = () => {
           setMessages(prev => [...prev, botReply]);
         }, 600);
         return;
-      } else if (botState === 'AWAITING_CITY') {
-        setBotData(prev => ({ ...prev, city: messageToSend }));
-        setBotState('AWAITING_PINCODE');
+      } else if (botState === 'AWAITING_LOCATION') {
+        const isPincode = /^\d{6}$/.test(messageToSend.trim());
+        const locationData = isPincode
+          ? { pincode: messageToSend.trim() }
+          : { city: messageToSend.trim() };
 
-        // Add user message to UI immediately for better UX
-        const userMsg: MessageType = {
-          id: Date.now(),
-          senderId: user.id,
-          receiverId: selectedChat.user_id,
-          chatId: selectedChat.chat_id,
-          content: messageToSend,
-          messageType: 'text',
-          read: true,
-          createdAt: new Date().toISOString()
-        };
-        setMessages(prev => [...prev, userMsg]);
-
-        // Add Bot reply
-        setTimeout(() => {
-          const botReply: MessageType = {
-            id: Date.now() + 1,
-            senderId: selectedChat.user_id,
-            receiverId: user.id,
-            chatId: selectedChat.chat_id,
-            content: "Great! Now please enter your Pincode to narrow down results.",
-            messageType: 'text',
-            read: true,
-            createdAt: new Date().toISOString()
-          };
-          setMessages(prev => [...prev, botReply]);
-        }, 600);
-        return;
-      } else if (botState === 'AWAITING_PINCODE') {
-        setBotData(prev => ({ ...prev, pincode: messageToSend }));
+        setBotData(prev => ({ ...prev, ...locationData }));
         setBotState('SEARCHING');
 
-        // Add user message
         const userMsg: MessageType = {
           id: Date.now(),
           senderId: user.id,
@@ -2250,33 +2329,55 @@ const ChatPage = () => {
         // Trigger Search
         setTimeout(async () => {
           try {
-            const results = await getBestProfiles({ 
-              city: botData.city, 
-              pincode: messageToSend,
-              profession: botData.profession 
+            const profession = botData.profession || '';
+            const city = botData.city || locationData.city || '';
+            const pincode = botData.pincode || locationData.pincode || '';
+            const userSkills = (user?.skills as string[]) || [];
+
+            const response = await getBestProfiles({
+              profession,
+              city,
+              pincode,
+              skills: userSkills,
+              limit: 10
             });
+
+            const results = response.users;
             setBotState('IDLE');
             setBotData({});
 
-            let content = "";
+            const msgId = Date.now() + 2;
             if (results.length === 0) {
-              content = `I couldn't find any verified ${botData.profession || ''} profiles in ${botData.city || 'that location'}. 😔`;
+              const botReply: MessageType = {
+                id: msgId,
+                senderId: selectedChat.user_id,
+                receiverId: user.id,
+                chatId: selectedChat.chat_id,
+                content: `I couldn't find any verified ${profession || 'profile'}s${city ? ` in ${city}` : ''}${pincode ? ` (${pincode})` : ''}. 😔`,
+                messageType: 'text',
+                read: true,
+                createdAt: new Date().toISOString()
+              };
+              setMessages(prev => [...prev, botReply]);
             } else {
-              content = `I found ${results.length} verified ${botData.profession || 'profile'}(s) for you! 🌟\n\n` +
-                results.map(u => `• @${u.username} (${u.displayName || 'No Name'})${u.city ? ` in ${u.city}` : ''}`).join('\n');
-            }
+              const header = `**${response.total}** verified ${profession || 'profile'}(s) found${city ? ` in **${city}**` : ''}${pincode ? ` (**${pincode}**)` : ''}`;
+              const footer = response.hasMore ? `\n+${response.total - results.length} more` : '';
 
-            const botReply: MessageType = {
-              id: Date.now() + 2,
-              senderId: selectedChat.user_id,
-              receiverId: user.id,
-              chatId: selectedChat.chat_id,
-              content: content,
-              messageType: 'text',
-              read: true,
-              createdAt: new Date().toISOString()
-            };
-            setMessages(prev => [...prev, botReply]);
+              setRecommendationCards(prev => ({ ...prev, [msgId]: results }));
+              setRecommendationMeta(prev => ({ ...prev, [msgId]: { total: response.total, hasMore: response.hasMore } }));
+
+              const botReply: MessageType = {
+                id: msgId,
+                senderId: selectedChat.user_id,
+                receiverId: user.id,
+                chatId: selectedChat.chat_id,
+                content: `__REC__${header}${footer}`,
+                messageType: 'text',
+                read: true,
+                createdAt: new Date().toISOString()
+              };
+              setMessages(prev => [...prev, botReply]);
+            }
           } catch (err) {
             setBotState('IDLE');
             const botReply: MessageType = {
@@ -2291,7 +2392,7 @@ const ChatPage = () => {
             };
             setMessages(prev => [...prev, botReply]);
           }
-        }, 1000);
+        }, 800);
         return;
       }
     }
@@ -2331,6 +2432,79 @@ const ChatPage = () => {
       setNewMessage(messageToSend);
     }
   }, [newMessage, selectedChat, user, loadMessages, loadChats]);
+
+  // Handle "Use my location" button — triggers search when botState becomes SEARCHING
+  useEffect(() => {
+    if (botState !== 'SEARCHING' || !selectedChat?.isOfficial || !user) return;
+    const profession = botData.profession || '';
+    const city = botData.city || '';
+    const pincode = botData.pincode || '';
+    if (!profession && !city && !pincode) return;
+
+    const userSkills = (user?.skills as string[]) || [];
+
+    (async () => {
+      try {
+        const response = await getBestProfiles({
+          profession,
+          city,
+          pincode,
+          skills: userSkills,
+          limit: 10
+        });
+
+        const results = response.users;
+        setBotState('IDLE');
+        setBotData({});
+
+        const msgId = Date.now() + 2;
+        if (results.length === 0) {
+          const botReply: MessageType = {
+            id: msgId,
+            senderId: selectedChat.user_id,
+            receiverId: user.id,
+            chatId: selectedChat.chat_id,
+            content: `I couldn't find any verified ${profession || 'profile'}s${city ? ` in ${city}` : ''}${pincode ? ` (${pincode})` : ''}. 😔`,
+            messageType: 'text',
+            read: true,
+            createdAt: new Date().toISOString()
+          };
+          setMessages(prev => [...prev, botReply]);
+        } else {
+          const header = `**${response.total}** verified ${profession || 'profile'}(s) found${city ? ` in **${city}**` : ''}${pincode ? ` (**${pincode}**)` : ''}`;
+          const footer = response.hasMore ? `\n+${response.total - results.length} more` : '';
+
+          setRecommendationCards(prev => ({ ...prev, [msgId]: results }));
+          setRecommendationMeta(prev => ({ ...prev, [msgId]: { total: response.total, hasMore: response.hasMore } }));
+
+          const botReply: MessageType = {
+            id: msgId,
+            senderId: selectedChat.user_id,
+            receiverId: user.id,
+            chatId: selectedChat.chat_id,
+            content: `__REC__${header}${footer}`,
+            messageType: 'text',
+            read: true,
+            createdAt: new Date().toISOString()
+          };
+          setMessages(prev => [...prev, botReply]);
+        }
+      } catch (err) {
+        setBotState('IDLE');
+        const botReply: MessageType = {
+          id: Date.now() + 2,
+          senderId: selectedChat.user_id,
+          receiverId: user.id,
+          chatId: selectedChat.chat_id,
+          content: "Sorry, I encountered an error while searching. Please try again later.",
+          messageType: 'text',
+          read: true,
+          createdAt: new Date().toISOString()
+        };
+        setMessages(prev => [...prev, botReply]);
+      }
+    })();
+  }, [botState, botData, selectedChat, user, setMessages, setBotState, setBotData, setRecommendationCards, setRecommendationMeta]);
 
   const handleMessageDeleted = useCallback(async (messageId: number, type: 'me' | 'everyone' = 'me') => {
     try {
@@ -2687,6 +2861,10 @@ const ChatPage = () => {
             botData={botData}
             setBotData={setBotData}
             setMessages={setMessages}
+            recommendationCards={recommendationCards}
+            setRecommendationCards={setRecommendationCards}
+            recommendationMeta={recommendationMeta}
+            setRecommendationMeta={setRecommendationMeta}
             selectedCommunity={selectedCommunity}
           />
         ) : (
@@ -2771,6 +2949,10 @@ const ChatPage = () => {
           botData={botData}
           setBotData={setBotData}
           setMessages={setMessages}
+          recommendationCards={recommendationCards}
+          setRecommendationCards={setRecommendationCards}
+          recommendationMeta={recommendationMeta}
+          setRecommendationMeta={setRecommendationMeta}
           selectedCommunity={selectedCommunity}
         />
       </div>
