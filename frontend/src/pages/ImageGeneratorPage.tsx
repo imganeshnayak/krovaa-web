@@ -5,7 +5,6 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
 import {
   Send, Sparkles, Image, Download, Trash2, Loader2, Wand2,
   Maximize2, History, ArrowLeft, X, Plus, Zap, Crown,
@@ -53,7 +52,7 @@ const ImageGeneratorPage = () => {
   const [subscription, setSubscription] = useState<any>(null);
   const [imageGeneratorConfig, setImageGeneratorConfig] = useState<{ provider: string; supportsImg2Img: boolean } | null>(null);
   const [prompt, setPrompt] = useState("");
-  const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  const [uploadedImage, setUploadedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string>("");
@@ -73,26 +72,32 @@ const ImageGeneratorPage = () => {
           }))
         })));
       } else {
-        setSessions([{ id: `session_${Date.now()}`, title: "New Chat", messages: [], updatedAt: Date.now() }]);
+        const newSessionId = `session_${Date.now()}`;
+        setSessions([{ id: newSessionId, title: "New Chat", messages: [], updatedAt: Date.now() }]);
+        setCurrentSessionId(newSessionId); // Set current session ID immediately
       }
     } catch (e) {
       console.error("Failed to parse generator sessions", e);
-      setSessions([{ id: `session_${Date.now()}`, title: "New Chat", messages: [], updatedAt: Date.now() }]);
+      const newSessionId = `session_${Date.now()}`;
+      setSessions([{ id: newSessionId, title: "New Chat", messages: [], updatedAt: Date.now() }]);
+      setCurrentSessionId(newSessionId);
     }
 
     try {
       const savedId = localStorage.getItem(`krovai_generator_current_session_${user.id}`);
-      if (savedId) {
+      if (savedId && sessions.some(s => s.id === savedId)) {
         setCurrentSessionId(savedId);
-      } else {
-        setCurrentSessionId(`session_${Date.now()}`);
+      } else if (sessions.length > 0) { // Safety check to ensure sessions is not empty
+          setCurrentSessionId(sessions[0].id);
       }
     } catch(e) {
-      setCurrentSessionId(`session_${Date.now()}`);
+       if (sessions.length > 0) {
+          setCurrentSessionId(sessions[0].id);
+       }
     }
-  }, [user]);
+  }, [user]); // Removed sessions dependency to avoid infinite loop
 
-  const currentSession = sessions.find(s => s.id === currentSessionId) || sessions[0];
+  const currentSession = sessions.find(s => s.id === currentSessionId);
   const messages = currentSession?.messages || [];
 
   const setMessages = useCallback((updater: GenerationMessage[] | ((prev: GenerationMessage[]) => GenerationMessage[])) => {
@@ -327,7 +332,7 @@ const ImageGeneratorPage = () => {
     };
     reader.readAsDataURL(file);
 
-    setUploadedImage(file as any); // Store the actual File object instead of base64 string
+    setUploadedImage(file); // Store the actual File object
 
     e.target.value = '';
   };
@@ -664,22 +669,6 @@ const ImageGeneratorPage = () => {
           </div>
         </div>
       )}
-
-      {/* Image Upload UI */}
-          {imagePreview && canUseReferenceImages && (
-            <div className="mb-3 flex items-center gap-3">
-              <div className="relative">
-                <img src={imagePreview} alt="Uploaded" className="h-16 w-16 rounded-xl object-cover border-2 border-[#D946EF]/30" />
-                <button
-                  onClick={clearUploadedImage}
-                  className="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-red-500 text-white flex items-center justify-center text-xs hover:bg-red-600"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </div>
-              <span className="text-xs text-[#1C1C1C]/60">Using your image as reference</span>
-            </div>
-          )}
 
           {/* Input Bar - Fixed Bottom */}
           <div className="fixed bottom-16 left-0 right-0 border-t border-white/20 bg-white/60 backdrop-blur-xl z-40">

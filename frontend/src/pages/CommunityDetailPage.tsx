@@ -46,7 +46,7 @@ const CommunityDetailPage = () => {
       setCommunity(res);
       if (res.isMember) loadMessages();
     } catch (err) {
-      toast({ title: 'Error', description: 'Failed to synchronize workspace data', variant: 'destructive' });
+      toast({ title: 'Error', description: 'Failed to load community', variant: 'destructive' });
     } finally { setLoading(false); }
   };
 
@@ -65,11 +65,11 @@ const CommunityDetailPage = () => {
       if (res.status === 'pending') {
         toast({ title: 'Request Sent', description: 'Your request to join is pending approval.' });
       } else {
-        toast({ title: 'Joined', description: 'Collaborative access enabled.' });
+        toast({ title: 'Joined', description: 'You have joined the community.' });
       }
       load();
     } catch (err: any) { 
-      toast({ title: 'Error', description: err.message || 'Failed to establish connection.', variant: 'destructive' }); 
+      toast({ title: 'Error', description: err.message || 'Failed to join community.', variant: 'destructive' }); 
     }
     finally { setJoining(false); }
   };
@@ -78,18 +78,18 @@ const CommunityDetailPage = () => {
     if (!id) return;
     try {
       await leaveCommunity(Number(id));
-      toast({ title: 'Left', description: 'Cluster access removed.' });
+      toast({ title: 'Left', description: 'You have left the community.' });
       load();
-    } catch (err) { toast({ title: 'Error', description: 'Failed to disengage.', variant: 'destructive' }); }
+    } catch (err) { toast({ title: 'Error', description: 'Failed to leave community.', variant: 'destructive' }); }
   };
 
   const handleDelete = async () => {
-    if (!id || !window.confirm('Delete this workspace node? This action is irreversible.')) return;
+    if (!id || !window.confirm('Delete this community? This action is irreversible.')) return;
     setDeleting(true);
     try {
       await deleteCommunity(Number(id));
       navigate('/communities');
-    } catch (err) { toast({ title: 'Error', description: 'Failed to terminate workspace.', variant: 'destructive' }); }
+    } catch (err) { toast({ title: 'Error', description: 'Failed to delete community.', variant: 'destructive' }); }
     finally { setDeleting(false); }
   };
 
@@ -100,7 +100,7 @@ const CommunityDetailPage = () => {
       const newMsg = await sendCommunityMessage(Number(id), messageInput.trim());
       setMessages(prev => [...prev, newMsg]);
       setMessageInput('');
-    } catch (err) { toast({ title: 'Error', description: 'Transmission failed.', variant: 'destructive' }); }
+    } catch (err) { toast({ title: 'Error', description: 'Failed to send message.', variant: 'destructive' }); }
     finally { setSending(false); }
   };
 
@@ -134,7 +134,7 @@ const CommunityDetailPage = () => {
     }
   };
 
-  if (loading && !community) return <div className="min-h-screen bg-[#F5F5F5] flex items-center justify-center font-bold text-slate-400 animate-pulse">Syncing Cluster...</div>;
+  if (loading && !community) return <div className="min-h-screen bg-[#F5F5F5] flex items-center justify-center font-bold text-slate-400 animate-pulse">Loading...</div>;
   if (!community) return null;
 
   const { members = [], projects = [], isMember, isCreator, isPending } = community;
@@ -148,7 +148,7 @@ const CommunityDetailPage = () => {
         {/* Navigation Control */}
         <button onClick={() => navigate('/communities')} className="text-[#1C1C1C]/40 hover:text-[#1C1C1C] transition-colors flex items-center gap-2 text-sm font-bold tracking-wider uppercase">
           <ArrowLeft className="w-4 h-4" />
-          Navigate Back
+          Back
         </button>
 
         {/* Immersive Community Header Block */}
@@ -184,13 +184,13 @@ const CommunityDetailPage = () => {
                   </Badge>
                 )}
               </div>
-              <p className="text-sm text-[#1C1C1C]/60 max-w-2xl leading-relaxed">{community.description || 'No descriptive structural parameters initialized for this workspace.'}</p>
+              <p className="text-sm text-[#1C1C1C]/60 max-w-2xl leading-relaxed">{community.description || 'No description provided.'}</p>
             </div>
           </div>
           
           <div className="flex gap-3">
             <Button onClick={() => { getCommunityShareLink(Number(id)).then(d => { setShareLink(d.shareLink); setShowShareDialog(true); }) }} variant="outline" className="h-11 rounded-xl border-[#E0E0E0] font-bold text-xs hover:bg-slate-50">
-              <Link2 className="w-4 h-4 mr-2" /> Share Node
+              <Link2 className="w-4 h-4 mr-2" /> Share
             </Button>
             {!isCreator && !isMember && !isPending ? (
               <Button onClick={handleJoin} disabled={joining} className="h-11 rounded-xl bg-[#00A4EF] hover:bg-[#0087d1] text-white font-bold text-xs shadow-md shadow-[#00A4EF]/10">
@@ -202,11 +202,11 @@ const CommunityDetailPage = () => {
               </Button>
             ) : isMember && !isCreator ? (
               <Button onClick={handleLeave} variant="outline" className="h-11 rounded-xl text-[#FF6B6B] border-[#FF6B6B] hover:bg-[#FF6B6B]/5 font-bold text-xs">
-                <LogOut className="w-4 h-4 mr-2" /> Disengage
+                <LogOut className="w-4 h-4 mr-2" /> Leave
               </Button>
             ) : (
               <Button onClick={handleDelete} disabled={deleting} variant="outline" className="h-11 rounded-xl text-[#FF6B6B] border-[#FF6B6B] hover:bg-[#FF6B6B]/5 font-bold text-xs">
-                <Trash2 className="w-4 h-4 mr-2" /> Terminate Cluster
+                <Trash2 className="w-4 h-4 mr-2" /> Delete Community
               </Button>
             )}
           </div>
@@ -214,7 +214,7 @@ const CommunityDetailPage = () => {
 
         {/* Dashboard Metrics Grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[ { icon: Users, val: community.memberCount, label: 'Members' }, { icon: FolderKanban, val: projects.length, label: 'Blueprints' }, { icon: MessageSquare, val: messages.length, label: 'Logs' }, { icon: Calendar, val: new Date(community.createdAt).getFullYear(), label: 'Provisioned' } ].map((s, i) => (
+          {[ { icon: Users, val: community.memberCount, label: 'Members' }, { icon: FolderKanban, val: projects.length, label: 'Projects' }, { icon: MessageSquare, val: messages.length, label: 'Messages' }, { icon: Calendar, val: new Date(community.createdAt).getFullYear(), label: 'Created' } ].map((s, i) => (
             <div key={i} className="bg-white rounded-2xl border border-[#E0E0E0] p-5 text-center shadow-sm">
               <s.icon className="w-5 h-5 text-[#00A4EF] mx-auto mb-2" />
               <div className="text-xl font-extrabold text-[#1C1C1C]">{s.val}</div>
@@ -263,7 +263,7 @@ const CommunityDetailPage = () => {
                   </div>
                   <div className="p-4 border-t border-[#E0E0E0] bg-[#F5F5F5]">
                     <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }} className="flex gap-2">
-                      <Input value={messageInput} onChange={(e) => setMessageInput(e.target.value)} placeholder="Broadcast message..." className="bg-white border-[#E0E0E0] rounded-xl h-11" />
+                      <Input value={messageInput} onChange={(e) => setMessageInput(e.target.value)} placeholder="Send a message..." className="bg-white border-[#E0E0E0] rounded-xl h-11" />
                       <Button type="submit" disabled={sending} className="bg-[#00A4EF] hover:bg-[#007BB5] text-white rounded-xl h-11 w-11 shrink-0 p-0">
                         <Send className="w-4 h-4" />
                       </Button>
@@ -273,8 +273,8 @@ const CommunityDetailPage = () => {
               ) : (
                 <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-[#1C1C1C]/40">
                   <Lock className="w-12 h-12 mb-4 text-[#00A4EF]/10" />
-                  <p className="font-bold text-[#1C1C1C]">Restricted Pipeline</p>
-                  <p className="text-xs mb-6">Join to broadcast or view logs.</p>
+                  <p className="font-bold text-[#1C1C1C]">Private Community</p>
+                  <p className="text-xs mb-6">Join to view and send messages.</p>
                 </div>
               )}
             </div>
@@ -298,7 +298,7 @@ const CommunityDetailPage = () => {
                 ) : (
                   <div className="text-center py-12 text-[#1C1C1C]/40">
                     <FolderKanban className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                    <p>No blueprints initialized yet.</p>
+                    <p>No projects yet.</p>
                   </div>
                 )
               ) : (
@@ -388,9 +388,9 @@ const CommunityDetailPage = () => {
       <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
         <DialogContent className="sm:max-w-md rounded-2xl">
           <DialogHeader>
-            <DialogTitle className="font-bold text-xl">Share Workspace Node</DialogTitle>
+            <DialogTitle className="font-bold text-xl">Share Community</DialogTitle>
             <DialogDescription>
-              Anyone with this link can {community.isPrivate ? 'request access' : 'join'} the cluster.
+              Anyone with this link can {community.isPrivate ? 'request access' : 'join'} the community.
             </DialogDescription>
           </DialogHeader>
           <div className="flex items-center space-x-2 mt-4">

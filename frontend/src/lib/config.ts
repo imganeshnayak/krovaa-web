@@ -8,11 +8,25 @@ if (typeof globalThis !== "undefined") {
 
 export function apiUrl(path: string) {
   if (/^https?:\/\//i.test(path)) return path;
-  if (!path.startsWith("/")) path = `/${path}`;
-  return `${API_BASE_URL}${path}`;
+  let baseUrl = API_BASE_URL;
+  let subPath = path.startsWith("/") ? path : `/${path}`;
+  
+  // Safe deduplication: If API_BASE_URL ends with '/api' and the path starts with '/api/'
+  if (baseUrl.endsWith("/api") && subPath.startsWith("/api/")) {
+    subPath = subPath.substring(4); // Remove the '/api' prefix from the subpath
+  }
+  
+  return `${baseUrl}${subPath}`;
 }
 
 export function remoteUrl(path: string) {
   if (/^https?:\/\//i.test(path)) return path;
-  return `${API_BASE_URL}${path.startsWith("/") ? "" : "/"}${path}`;
+  let baseUrl = API_BASE_URL;
+  let subPath = path.startsWith("/") ? path : `/${path}`;
+  
+  if (baseUrl.endsWith("/api") && subPath.startsWith("/api/")) {
+    subPath = subPath.substring(4);
+  }
+  
+  return `${baseUrl}${subPath}`;
 }

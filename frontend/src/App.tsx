@@ -1,14 +1,14 @@
-import { lazy, Suspense, type ReactNode } from "react";
-import { BrowserRouter, Navigate, Route, Routes, useLocation, useParams } from "react-router-dom";
-
-import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { lazy, Suspense, useEffect } from "react";
+const Toaster = lazy(() => import("@/components/ui/toaster").then(m => ({ default: m.Toaster })));
+import { useAuth } from "./contexts/AuthContext";
 import LoadingScreen from "./components/ui/LoadingScreen";
-
-const Toaster = lazy(() => import("@/components/ui/toaster").then((module) => ({ default: module.Toaster })));
-const BottomNavbar = lazy(() => import("./components/BottomNavbar"));
-const Sonner = lazy(() => import("@/components/ui/sonner").then((module) => ({ default: module.Toaster })));
-const TooltipProvider = lazy(() => import("@/components/ui/tooltip").then((module) => ({ default: module.TooltipProvider })));
-const Landing = lazy(() => import("./pages/Landing"));
+import BottomNavbar from "./components/BottomNavbar";
+const Sonner = lazy(() => import("@/components/ui/sonner").then(m => ({ default: m.Toaster })));
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from "react-router-dom";
+import { AuthProvider } from "./contexts/AuthContext";
+import Landing from "./pages/Landing";
 const Login = lazy(() => import("./pages/Login"));
 const Register = lazy(() => import("./pages/Register"));
 const ChatPage = lazy(() => import("./pages/ChatPage"));
@@ -38,6 +38,8 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 const CookieConsent = lazy(() => import("./components/CookieConsent"));
 const CommunitiesTabPage = lazy(() => import("./pages/CommunitiesTabPage"));
 const JoinCommunityPage = lazy(() => import("./pages/JoinCommunityPage"));
+// FloatingCommunityButton is rendered by ChatPage only
+import { ENABLE_COMMUNITIES } from "./lib/features";
 
 const QueryWrapper = lazy(() =>
   import("@tanstack/react-query").then(({ QueryClient, QueryClientProvider }) => {
@@ -91,46 +93,64 @@ const ProfileRedirect = () => {
 const MainContent = () => {
   const location = useLocation();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
+  
+  // Clear profile cache on logout
+  useEffect(() => {
+    if (!user) {
+      queryClient.removeQueries({ queryKey: ['profile'] });
+    }
+  }, [user, queryClient]);
+
+  // Hide navbar on auth pages and on public profile pages when not logged in
   const isAuthPage = ["/login", "/register", "/", "/forgot-password"].includes(location.pathname);
   const showNavbar = !isAuthPage && !!user;
 
   return (
     <main className={`${showNavbar ? "pb-16" : ""} main-wrapper`}>
       <Suspense fallback={<LoadingScreen />}>
-        <Routes>
-          <Route path="/" element={<Landing />} />
-          <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
-          <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
-          <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
-          <Route path="/chat" element={<ClientRoute><ChatPage /></ClientRoute>} />
-          <Route path="/image-generator" element={<ClientRoute><ImageGeneratorPage /></ClientRoute>} />
-          <Route path="/image-generator/pricing" element={<ImageGeneratorPricingPage />} />
-          <Route path="/posts" element={<ClientRoute><PostsPage /></ClientRoute>} />
-          <Route path="/explore" element={<ClientRoute><ExplorePage /></ClientRoute>} />
-          <Route path="/communities" element={<ClientRoute><CommunitiesPage /></ClientRoute>} />
-          <Route path="/communities/tab" element={<ClientRoute><CommunitiesTabPage /></ClientRoute>} />
-          <Route path="/communities/:id" element={<ClientRoute><CommunityDetailPage /></ClientRoute>} />
-          <Route path="/join/:slug" element={<ClientRoute><JoinCommunityPage /></ClientRoute>} />
-          <Route path="/post-job" element={<ClientRoute><PostJobPage /></ClientRoute>} />
-          <Route path="/jobs/:jobId" element={<ClientRoute><JobDetailsPage /></ClientRoute>} />
-          <Route path="/my-listings" element={<ClientRoute><MyListingsPage /></ClientRoute>} />
-          <Route path="/profile" element={<ClientRoute><ProfilePage /></ClientRoute>} />
-          <Route path="/profile/:username" element={<ProfileRedirect />} />
-          <Route path="/escrow" element={<ClientRoute><EscrowPage /></ClientRoute>} />
-          <Route path="/wallet" element={<ClientRoute><WalletPage /></ClientRoute>} />
-          <Route path="/wallet/pay/:shareId" element={<WalletPayPage />} />
-          <Route path="/settings" element={<ClientRoute><SettingsPage /></ClientRoute>} />
-          <Route path="/blocked-users" element={<ClientRoute><BlockedUsersPage /></ClientRoute>} />
-          <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
-          <Route path="/admin/chats/:chatId" element={<AdminRoute><AdminChatView /></AdminRoute>} />
-          <Route path="/terms" element={<Terms />} />
-          <Route path="/privacy" element={<Privacy />} />
-          <Route path="/refund" element={<Refund />} />
-          <Route path="/cookie-policy" element={<CookiePolicy />} />
-          <Route path="/s/:shareId" element={<ProfilePage />} />
-          <Route path="/:username" element={<ProfilePage />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+      <Routes>
+        <Route path="/" element={<Landing />} />
+        <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+        <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
+        <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
+        <Route path="/chat" element={<ClientRoute><ChatPage /></ClientRoute>} />
+        <Route path="/image-generator" element={<ClientRoute><ImageGeneratorPage /></ClientRoute>} />
+        <Route path="/image-generator/pricing" element={<ImageGeneratorPricingPage />} />
+        <Route path="/posts" element={<ClientRoute><PostsPage /></ClientRoute>} />
+        <Route path="/explore" element={<ClientRoute><ExplorePage /></ClientRoute>} />
+        <Route path="/communities" element={ENABLE_COMMUNITIES ? <ClientRoute><CommunitiesPage /></ClientRoute> : <Navigate to="/chat" replace />} />
+        <Route path="/communities/tab" element={ENABLE_COMMUNITIES ? <ClientRoute><CommunitiesTabPage /></ClientRoute> : <Navigate to="/chat" replace />} />
+        <Route path="/communities/:id" element={ENABLE_COMMUNITIES ? <ClientRoute><CommunityDetailPage /></ClientRoute> : <Navigate to="/chat" replace />} />
+        <Route path="/join/:slug" element={ENABLE_COMMUNITIES ? <ClientRoute><JoinCommunityPage /></ClientRoute> : <Navigate to="/chat" replace />} />
+        <Route path="/post-job" element={<ClientRoute><PostJobPage /></ClientRoute>} />
+        <Route path="/jobs/:jobId" element={<ClientRoute><JobDetailsPage /></ClientRoute>} />
+        <Route path="/my-listings" element={<ClientRoute><MyListingsPage /></ClientRoute>} />
+        {/* Own profile - requires login */}
+        <Route path="/profile" element={<ClientRoute><ProfilePage /></ClientRoute>} />
+        {/* Legacy /profile/:username -> redirect to /:username */}
+        <Route path="/profile/:username" element={<ProfileRedirect />} />
+        <Route path="/escrow" element={<ClientRoute><EscrowPage /></ClientRoute>} />
+        <Route path="/wallet" element={<ClientRoute><WalletPage /></ClientRoute>} />
+        <Route path="/wallet/pay/:shareId" element={<WalletPayPage />} />
+        <Route path="/settings" element={<ClientRoute><SettingsPage /></ClientRoute>} />
+        <Route path="/blocked-users" element={<ClientRoute><BlockedUsersPage /></ClientRoute>} />
+        <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+        <Route path="/admin/chats/:chatId" element={<AdminRoute><AdminChatView /></AdminRoute>} />
+        {/* Legal Pages */}
+        <Route path="/terms" element={<Terms />} />
+        <Route path="/privacy" element={<Privacy />} />
+        <Route path="/refund" element={<Refund />} />
+        <Route path="/cookie-policy" element={<CookiePolicy />} />
+
+        {/* Shared profile pages at /s/:shareId */}
+        <Route path="/s/:shareId" element={<ProfilePage />} />
+
+        {/* Public profile pages at /:username - works without login */}
+        <Route path="/:username" element={<ProfilePage />} />
+
+        <Route path="*" element={<NotFound />} />
+      </Routes>
       </Suspense>
 
       {showNavbar && (

@@ -75,6 +75,7 @@ export interface AuthUser {
   age?: number;
   userGoal?: string;
   skills?: string[];
+  walletBalance?: number;
 }
 
 export interface AuthResponse {
@@ -137,16 +138,52 @@ export function getUserByShareId(shareId: string): Promise<AuthUser> {
   return apiFetch<AuthUser>(`/api/users/share-id/${encodeURIComponent(shareId)}`);
 }
 
+export interface ProfileFull {
+  user: AuthUser & { averageRating: number; ratingCount: number };
+  posts: Post[];
+  ratingEligibility: { canRate: boolean; reason?: string | null };
+}
+
+export function getProfileFull(userId: number): Promise<ProfileFull> {
+  return apiFetch<ProfileFull>(`/api/users/${userId}/profile-full`);
+}
+
 export function searchUsers(query: string): Promise<AuthUser[]> {
   return apiFetch<AuthUser[]>(`/api/users/search?q=${encodeURIComponent(query)}`);
 }
 
-export function getBestProfiles(params: { city?: string; pincode?: string; profession?: string }): Promise<AuthUser[]> {
+export interface BestProfileUser extends AuthUser {
+  score: number;
+  avgRating: number;
+  ratingCount: number;
+  matchedSkills: string[];
+  profileCompleteness: number;
+}
+
+export interface BestProfilesResponse {
+  users: BestProfileUser[];
+  total: number;
+  page: number;
+  limit: number;
+  hasMore: boolean;
+}
+
+export function getBestProfiles(params: {
+  profession?: string;
+  city?: string;
+  pincode?: string;
+  skills?: string[];
+  page?: number;
+  limit?: number;
+}): Promise<BestProfilesResponse> {
   const query = new URLSearchParams();
+  if (params.profession) query.append("profession", params.profession);
   if (params.city) query.append("city", params.city);
   if (params.pincode) query.append("pincode", params.pincode);
-  if (params.profession) query.append("profession", params.profession);
-  return apiFetch<AuthUser[]>(`/api/users/best-profiles?${query.toString()}`);
+  if (params.skills && params.skills.length > 0) query.append("skills", JSON.stringify(params.skills));
+  if (params.page) query.append("page", String(params.page));
+  if (params.limit) query.append("limit", String(params.limit));
+  return apiFetch<BestProfilesResponse>(`/api/users/best-profiles?${query.toString()}`);
 }
 
 export function rateUser(data: {
@@ -390,6 +427,71 @@ export function updateCommunityAvatar(communityId: number, file: File): Promise<
 export function approveCommunityMember(communityId: number, userId: number): Promise<{ success: boolean }> {
   return apiFetch<{ success: boolean }>(`/api/communities/${communityId}/members/${userId}/approve`, {
     method: "PUT",
+  });
+}
+
+// ============ Workspace Teams & Contracts API ============
+
+export interface WorkspaceInvitation {
+  id: number;
+  email: string;
+  role: string;
+  expiresAt: string;
+  status: string;
+  inviteLink: string;
+}
+
+export interface WorkspaceAnalytics {
+  totalFinancialSpend: number;
+  activeContractsCount: number;
+  totalHoursTracked: number;
+}
+
+export interface Contract {
+  id: number;
+  communityId: number;
+  professionalId: number;
+  title: string;
+  rate: number;
+  status: string;
+  escrowDealId?: number;
+  createdAt: string;
+  professional?: { id: number; username: string; displayName: string; avatarUrl?: string };
+}
+
+export function inviteToWorkspace(communityId: number, email: string, role: string): Promise<{ success: boolean; invitation: WorkspaceInvitation }> {
+  return apiFetch<{ success: boolean; invitation: WorkspaceInvitation }>(`/api/communities/${communityId}/invite`, {
+    method: 'POST',
+    body: JSON.stringify({ email, role })
+  });
+}
+
+export function acceptWorkspaceInvitation(token: string): Promise<any> {
+  return apiFetch<any>('/api/communities/invitations/accept', {
+    method: 'POST',
+    body: JSON.stringify({ token })
+  });
+}
+
+export function getWorkspaceAnalytics(communityId: number): Promise<WorkspaceAnalytics> {
+  return apiFetch<WorkspaceAnalytics>(`/api/communities/${communityId}/analytics`);
+}
+
+export function getWorkspaceContracts(communityId: number): Promise<Contract[]> {
+  return apiFetch<Contract[]>(`/api/contracts?communityId=${communityId}`);
+}
+
+export function createWorkspaceContract(data: { communityId: number; professionalId: number; title: string; rate: number }): Promise<Contract> {
+  return apiFetch<Contract>('/api/contracts', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+}
+
+export function transferWorkspaceContract(contractId: number, targetCommunityId: number): Promise<any> {
+  return apiFetch<any>(`/api/contracts/${contractId}/transfer`, {
+    method: 'POST',
+    body: JSON.stringify({ targetCommunityId })
   });
 }
 

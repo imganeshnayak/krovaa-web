@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { auth, adminOnly } from '../middleware/auth.js';
 import cloudinary from '../config/cloudinary.js';
 import multer from 'multer';
+import jwt from 'jsonwebtoken';
 
 const prisma = new PrismaClient();
 const router = express.Router();
@@ -296,25 +297,28 @@ router.get('/:id/ratings', async (req, res) => {
     }
 });
 
-// GET /api/users/best-profiles - Get verified profiles by location (Moved up to avoid conflict with /:id)
+// GET /api/users/best-profiles - Find best matching profiles using weighted fuzzy scoring
 router.get('/best-profiles', auth, async (req, res) => {
     try {
-        const { city, pincode, profession } = req.query;
+        const { profession, city, pincode, skills, page = 1, limit = 10 } = req.query;
 
-        if (!city && !pincode && !profession) {
-            return res.status(400).json({ error: "City, Pincode or Profession is required." });
+        const pageNum = Math.max(1, parseInt(page) || 1);
+        const limitNum = Math.min(50, Math.max(1, parseInt(limit) || 10));
+
+        const queryProfession = profession ? String(profession).trim().toLowerCase() : null;
+        const queryCity = city ? String(city).trim().toLowerCase() : null;
+        const queryPincode = pincode ? String(pincode).trim() : null;
+        let querySkills = [];
+        if (skills) {
+            try { querySkills = typeof skills === 'string' ? JSON.parse(skills) : skills; } catch { querySkills = []; }
         }
+        querySkills = querySkills.map(s => String(s).trim().toLowerCase()).filter(Boolean);
 
-        const users = await prisma.user.findMany({
+        const allUsers = await prisma.user.findMany({
             where: {
-                verified: true,
                 status: 'active',
                 role: { notIn: ['staff', 'admin'] },
-                AND: [
-                    city ? { city: { contains: city, mode: 'insensitive' } } : {},
-                    pincode ? { pincode: pincode } : {},
-                    profession ? { profession: { contains: profession, mode: 'insensitive' } } : {}
-                ]
+                id: { not: req.user.id }
             },
             select: {
                 id: true,
@@ -323,14 +327,261 @@ router.get('/best-profiles', auth, async (req, res) => {
                 avatarUrl: true,
                 city: true,
                 pincode: true,
-                verified: true
-            },
-            take: 5
+                profession: true,
+                skills: true,
+                bio: true,
+                verified: true,
+                ratingReceived: { select: { rating: true } }
+            }
         });
 
-        res.json(users);
+        const scored = allUsers.map(user => {
+            let score = 0;
+            const matchedSkills = [];
+
+            const userProf = (user.profession || '').toLowerCase().trim();
+            const userCity = (user.city || '').toLowerCase().trim();
+            const userPincode = (user.pincode || '').trim();
+            const userSkills = (Array.isArray(user.skills) ? user.skills : []).map(s => String(s).toLowerCase().trim()).filter(Boolean);
+
+            // 1. Profession similarity (30%) — fuzzy, no strict match
+            if (queryProfession && userProf) {
+                if (userProf === queryProfession) score += 0.30;
+                else if (userProf.includes(queryProfession) || queryProfession.includes(userProf)) score += 0.20;
+                else {
+                    const qWords = queryProfession.split(/\s+/);
+                    const uWords = userProf.split(/\s+/);
+                    const anyWordMatch = qWords.some(qw => uWords.some(uw => uw.includes(qw) || qw.includes(uw)));
+                    if (anyWordMatch) score += 0.12;
+                }
+            }
+
+            // 2. City similarity (25%) — fuzzy
+            if (queryCity && userCity) {
+                if (userCity === queryCity) score += 0.25;
+                else if (userCity.includes(queryCity) || queryCity.includes(userCity)) score += 0.15;
+                else {
+                    const qWords = queryCity.split(/\s+/);
+                    const uWords = userCity.split(/\s+/);
+                    if (qWords.some(qw => uWords.some(uw => uw.includes(qw) || qw.includes(uw)))) score += 0.08;
+                }
+            }
+
+            // 3. Pincode exact match (10% bonus)
+            if (queryPincode && userPincode && userPincode === queryPincode) {
+                score += 0.10;
+            }
+
+            // 4. Skill overlap (20%)
+            if (querySkills.length > 0 && userSkills.length > 0) {
+                const overlap = userSkills.filter(us =>
+                    querySkills.some(qs => us.includes(qs) || qs.includes(us))
+                );
+                const uniqueOverlap = [...new Set(overlap)];
+                matchedSkills.push(...uniqueOverlap);
+                const maxLen = Math.max(querySkills.length, userSkills.length);
+                score += (uniqueOverlap.length / maxLen) * 0.20;
+            }
+
+            // 5. Average rating (15%)
+            const ratings = user.ratingReceived || [];
+            if (ratings.length > 0) {
+                const avg = ratings.reduce((sum, r) => sum + r.rating, 0) / ratings.length;
+                score += (avg / 5) * 0.15;
+            }
+
+            // 6. Verified badge (15% bonus — not a hard filter)
+            if (user.verified) score += 0.15;
+
+            // 7. Profile completeness (10%)
+            let completeness = 0;
+            if (user.bio) completeness += 0.25;
+            if (user.avatarUrl) completeness += 0.25;
+            if (user.displayName) completeness += 0.25;
+            if (userSkills.length > 0) completeness += 0.25;
+            score += completeness * 0.10;
+
+            const avgRating = ratings.length > 0
+                ? ratings.reduce((sum, r) => sum + r.rating, 0) / ratings.length
+                : 0;
+
+            return {
+                id: user.id,
+                username: user.username,
+                displayName: user.displayName,
+                avatarUrl: user.avatarUrl,
+                city: user.city,
+                pincode: user.pincode,
+                profession: user.profession,
+                verified: user.verified,
+                score: Math.round(score * 100) / 100,
+                avgRating: Math.round(avgRating * 10) / 10,
+                ratingCount: ratings.length,
+                matchedSkills: [...new Set(matchedSkills)],
+                profileCompleteness: Math.round(completeness * 100)
+            };
+        });
+
+        scored.sort((a, b) => b.score - a.score);
+
+        const total = scored.length;
+        const start = (pageNum - 1) * limitNum;
+        const paged = scored.slice(start, start + limitNum);
+
+        res.json({
+            users: paged,
+            total,
+            page: pageNum,
+            limit: limitNum,
+            hasMore: start + limitNum < total
+        });
     } catch (err) {
         console.error('Best profiles search error:', err);
+        res.status(500).json({ error: 'Server error.' });
+    }
+});
+
+// GET /api/users/:id/profile-full - Get batched profile data: user details + ratings + initial posts + eligibility
+router.get('/:id/profile-full', async (req, res) => {
+    try {
+        const userId = parseInt(req.params.id);
+        if (isNaN(userId)) {
+            return res.status(400).json({ error: 'Invalid user ID.' });
+        }
+
+        // Optional Auth parsing
+        const authHeader = req.header('Authorization');
+        const token = req.cookies?.token || authHeader?.replace('Bearer ', '');
+        if (token) {
+            try {
+                const decoded = jwt.verify(token, process.env.JWT_SECRET);
+                req.user = { id: decoded.id, role: decoded.role };
+            } catch (err) {}
+        }
+
+        // Fetch user profile
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: {
+                id: true,
+                username: true,
+                displayName: true,
+                bio: true,
+                avatarUrl: true,
+                coverPhotoUrl: true,
+                socialLinks: true,
+                role: true,
+                status: true,
+                verified: true,
+                city: true,
+                profession: true,
+                skills: true,
+                userGoal: true,
+                createdAt: true,
+                email: true,
+                phoneNumber: true,
+                pincode: true,
+                gender: true,
+                age: true,
+                walletBalance: true
+            },
+        });
+
+        if (!user) {
+            return res.status(404).json({ error: 'User not found.' });
+        }
+
+        // Hide staff and admin profiles from public/regular users
+        if ((user.role === 'staff' || user.role === 'admin') && (!req.user || req.user.role !== 'admin')) {
+            return res.status(404).json({ error: 'User not found.' });
+        }
+
+        // Strip private fields if not owner and not admin
+        const isOwner = req.user && req.user.id === userId;
+        const isAdmin = req.user && req.user.role === 'admin';
+        if (!isOwner && !isAdmin) {
+            delete user.email;
+            delete user.phoneNumber;
+            delete user.pincode;
+            delete user.gender;
+            delete user.age;
+            delete user.walletBalance;
+        }
+
+        // Calculate ratings
+        const userRatings = await prisma.rating.findMany({
+            where: { reviewedId: user.id },
+            select: { rating: true }
+        });
+        const ratings = userRatings.map(r => r.rating);
+        const avgRating = ratings.length > 0 ? (ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(1) : "0.0";
+
+        // Fetch initial posts (first 10)
+        const posts = await prisma.post.findMany({
+            where: { userId },
+            orderBy: { createdAt: 'desc' },
+            take: 10,
+            include: {
+                user: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
+                likes: true,
+                comments: {
+                    include: { user: { select: { id: true, username: true, displayName: true, avatarUrl: true } } },
+                    orderBy: { createdAt: 'desc' },
+                    take: 3,
+                },
+            },
+        });
+
+        // Check rating eligibility if user is authenticated
+        let ratingEligibility = { canRate: false, reason: null };
+        if (req.user) {
+            const reviewerId = req.user.id;
+            const reviewedUserId = userId;
+
+            if (reviewerId !== reviewedUserId) {
+                const [hasSent, hasReceived, escrowDeal] = await Promise.all([
+                    prisma.message.findFirst({
+                        where: { senderId: reviewerId, receiverId: reviewedUserId },
+                        select: { id: true }
+                    }),
+                    prisma.message.findFirst({
+                        where: { senderId: reviewedUserId, receiverId: reviewerId },
+                        select: { id: true }
+                    }),
+                    prisma.escrowDeal.findFirst({
+                        where: {
+                            OR: [
+                                { clientId: reviewerId, vendorId: reviewedUserId },
+                                { clientId: reviewedUserId, vendorId: reviewerId }
+                            ]
+                        },
+                        select: { id: true }
+                    })
+                ]);
+
+                if (hasSent && hasReceived && escrowDeal) {
+                    ratingEligibility = { canRate: true, reason: null };
+                } else if (!hasSent || !hasReceived) {
+                    ratingEligibility = { canRate: false, reason: "You can rate only users you have a mutual chat with." };
+                } else {
+                    ratingEligibility = { canRate: false, reason: "You can rate only users you have a deal with." };
+                }
+            } else {
+                ratingEligibility = { canRate: false, reason: "You cannot rate yourself." };
+            }
+        }
+
+        res.json({
+            user: {
+                ...user,
+                averageRating: parseFloat(avgRating),
+                ratingCount: ratings.length
+            },
+            posts,
+            ratingEligibility
+        });
+    } catch (err) {
+        console.error('Get profile full error:', err);
         res.status(500).json({ error: 'Server error.' });
     }
 });
@@ -471,7 +722,13 @@ router.put('/profile/:id', auth, async (req, res) => {
         if (profession !== undefined) updateData.profession = profession?.trim() || null;
         if (phoneNumber !== undefined) updateData.phoneNumber = phoneNumber?.trim();
         if (city !== undefined) updateData.city = city?.trim();
-        if (pincode !== undefined) updateData.pincode = pincode?.trim();
+        if (pincode !== undefined) {
+            const trimmedPincode = pincode?.trim();
+            if (trimmedPincode && !/^\d{6}$/.test(trimmedPincode)) {
+                return res.status(400).json({ error: 'Pincode must be exactly 6 digits.' });
+            }
+            updateData.pincode = trimmedPincode;
+        }
         if (gender !== undefined) updateData.gender = gender;
         if (age !== undefined) updateData.age = parseInt(age) || null;
         if (userGoal !== undefined) updateData.userGoal = userGoal;
