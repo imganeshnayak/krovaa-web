@@ -24,8 +24,6 @@ const WalletPayPage = lazy(() => import("./pages/WalletPayPage"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const AdminChatView = lazy(() => import("./pages/AdminChatView"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
-const ImageGeneratorPage = lazy(() => import("./pages/ImageGeneratorPage"));
-const ImageGeneratorPricingPage = lazy(() => import("./pages/ImageGeneratorPricingPage"));
 const BlockedUsersPage = lazy(() => import("./pages/BlockedUsersPage"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const CommunitiesPage = lazy(() => import("./pages/CommunitiesPage"));
@@ -115,9 +113,7 @@ const MainContent = () => {
         <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
         <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
         <Route path="/chat" element={<ClientRoute><ChatPage /></ClientRoute>} />
-        <Route path="/image-generator" element={<ClientRoute><ImageGeneratorPage /></ClientRoute>} />
-        <Route path="/image-generator/pricing" element={<ImageGeneratorPricingPage />} />
-        <Route path="/posts" element={<ClientRoute><PostsPage /></ClientRoute>} />
+                <Route path="/posts" element={<ClientRoute><PostsPage /></ClientRoute>} />
         <Route path="/explore" element={<ClientRoute><ExplorePage /></ClientRoute>} />
         <Route path="/communities" element={ENABLE_COMMUNITIES ? <ClientRoute><CommunitiesPage /></ClientRoute> : <Navigate to="/chat" replace />} />
         <Route path="/communities/tab" element={ENABLE_COMMUNITIES ? <ClientRoute><CommunitiesTabPage /></ClientRoute> : <Navigate to="/chat" replace />} />

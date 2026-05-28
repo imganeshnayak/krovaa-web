@@ -1989,24 +1989,6 @@ const ChatPage = () => {
       }
 
       setChats(data);
-          // Inject KrovAI chat row
-          const isImageGeneratorEnabled = localStorage.getItem("image_generator_enabled") === "true";
-          const krovaiChatId = `krovai_${user?.id}`;
-          const hasKrovaiChat = data.some((chat) => chat.chat_id === krovaiChatId);
-          if (isImageGeneratorEnabled && !hasKrovaiChat && user?.role !== 'admin' && user?.role !== 'staff' && user?.id) {
-            data.unshift({
-              chat_id: krovaiChatId,
-              last_message: "Generate images & chat with AI!",
-              last_message_time: new Date().toISOString(),
-              user_id: 0,
-              display_name: "KrovAI",
-              avatar_url: "/ai-sparkle.svg",
-              username: "krovai",
-              unread_count: 0,
-              verified: false,
-              isKrovAI: true,
-            });
-          }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load chats");
     } finally {

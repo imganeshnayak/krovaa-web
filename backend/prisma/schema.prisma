@@ -555,18 +555,6 @@ model ImageGeneration {
   @@map("image_generations")
 }
 
-model ImageGenerationDaily {
-  id        Int      @id @default(autoincrement())
-  userId    Int      @map("user_id")
-  count     Int      @default(1)
-  date      DateTime @map("date")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  @@unique([userId, date])
-  @@map("image_generation_daily")
-}
-
 model Subscription {
   id                Int       @id @default(autoincrement())
   userId            Int       @map("user_id")
