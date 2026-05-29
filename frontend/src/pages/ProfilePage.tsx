@@ -171,7 +171,14 @@ const ProfilePage = () => {
   };
 
   const loadUser = async () => {
+    if (!shareId && !username && currentUser?.id) {
+      // Current user profile is managed by React Query hook (profileFullData)
+      setError("");
+      return;
+    }
+
     setIsLoading(true);
+    setError("");
     try {
       if (shareId) {
         const userData = await getUserByShareId(shareId);
@@ -197,14 +204,14 @@ const ProfilePage = () => {
             setRatingEligibilityReason(eligibility.reason || "");
           } catch { setCanRateUser(false); }
         }
-      } else if (currentUser?.id) {
-        return;
       } else {
         setError("Please log in to view your profile.");
       }
+      setIsLoading(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load user");
-    } finally { setIsLoading(false); }
+      setIsLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -648,7 +655,7 @@ const ProfilePage = () => {
                   </button>
                   <Link to="/posts" className="w-full block">
                     <button className="w-full h-11 bg-white border border-[#00A4EF] text-[#00A4EF] hover:bg-[#00A4EF]/5 text-xs font-bold uppercase tracking-wider rounded-lg transition-all flex items-center justify-center gap-2">
-                      <Plus className="h-3.5 w-3.5" /> Manage Proof of Work
+                      <Plus className="h-3.5 w-3.5" /> Manage Posts
                     </button>
                   </Link>
                 </>
@@ -676,29 +683,6 @@ const ProfilePage = () => {
                 </Link>
               )}
             </div>
-
-            {/* Social Links */}
-            {user.socialLinks && user.socialLinks.length > 0 && (
-              <div className="space-y-2.5">
-                <span className="block text-[10px] font-bold tracking-wider uppercase text-[#1C1C1C]/40">Verified Links</span>
-                <div className="grid grid-cols-2 gap-2">
-                  {user.socialLinks.map((link: any, i: number) => (
-                    <a
-                      key={i}
-                      href={link.url.startsWith("http") ? link.url : `https://${link.url}`}
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 px-3 h-10 rounded-lg border border-[#E0E0E0] bg-white hover:border-[#00A4EF] transition-all group"
-                    >
-                      <SocialIcon platform={link.platform} className="h-4 w-4 text-[#1C1C1C]/50 group-hover:text-[#00A4EF] transition-colors" />
-                      <span className="text-xs font-bold text-[#1C1C1C]/70 group-hover:text-[#1C1C1C] transition-colors capitalize tracking-tight truncate">
-                        {link.platform}
-                      </span>
-                    </a>
-                  ))}
-                </div>
-              </div>
-            )}
 
             {/* Skills & Expertise */}
             {(user.profession || (user.skills && user.skills.length > 0)) && (
@@ -913,38 +897,6 @@ const ProfilePage = () => {
                       <span>{skill}</span>
                       <button type="button" onClick={() => setEditForm({ ...editForm, skills: editForm.skills.filter(s => s !== skill) })} className="text-[#00A4EF] hover:text-red-500 transition-colors">
                         <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-3 pt-2">
-                <div className="flex items-center justify-between">
-                  <label className="block text-[10px] font-bold tracking-wider uppercase text-[#1C1C1C]">Social Links</label>
-                  <button type="button" onClick={addSocialLink} className="flex items-center gap-1 text-xs font-bold uppercase text-[#00A4EF] hover:text-[#007BB5] transition-colors">
-                    <Plus className="h-3 w-3" /> Add Link
-                  </button>
-                </div>
-                <div className="space-y-2">
-                  {editForm.socialLinks.map((link, i) => (
-                    <div key={i} className="flex gap-2 items-center p-2 rounded-lg border border-[#E0E0E0] bg-[#F9F9F9]">
-                      <Select value={link.platform} onValueChange={(v) => updateSocialLink(i, "platform", v)}>
-                        <SelectTrigger className="w-28 h-9 bg-white border-[#E0E0E0] text-xs font-bold text-[#1C1C1C]">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="bg-white border-[#E0E0E0]">
-                          {PLATFORMS.map(p => <SelectItem key={p.id} value={p.id} className="text-xs focus:bg-[#F5F5F5]">{p.name}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                      <input
-                        className="flex-1 bg-transparent border-b border-[#E0E0E0] focus:border-[#00A4EF] outline-none text-xs text-[#1C1C1C] pb-1 transition-colors"
-                        placeholder="Link URL (e.g. https://github.com/...)"
-                        value={link.url}
-                        onChange={(e) => updateSocialLink(i, "url", e.target.value)}
-                      />
-                      <button onClick={() => removeSocialLink(i)} className="text-[#1C1C1C]/30 hover:text-red-600">
-                        <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
                   ))}
