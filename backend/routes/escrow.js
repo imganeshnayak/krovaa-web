@@ -568,7 +568,6 @@ router.post('/:id/release', auth, async (req, res) => {
             io.to(`user_${deal.vendorId}`).emit('escrowUpdate', updatedDeal);
         }
 
-        // Notify vendor about received funds
         sendUserNotification(
             io,
             deal.vendorId,
@@ -577,12 +576,12 @@ router.post('/:id/release', auth, async (req, res) => {
             'success',
             { type: 'wallet', dealId, chatId: deal.chatId }
         );
-        // If deal is completed, notify both parties
+
         if (updatedDeal.releasedPercent >= 100) {
             sendUserNotification(
                 io,
                 deal.clientId,
-                '✅ Deal Completed',
+                'Deal Completed',
                 `Your deal "${deal.title}" is now fully completed. All payments have been released.`,
                 'success',
                 { type: 'escrow', dealId, chatId: deal.chatId }
@@ -590,7 +589,7 @@ router.post('/:id/release', auth, async (req, res) => {
             sendUserNotification(
                 io,
                 deal.vendorId,
-                '✅ Deal Completed',
+                'Deal Completed',
                 `The deal "${deal.title}" is now fully completed. All payments have been received.`,
                 'success',
                 { type: 'escrow', dealId, chatId: deal.chatId }
@@ -598,7 +597,7 @@ router.post('/:id/release', auth, async (req, res) => {
         }
 
         res.json(updatedDeal);
-    } catch (err) {
+    }catch (err) {
         console.error('Release escrow error:', err);
         res.status(500).json({ error: 'Failed to release escrow payment.' });
     }

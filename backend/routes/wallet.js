@@ -139,7 +139,7 @@ router.post('/transfer', auth, async (req, res) => {
         sendUserNotification(
             io,
             recipient.id,
-            '💸 Wallet received',
+            'Wallet received',
             `You have received ₹${transferAmount.toFixed(2)} from ${sender.displayName || sender.username}.`,
             'success',
             { type: 'wallet_transfer', amount: transferAmount }
@@ -330,7 +330,7 @@ router.post('/payout/request', auth, async (req, res) => {
         sendUserNotification(
             io,
             req.user.id,
-            '💸 Payout Requested',
+            'Payout Requested',
             `Your payout request for ₹${amount.toLocaleString('en-IN')} has been submitted. It will be processed within 24-48 business hours.`,
             'info',
             { type: 'wallet' }

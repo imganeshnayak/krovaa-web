@@ -7,6 +7,8 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ─── USER (web schema + app-specific fields added) ───────────────────────────
+
 model User {
   id                   Int                   @id @default(autoincrement())
   username             String                @unique
@@ -36,41 +38,51 @@ model User {
   userGoal             String?               @map("user_goal")
   skills               Json?                 @default("[]")
   // RBI Compliance Fields
-  kycStatus            String                @default("not_submitted") @map("kyc_status") // not_submitted, pending, approved, rejected
+  kycStatus            String                @default("not_submitted") @map("kyc_status")
   kycVerifiedAt        DateTime?             @map("kyc_verified_at")
   kycRejectionReason   String?               @map("kyc_rejection_reason")
-  kycData              Json?                 @map("kyc_data") // {name, aadhar, pan, address, dob}
+  kycData              Json?                 @map("kyc_data")
   twoFactorEnabled     Boolean               @default(false) @map("two_factor_enabled")
-  twoFactorMethod      String?               @map("two_factor_method") // sms, email, authenticator
+  twoFactorMethod      String?               @map("two_factor_method")
   twoFactorSecret      String?               @map("two_factor_secret")
   dataConsentGiven     Boolean               @default(false) @map("data_consent_given")
   consentGivenAt       DateTime?             @map("consent_given_at")
   dataRetentionUntil   DateTime?             @map("data_retention_until")
   erasureRequested     Boolean               @default(false) @map("erasure_requested")
   erasureRequestedAt   DateTime?             @map("erasure_requested_at")
-  // Transaction Limits (RBI Guidelines)
-  dailyTransferLimit   Float                 @default(50000) @map("daily_transfer_limit") // Default 50K per day
-  monthlyTransferLimit Float                 @default(500000) @map("monthly_transfer_limit") // Default 500K per month
+  dailyTransferLimit   Float                 @default(50000) @map("daily_transfer_limit")
+  monthlyTransferLimit Float                 @default(500000) @map("monthly_transfer_limit")
   dailyTransferUsed    Float                 @default(0) @map("daily_transfer_used")
   monthlyTransferUsed  Float                 @default(0) @map("monthly_transfer_used")
   lastTransferResetDay DateTime?             @map("last_transfer_reset_day")
-  // Compliance Relations
+
+  // ── App-specific fields (not on web) ──────────────────────────────────────
+  location             String                @default("")
+  jobsDone             Int                   @default(0) @map("jobs_done")
+  reviews              Int                   @default(0)
+  earned               Float                 @default(0)
+
+  // ── Web compliance relations ───────────────────────────────────────────────
   kycSubmissions       KYCSubmission[]
   twoFactorOtps        TwoFactorOTP[]
   dataConsents         DataConsent[]
   paymentRefunds       PaymentRefund[]
   transactionLimits    TransactionLimit[]
-  imageGenerations     ImageGeneration[]
-  subscription         Subscription?
+
+  // ── Web social/content relations ──────────────────────────────────────────
   posts                Post[]                @relation("UserPosts")
   postLikes            Post_Like[]           @relation("UserPostLikes")
   postComments         Post_Comment[]        @relation("UserPostComments")
-  sentMessages         Message[]             @relation("UserSentMessages")
-  receivedMessages     Message[]             @relation("UserReceivedMessages")
+
+  // ── Web messaging relations ────────────────────────────────────────────────
+  sentWebMessages      Message[]             @relation("UserSentWebMessages")
+  receivedWebMessages  Message[]             @relation("UserReceivedWebMessages")
+
+  // ── Web job/deal relations ─────────────────────────────────────────────────
   clientDeals          EscrowDeal[]          @relation("UserClientDeals")
   vendorDeals          EscrowDeal[]          @relation("UserVendorDeals")
-  postedJobs           Job[]                 @relation("PostedJobs")
-  jobApplications      Application[]         @relation("UserApplications")
+  postedWebJobs        Job[]                 @relation("PostedWebJobs")
+  webJobApplications   Application[]         @relation("UserWebApplications")
   verificationRequests VerificationRequest[]
   payoutRequests       PayoutRequest[]
   walletTransactions   WalletTransaction[]
@@ -78,6 +90,8 @@ model User {
   ratingReceived       Rating[]              @relation("Reviewed")
   reportSent           Report[]              @relation("Reporter")
   reportReceived       Report[]              @relation("Reported")
+
+  // ── Web community/workspace relations ─────────────────────────────────────
   blockedUsers         BlockedUser[]         @relation("Blocker")
   blockedBy            BlockedUser[]         @relation("Blocked")
   createdTeams         Team[]                @relation("TeamCreator")
@@ -85,32 +99,41 @@ model User {
   groupMemberships     GroupMember[]         @relation("GroupMemberships")
   groupMessages        GroupMessage[]        @relation("UserGroupMessages")
   communityMessages    CommunityMessage[]
-
-  // Community & Project relations
   createdCommunities   Community[]
   communityMemberships CommunityMember[]
   createdProjects      Project[]
   projectMessages      ProjectMessage[]
   uploadedProjectFiles ProjectFile[]
   companyMemberships   CompanyMembership[]   @relation("CompanyMemberships")
-  professionalContracts Contract[]            @relation("ProfessionalContracts")
+  professionalContracts Contract[]           @relation("ProfessionalContracts")
+  clientJobs           CommunityJob[]        @relation("ClientJobs")
+  ledBids              CommunityBid[]        @relation("BidLeader")
+  bidMemberships       CommunityBidMember[]  @relation("BidMemberships")
+  jobRatingsGiven      JobRating[]           @relation("JobRatingsGiven")
+  jobRatingsReceived   JobRating[]           @relation("JobRatingsReceived")
 
-  // Job Board relations
-  clientJobs        CommunityJob[]        @relation("ClientJobs")
-  ledBids           CommunityBid[]        @relation("BidLeader")
-  bidMemberships    CommunityBidMember[]  @relation("BidMemberships")
-  jobRatingsGiven   JobRating[]           @relation("JobRatingsGiven")
-  jobRatingsReceived JobRating[]          @relation("JobRatingsReceived")
+  // ── App-only relations ─────────────────────────────────────────────────────
+  appSentMessages      AppMessage[]          @relation("AppUserSentMessages")
+  conversations        ConversationUser[]
+  appJobs              AppJob[]              @relation("AppPostedJobs")
+  jobApplications      JobApplication[]      @relation("AppUserApplications")
+  transactions         Transaction[]
+  myPosts              MyPost[]
+  ratingsGiven         UserRating[]          @relation("ReviewerUserRatings")
+  ratingsReceived      UserRating[]          @relation("ReviewedUserRatings")
+  verificationRequest  AppVerificationRequest?
 
   @@map("users")
 }
+
+// ─── WEB MODELS (from web schema, unchanged) ──────────────────────────────────
 
 model Message {
   id                Int      @id @default(autoincrement())
   senderId          Int      @map("sender_id")
   receiverId        Int      @map("receiver_id")
-  sender            User     @relation("UserSentMessages", fields: [senderId], references: [id])
-  receiver          User     @relation("UserReceivedMessages", fields: [receiverId], references: [id])
+  sender            User     @relation("UserSentWebMessages", fields: [senderId], references: [id])
+  receiver          User     @relation("UserReceivedWebMessages", fields: [receiverId], references: [id])
   chatId            String   @map("chat_id")
   content           String
   messageType       String   @default("text") @map("message_type")
@@ -300,29 +323,29 @@ model KYCSubmission {
   state           String?
   pincode         String?
   dob             DateTime? @map("date_of_birth")
-  documentType    String    @map("document_type") // aadhar, pan, passport, dl
+  documentType    String    @map("document_type")
   documentUrl     String?   @map("document_url")
   selfieUrl       String?   @map("selfie_url")
-  status          String    @default("pending") @map("status") // pending, approved, rejected
+  status          String    @default("pending") @map("status")
   rejectionReason String?   @map("rejection_reason")
   submittedAt     DateTime  @default(now()) @map("submitted_at")
   verifiedAt      DateTime? @map("verified_at")
-  verifiedBy      Int?      @map("verified_by") // Admin ID
+  verifiedBy      Int?      @map("verified_by")
 
   @@map("kyc_submissions")
 }
 
 model TwoFactorOTP {
-  id        Int       @id @default(autoincrement())
-  userId    Int       @map("user_id")
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  otp       String
-  method    String    // sms, email
-  destination String  // phone or email
-  attempts  Int       @default(0)
-  verified  Boolean   @default(false)
-  expiresAt DateTime  @map("expires_at")
-  createdAt DateTime  @default(now()) @map("created_at")
+  id          Int      @id @default(autoincrement())
+  userId      Int      @map("user_id")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  otp         String
+  method      String
+  destination String
+  attempts    Int      @default(0)
+  verified    Boolean  @default(false)
+  expiresAt   DateTime @map("expires_at")
+  createdAt   DateTime @default(now()) @map("created_at")
 
   @@map("two_factor_otps")
 }
@@ -331,11 +354,11 @@ model DataConsent {
   id          Int       @id @default(autoincrement())
   userId      Int       @map("user_id")
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  consentType String    @map("consent_type") // pii_storage, marketing, analytics
+  consentType String    @map("consent_type")
   consentText String    @map("consent_text")
   given       Boolean   @default(false)
   givenAt     DateTime? @map("given_at")
-  version     String    @default("1.0") // For tracking consent version
+  version     String    @default("1.0")
   ipAddress   String?   @map("ip_address")
   userAgent   String?   @map("user_agent")
 
@@ -343,33 +366,33 @@ model DataConsent {
 }
 
 model PaymentRefund {
-  id               Int       @id @default(autoincrement())
-  userId           Int       @map("user_id")
-  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  transactionId    Int?      @map("transaction_id")
-  amount           Float
-  reason           String
-  status           String    @default("pending") // pending, approved, rejected, completed
-  requestedAt      DateTime  @default(now()) @map("requested_at")
-  processedAt      DateTime? @map("processed_at")
-  policy           String    @default("standard") // For refund policy version
-  notes            String?
+  id            Int       @id @default(autoincrement())
+  userId        Int       @map("user_id")
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactionId Int?      @map("transaction_id")
+  amount        Float
+  reason        String
+  status        String    @default("pending")
+  requestedAt   DateTime  @default(now()) @map("requested_at")
+  processedAt   DateTime? @map("processed_at")
+  policy        String    @default("standard")
+  notes         String?
 
   @@map("payment_refunds")
 }
 
 model TransactionLimit {
-  id               Int       @id @default(autoincrement())
-  userId           Int       @map("user_id")
-  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  dailyLimit       Float     @default(50000) @map("daily_limit")
-  monthlyLimit     Float     @default(500000) @map("monthly_limit")
-  dailyUsed        Float     @default(0) @map("daily_used")
-  monthlyUsed      Float     @default(0) @map("monthly_used")
-  resetTime        DateTime  @map("reset_time")
-  reason           String?   // kycPending, riskFlag, custom
-  customReason     String?   @map("custom_reason")
-  updatedAt        DateTime  @updatedAt @map("updated_at")
+  id           Int      @id @default(autoincrement())
+  userId       Int      @map("user_id")
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dailyLimit   Float    @default(50000) @map("daily_limit")
+  monthlyLimit Float    @default(500000) @map("monthly_limit")
+  dailyUsed    Float    @default(0) @map("daily_used")
+  monthlyUsed  Float    @default(0) @map("monthly_used")
+  resetTime    DateTime @map("reset_time")
+  reason       String?
+  customReason String?  @map("custom_reason")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
   @@map("transaction_limits")
 }
@@ -462,24 +485,24 @@ model Job {
   deadline    DateTime?
   postedById  Int           @map("posted_by_id")
   createdAt   DateTime      @default(now()) @map("created_at")
-  postedBy    User          @relation("PostedJobs", fields: [postedById], references: [id], onDelete: Cascade)
+  postedBy    User          @relation("PostedWebJobs", fields: [postedById], references: [id], onDelete: Cascade)
   attachments JobAttachment[]
   applications Application[]
 
-  @@map("jobs")
+  @@map("web_jobs")
 }
 
 model JobAttachment {
-  id         Int      @id @default(autoincrement())
-  jobId      Int      @map("job_id")
-  fileName   String   @map("file_name")
-  fileUrl    String   @map("file_url")
-  publicId   String   @map("public_id")
-  mimeType   String   @map("mime_type")
-  fileSize   Int?     @map("file_size")
-  sortOrder  Int      @default(0) @map("sort_order")
-  createdAt  DateTime @default(now()) @map("created_at")
-  job        Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  id        Int      @id @default(autoincrement())
+  jobId     Int      @map("job_id")
+  fileName  String   @map("file_name")
+  fileUrl   String   @map("file_url")
+  publicId  String   @map("public_id")
+  mimeType  String   @map("mime_type")
+  fileSize  Int?     @map("file_size")
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  job       Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
 
   @@map("job_attachments")
 }
@@ -496,7 +519,7 @@ model Application {
   status       String   @default("pending")
   createdAt    DateTime @default(now()) @map("created_at")
   job          Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  user         User?    @relation("UserApplications", fields: [userId], references: [id], onDelete: Cascade)
+  user         User?    @relation("UserWebApplications", fields: [userId], references: [id], onDelete: Cascade)
   team         Team?    @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
   @@unique([jobId, userId])
@@ -542,40 +565,7 @@ model Post_Comment {
   @@map("post_comments")
 }
 
-model ImageGeneration {
-  id        Int      @id @default(autoincrement())
-  userId    Int      @map("user_id")
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  prompt    String
-  style     String   @default("natural")
-  imageUrl  String   @map("image_url")
-  size      String   @default("1024x1024")
-  createdAt DateTime @default(now()) @map("created_at")
 
-  @@map("image_generations")
-}
-
-model Subscription {
-  id                Int       @id @default(autoincrement())
-  userId            Int       @map("user_id")
-  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  planId            String    @map("plan_id")
-  planName          String    @map("plan_name")
-  billingCycle      String    @default("monthly") @map("billing_cycle")
-  monthlyLimit      Int       @default(5) @map("monthly_limit")
-  imagesUsed        Int       @default(0) @map("images_used")
-  imagesThisMonth   Int       @default(0) @map("images_this_month")
-  resetDate         DateTime  @map("reset_date")
-  razorpayOrderId   String?   @map("razorpay_order_id")
-  razorpayPaymentId String?   @map("razorpay_payment_id")
-  status            String    @default("active")
-  createdAt         DateTime  @default(now()) @map("created_at")
-  updatedAt         DateTime  @updatedAt @map("updated_at")
-  expiresAt         DateTime? @map("expires_at")
-
-  @@unique([userId])
-  @@map("subscriptions")
-}
 
 model Team {
   id           Int           @id @default(autoincrement())
@@ -646,7 +636,6 @@ model GroupMessage {
   @@map("group_messages")
 }
 
-// Community and project workspace models
 model Company {
   id            Int                 @id @default(autoincrement())
   name          String
@@ -664,7 +653,7 @@ model CompanyMembership {
   id        Int      @id @default(autoincrement())
   companyId Int      @map("company_id")
   userId    Int      @map("user_id")
-  role      String   @default("MEMBER") // OWNER, ADMIN, MEMBER
+  role      String   @default("MEMBER")
   joinedAt  DateTime @default(now()) @map("joined_at")
   company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   user      User     @relation("CompanyMemberships", fields: [userId], references: [id], onDelete: Cascade)
@@ -681,10 +670,9 @@ model Community {
   isPrivate   Boolean           @default(false)
   avatarUrl   String?           @map("avatar_url")
   creatorId   Int               @map("creator_id")
-  companyId   Int?              @map("company_id") // Links Workspace Team to Company billing root
+  companyId   Int?              @map("company_id")
   createdAt   DateTime          @default(now()) @map("created_at")
   updatedAt   DateTime          @updatedAt @map("updated_at")
-  
   creator     User              @relation(fields: [creatorId], references: [id], onDelete: Cascade)
   company     Company?          @relation(fields: [companyId], references: [id], onDelete: Cascade)
   members     CommunityMember[]
@@ -702,8 +690,8 @@ model CommunityMember {
   id          Int       @id @default(autoincrement())
   communityId Int       @map("community_id")
   userId      Int       @map("user_id")
-  role        String    @default("VIEWER") // TEAM_ADMIN, MANAGER, VIEWER
-  status      String    @default("approved") // approved, pending
+  role        String    @default("VIEWER")
+  status      String    @default("approved")
   joinedAt    DateTime  @default(now()) @map("joined_at")
   community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -714,15 +702,14 @@ model CommunityMember {
 
 model Contract {
   id             Int       @id @default(autoincrement())
-  communityId    Int       @map("community_id") // Team/Workspace Isolation
+  communityId    Int       @map("community_id")
   professionalId Int       @map("professional_id")
   title          String
-  rate           Float     // Total contract rate (escrow target value)
-  status         String    @default("Active") // Active, Paused, Closed
-  escrowDealId   Int?      @unique @map("escrow_deal_id") // Points to the linked Escrow Deal
+  rate           Float
+  status         String    @default("Active")
+  escrowDealId   Int?      @unique @map("escrow_deal_id")
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
-  
   community      Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
   professional   User      @relation("ProfessionalContracts", fields: [professionalId], references: [id], onDelete: Cascade)
 
@@ -730,16 +717,16 @@ model Contract {
 }
 
 model Invitation {
-  id          Int       @id @default(autoincrement())
-  companyId   Int       @map("company_id")
-  communityId Int?      @map("community_id") // Optional specific Workspace Team assignment
+  id          Int        @id @default(autoincrement())
+  companyId   Int        @map("company_id")
+  communityId Int?       @map("community_id")
   email       String
-  token       String    @unique
-  role        String    @default("VIEWER") // TEAM_ADMIN, MANAGER, VIEWER
-  expiresAt   DateTime  @map("expires_at")
-  status      String    @default("Pending") // Pending, Accepted, Expired
-  createdAt   DateTime  @default(now()) @map("created_at")
-  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  token       String     @unique
+  role        String     @default("VIEWER")
+  expiresAt   DateTime   @map("expires_at")
+  status      String     @default("Pending")
+  createdAt   DateTime   @default(now()) @map("created_at")
+  company     Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
   community   Community? @relation(fields: [communityId], references: [id], onDelete: Cascade)
 
   @@map("invitations")
@@ -805,22 +792,6 @@ model ProjectFile {
   @@map("project_files")
 }
 
-model JobAnalytics {
-  id         Int      @id @default(autoincrement())
-  jobId      Int      @map("job_id")
-  views      Int      @default(0)
-  applicants Int      @default(0)
-  hires      Int      @default(0)
-  revenue    Float    @default(0)
-  month      Int
-  year       Int
-  createdAt  DateTime @default(now()) @map("created_at")
-
-  @@unique([jobId, month, year])
-  @@map("job_analytics")
-}
-
-// Job Board Models
 model CommunityJob {
   id           Int               @id @default(autoincrement())
   communityId  Int               @map("community_id")
@@ -829,11 +800,11 @@ model CommunityJob {
   client       User              @relation("ClientJobs", fields: [clientId], references: [id])
   title        String
   description  String
-  budget       Float                                        // max budget in ₹
+  budget       Float
   deadline     DateTime?
-  skills       Json?             @default("[]")             // ["React", "Node.js", etc.]
-  status       String            @default("open")           // open | in_progress | completed | cancelled
-  escrowDealId Int?              @unique @map("escrow_deal_id")  // set after a bid is accepted
+  skills       Json?             @default("[]")
+  status       String            @default("open")
+  escrowDealId Int?              @unique @map("escrow_deal_id")
   bids         CommunityBid[]
   jobRatings   JobRating[]
   createdAt    DateTime          @default(now()) @map("created_at")
@@ -846,17 +817,17 @@ model CommunityBid {
   id            Int                  @id @default(autoincrement())
   jobId         Int                  @map("job_id")
   job           CommunityJob         @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  leaderId      Int                  @map("leader_id")          // the one who submitted the bid
+  leaderId      Int                  @map("leader_id")
   leader        User                 @relation("BidLeader", fields: [leaderId], references: [id])
-  isGroup       Boolean              @default(false) @map("is_group")  // individual or team bid
+  isGroup       Boolean              @default(false) @map("is_group")
   coverLetter   String?              @map("cover_letter")
-  bidAmount     Float                @map("bid_amount")              // total bid in ₹
+  bidAmount     Float                @map("bid_amount")
   estimatedDays Int?                 @map("estimated_days")
-  status        String               @default("pending")             // pending | accepted | rejected | withdrawn
-  members       CommunityBidMember[]                                // empty for individual bids
+  status        String               @default("pending")
+  members       CommunityBidMember[]
   createdAt     DateTime             @default(now()) @map("created_at")
 
-  @@unique([jobId, leaderId])      // one bid submission per person per job
+  @@unique([jobId, leaderId])
   @@map("community_bids")
 }
 
@@ -866,8 +837,8 @@ model CommunityBidMember {
   bid            CommunityBid @relation(fields: [bidId], references: [id], onDelete: Cascade)
   userId         Int          @map("user_id")
   user           User         @relation("BidMemberships", fields: [userId], references: [id])
-  role           String?                                     // "Frontend Developer", "Designer", etc.
-  paymentPercent Float        @map("payment_percent")        // must sum to 100 across all members in bid
+  role           String?
+  paymentPercent Float        @map("payment_percent")
   createdAt      DateTime     @default(now()) @map("created_at")
 
   @@unique([bidId, userId])
@@ -875,17 +846,162 @@ model CommunityBidMember {
 }
 
 model JobRating {
-  id          Int          @id @default(autoincrement())
-  jobId       Int          @map("job_id")
-  job         CommunityJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  reviewerId  Int          @map("reviewer_id")
-  reviewer    User         @relation("JobRatingsGiven", fields: [reviewerId], references: [id])
-  reviewedId  Int          @map("reviewed_id")
-  reviewed    User         @relation("JobRatingsReceived", fields: [reviewedId], references: [id])
-  rating      Int          // 1 to 5
-  feedback    String?
-  createdAt   DateTime     @default(now()) @map("created_at")
+  id         Int          @id @default(autoincrement())
+  jobId      Int          @map("job_id")
+  job        CommunityJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  reviewerId Int          @map("reviewer_id")
+  reviewer   User         @relation("JobRatingsGiven", fields: [reviewerId], references: [id])
+  reviewedId Int          @map("reviewed_id")
+  reviewed   User         @relation("JobRatingsReceived", fields: [reviewedId], references: [id])
+  rating     Int
+  feedback   String?
+  createdAt  DateTime     @default(now()) @map("created_at")
 
   @@unique([jobId, reviewerId, reviewedId])
   @@map("job_ratings")
+}
+
+// ─── APP-ONLY MODELS ──────────────────────────────────────────────────────────
+
+model Conversation {
+  id            Int                @id @default(autoincrement())
+  lastMessage   String             @default("")
+  lastMessageAt DateTime           @default(now()) @map("last_message_at")
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
+  participants  ConversationUser[]
+  messages      AppMessage[]
+
+  @@map("conversations")
+}
+
+model ConversationUser {
+  id             Int          @id @default(autoincrement())
+  conversationId Int          @map("conversation_id")
+  userId         Int          @map("user_id")
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@map("conversation_users")
+}
+
+model AppMessage {
+  id              Int          @id @default(autoincrement())
+  conversationId  Int          @map("conversation_id")
+  senderId        Int          @map("sender_id")
+  text            String       @default("")
+  clientMessageId String       @default("") @map("client_message_id")
+  attachments     String       @default("[]")
+  readBy          String       @default("[]") @map("read_by")
+  replyToId       Int?         @map("reply_to_id")
+  isForwarded     Boolean      @default(false) @map("is_forwarded")
+  forwardedFrom   String?      @map("forwarded_from")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+  conversation    Conversation @relation(fields: [conversationId], references: [id])
+  sender          User         @relation("AppUserSentMessages", fields: [senderId], references: [id])
+  replyTo         AppMessage?  @relation("AppMessageReplies", fields: [replyToId], references: [id])
+  replies         AppMessage[] @relation("AppMessageReplies")
+
+  @@index([conversationId])
+  @@index([senderId])
+  @@map("app_messages")
+}
+
+model MyPost {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  mediaUrl  String   @map("media_url")
+  mediaType String   @map("media_type")
+  caption   String   @default("")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("my_posts")
+}
+
+model AppJob {
+  id          Int              @id @default(autoincrement())
+  userId      Int              @map("user_id")
+  title       String
+  company     String
+  budget      String
+  location    String
+  type        String
+  mode        String           @default("")
+  description String
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+  user        User             @relation("AppPostedJobs", fields: [userId], references: [id], onDelete: Cascade)
+  applications JobApplication[]
+
+  @@index([userId])
+  @@map("app_jobs")
+}
+
+model JobApplication {
+  id            Int       @id @default(autoincrement())
+  jobId         Int       @map("job_id")
+  userId        Int       @map("user_id")
+  status        String    @default("pending")
+  viewedAt      DateTime? @map("viewed_at")
+  shortlistedAt DateTime? @map("shortlisted_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @default(now()) @updatedAt @map("updated_at")
+  job           AppJob    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  user          User      @relation("AppUserApplications", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, userId])
+  @@index([jobId, status])
+  @@map("job_applications")
+}
+
+model Transaction {
+  id           Int      @id @default(autoincrement())
+  userId       Int      @map("user_id")
+  type         String
+  label        String
+  amount       Float
+  description  String   @default("")
+  status       String   @default("completed")
+  relatedId    String?  @map("related_id")
+  relatedModel String?  @map("related_model")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  user         User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([userId, createdAt])
+  @@map("transactions")
+}
+
+model UserRating {
+  id         Int      @id @default(autoincrement())
+  reviewerId Int      @map("reviewer_id")
+  reviewedId Int      @map("reviewed_id")
+  rating     Int
+  comment    String   @default("")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  reviewer   User     @relation("ReviewerUserRatings", fields: [reviewerId], references: [id], onDelete: Cascade)
+  reviewed   User     @relation("ReviewedUserRatings", fields: [reviewedId], references: [id], onDelete: Cascade)
+
+  @@unique([reviewerId, reviewedId])
+  @@index([reviewedId])
+  @@map("user_ratings")
+}
+
+model AppVerificationRequest {
+  id          Int       @id @default(autoincrement())
+  userId      Int       @unique @map("user_id")
+  fee         Float     @default(299)
+  status      String    @default("pending")
+  requestedAt DateTime  @default(now()) @map("requested_at")
+  reviewedAt  DateTime? @map("reviewed_at")
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("app_verification_requests")
 }

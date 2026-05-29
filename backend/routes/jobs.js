@@ -432,7 +432,7 @@ router.post('/', auth, uploadJobAttachments, async (req, res) => {
             sendUserNotification(
                 io,
                 req.user.id,
-                '✅ Job Posted Successfully',
+                'Job Posted Successfully',
                 `Your job "${job.title}" is now live and visible to applicants.`,
                 'success',
                 jobNotificationMetadata
@@ -440,7 +440,7 @@ router.post('/', auth, uploadJobAttachments, async (req, res) => {
             ...activeUsers.map((user) => sendUserNotification(
                 io,
                 user.id,
-                `🆕 New Job: ${job.title}`,
+                `New Job: ${job.title}`,
                 `${posterName} posted a new ${job.mode.toLowerCase()} job at ${job.company} in ${job.location}.`,
                 'info',
                 jobNotificationMetadata

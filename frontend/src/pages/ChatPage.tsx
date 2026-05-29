@@ -307,7 +307,7 @@ const ConversationList = ({
 
                         <Avatar className="h-full w-full">
                           <AvatarImage src={user.avatarUrl} />
-                          <AvatarFallback className="bg-primary/5 text-primary text-xs font-bold">{user.displayName[0]}</AvatarFallback>
+                          <AvatarFallback className="bg-primary/5 text-primary text-xs font-bold">{user.displayName?.[0] || '?'}</AvatarFallback>
                         </Avatar>
                       </Button>
                     </DropdownMenuTrigger>
@@ -315,7 +315,7 @@ const ConversationList = ({
                       <div className="flex items-center gap-3 p-3 border-b border-border/50 mb-1.5 bg-secondary/30 rounded-lg">
                         <Avatar className="h-10 w-10 border border-primary/10 shadow-sm">
                           <AvatarImage src={user.avatarUrl} />
-                          <AvatarFallback className="bg-primary/5 text-primary font-bold">{user.displayName[0]}</AvatarFallback>
+                          <AvatarFallback className="bg-primary/5 text-primary font-bold">{user.displayName?.[0] || '?'}</AvatarFallback>
                         </Avatar>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-bold text-foreground truncate leading-none mb-1">{user.displayName}</p>
@@ -400,7 +400,7 @@ const ConversationList = ({
                   >
                     <Avatar className="h-10 w-10">
                       <AvatarImage src={foundUser.avatarUrl} />
-                      <AvatarFallback>{foundUser.displayName[0]}</AvatarFallback>
+                      <AvatarFallback>{foundUser.displayName?.[0] || '?'}</AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0 text-left">
                       <p className="font-medium text-foreground truncate">{foundUser.displayName}</p>

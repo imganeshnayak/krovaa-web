@@ -73,7 +73,7 @@ export default function NotificationBell() {
                     : notification.type === "success" ? toast.success
                         : toast.info;
 
-            toastFn(`📢 ${notification.title}`, {
+            toastFn(`${notification.title}`, {
                 description: notification.message,
                 duration: 6000,
             });

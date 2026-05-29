@@ -182,7 +182,7 @@ router.post('/', auth, async (req, res) => {
             sendUserNotification(
                 io,
                 professional.id,
-                '💼 New Contract Started',
+                'New Contract Started',
                 `You have a new contract "${title}" in workspace ${community.name} for ₹${amountToDeduct.toLocaleString('en-IN')}`,
                 'success',
                 { type: 'contract', contractId: contract.id, communityId }
@@ -410,7 +410,7 @@ router.post('/:contractId/transfer', auth, async (req, res) => {
             sendUserNotification(
                 io,
                 oldContract.professionalId,
-                '🔄 Contract Workspace Transfer',
+                'Contract Workspace Transfer',
                 `Your contract "${oldContract.title}" has been transferred to Workspace: ${targetCommunity.name}`,
                 'success',
                 { type: 'contract', contractId: result.id, communityId: targetCommId }
