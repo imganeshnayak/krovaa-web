@@ -434,13 +434,9 @@ const ConversationList = ({
             <button
               key={chat.chat_id}
               onClick={() => {
-                if (chat.isKrovAI) {
-                  navigate('/image-generator');
-                } else {
-                  setSelectedChat(chat);
-                }
+                setSelectedChat(chat);
               }}
-              className={`w-full grid grid-cols-[48px_1fr_auto] items-center gap-3 p-4 hover:bg-secondary/60 transition-colors border-b border-border text-left overflow-hidden ${selectedChat?.chat_id === chat.chat_id ? "bg-secondary" : ""} ${chat.isKrovAI ? 'bg-gradient-to-r from-[#FDF4FF]/80 to-[#FDF4FF]/40' : ''}`}
+              className={`w-full grid grid-cols-[48px_1fr_auto] items-center gap-3 p-4 hover:bg-secondary/60 transition-colors border-b border-border text-left overflow-hidden ${selectedChat?.chat_id === chat.chat_id ? "bg-secondary" : ""}`}
             >
               <Avatar className="h-12 w-12 shrink-0">
                 <AvatarImage src={chat.avatar_url} />
@@ -453,12 +449,7 @@ const ConversationList = ({
                 <div className="flex items-center gap-1.5 overflow-hidden">
                   <span className="font-semibold text-foreground text-[14px] truncate leading-tight">{chat.display_name}</span>
                   <div className="flex items-center gap-1 shrink-0">
-                    {chat.isKrovAI ? (
-                      <Badge variant="secondary" className="bg-gradient-to-r from-[#D946EF]/10 to-[#F97316]/10 text-[#D946EF] text-[9px] h-3.5 px-1 border-none flex items-center gap-0.5">
-                        <Sparkles className="h-2.5 w-2.5" />
-                        AI
-                      </Badge>
-                    ) : chat.isOfficial ? (
+                    {chat.isOfficial ? (
                       <Badge variant="secondary" className="bg-primary/10 text-primary text-[9px] h-3.5 px-1 border-none flex items-center gap-0.5">
                         <ShieldCheck className="h-2.5 w-2.5" />
                         OFFICIAL
@@ -731,7 +722,7 @@ const ChatView = ({
       )}
 
       {/* Chat header */}
-      <div className={`flex items-center gap-3 p-4 border-b border-white/5 z-20 min-h-[73px] flex-shrink-0 ${selectedChat?.isKrovAI ? 'bg-gradient-to-r from-[#FDF4FF]/90 to-[#FDF4FF]/60 backdrop-blur-xl' : 'bg-background/40 backdrop-blur-xl'}`}>
+      <div className="flex items-center gap-3 p-4 border-b border-white/5 z-20 min-h-[73px] flex-shrink-0 bg-background/40 backdrop-blur-xl">
 
         {isSelectionMode ? (
           <div className="flex items-center justify-between w-full">
@@ -808,12 +799,7 @@ const ChatView = ({
               <div className="flex items-center gap-1.5">
                 <h3 style={{ fontFamily: "'Syne', sans-serif" }} className="font-bold text-foreground tracking-tight truncate">{selectedChat.display_name}</h3>
 
-                {selectedChat.isKrovAI ? (
-                  <Badge variant="secondary" className="bg-gradient-to-r from-[#D946EF]/10 to-[#F97316]/10 text-[#D946EF] text-[10px] px-1.5 border-none flex items-center gap-0.5">
-                    <Sparkles className="h-3 w-3" />
-                    AI
-                  </Badge>
-                ) : selectedChat.isOfficial ? (
+                {selectedChat.isOfficial ? (
                   <Badge variant="secondary" className="bg-primary/10 text-primary text-[10px] px-1.5 border-none flex items-center gap-0.5">
                     <ShieldCheck className="h-3.5 w-3.5" />
                     OFFICIAL
@@ -826,16 +812,7 @@ const ChatView = ({
                 {selectedChat.isOfficial ? "Official Support Channel" : `@${selectedChat.username}`}
               </p>
             </div>
-            {selectedChat.isKrovAI ? (
-              <div className="flex gap-2 items-center">
-                <button
-                  onClick={() => navigate('/image-generator')}
-                  className="p-2 hover:bg-[#D946EF]/10 rounded-lg transition-colors text-[#1C1C1C]/40 hover:text-[#D946EF]"
-                >
-                  <History className="h-5 w-5" />
-                </button>
-              </div>
-            ) : selectedChat.chat_id.startsWith("community_") ? (
+            {selectedChat.chat_id.startsWith("community_") ? (
               <div className="flex gap-1">
                 <Popover>
                   <PopoverTrigger asChild>
@@ -919,11 +896,11 @@ const ChatView = ({
         )}
 
         <div
-          className={`h-full overflow-y-auto scrollbar-thin scrollbar-thumb-primary/20 scroll-smooth relative z-10 ${selectedChat?.isKrovAI ? 'bg-[#FDF4FF]/30' : ''}`}
+          className="h-full overflow-y-auto scrollbar-thin scrollbar-thumb-primary/20 scroll-smooth relative z-10"
           data-nocontext
         >
           <div
-            className={`px-4 pt-4 pb-2 space-y-1 chat-message-container privacy-protected ${selectedChat?.isKrovAI ? 'bg-[#FDF4FF]/30' : ''}`}
+            className="px-4 pt-4 pb-2 space-y-1 chat-message-container privacy-protected"
             style={{
               marginBottom: 12
             }}
@@ -1381,7 +1358,7 @@ const ChatView = ({
             )}
           </div>
         )}
-        <div className={`flex items-center gap-2 ${selectedChat?.isKrovAI ? 'bg-[#FDF4FF]/80 backdrop-blur-xl border-t border-[#D946EF]/10' : ''}`}>
+        <div className="flex items-center gap-2">
           {isRecordingVoice && (
             <div className="flex items-center gap-2 rounded-full bg-destructive/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-destructive shrink-0">
               <span className="h-2 w-2 rounded-full bg-destructive animate-pulse" />
@@ -1454,8 +1431,8 @@ const ChatView = ({
           />
           <Input
             ref={messageInputRef}
-            className={`${selectedChat?.isKrovAI ? 'bg-white/60 border-[#D946EF]/20 focus-visible:ring-[#D946EF]/30' : 'bg-secondary border-border'}`}
-            placeholder={selectedChat?.isKrovAI ? "Ask me anything..." : "Type a message..."}
+            className="bg-secondary border-border"
+            placeholder="Type a message..."
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSend()}
@@ -1465,14 +1442,14 @@ const ChatView = ({
             autoComplete="off"
           />
           {newMessage.trim() ? (
-            <Button size="icon" onClick={handleSend} className={`shrink-0 ${selectedChat?.isKrovAI ? 'bg-gradient-to-r from-[#D946EF] to-[#F97316] hover:opacity-90 text-white' : ''}`}>
+            <Button size="icon" onClick={handleSend} className="shrink-0">
               <Send className="h-4 w-4" />
             </Button>
           ) : (
             <Button
               size="icon"
               onClick={isRecordingVoice ? stopVoiceRecording : startVoiceRecording}
-              className={`shrink-0 ${isRecordingVoice ? 'bg-destructive hover:bg-destructive/90 text-destructive-foreground animate-pulse' : selectedChat?.isKrovAI ? 'bg-gradient-to-r from-[#D946EF] to-[#F97316] hover:opacity-90 text-white' : ''}`}
+              className={`shrink-0 ${isRecordingVoice ? 'bg-destructive hover:bg-destructive/90 text-destructive-foreground animate-pulse' : ''}`}
               aria-label={isRecordingVoice ? 'Stop voice recording' : 'Start voice recording'}
             >
               {isRecordingVoice ? <Square className="h-4 w-4 fill-current" /> : <Mic className="h-4 w-4" />}

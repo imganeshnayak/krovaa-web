@@ -67,7 +67,7 @@ export default defineConfig(({ mode }) => ({
     rollupOptions: {
       output: {
         manualChunks: {
-          vendor: ['react', 'react-dom', 'react-router-dom', 'zustand'],
+          vendor: ['react', 'react-dom', 'react-router-dom'],
           ui: ['lucide-react', 'framer-motion', 'clsx', 'tailwind-merge'],
           charts: ['recharts'],
           radix: [

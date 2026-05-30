@@ -306,7 +306,6 @@ export interface Chat {
   unread_count: number;
   verified: boolean;
   isOfficial?: boolean;
-  isKrovAI?: boolean;
 }
 
 // ============ Moderation API ============
@@ -1741,3 +1740,33 @@ export function acceptCommunityBid(communityId: number, jobId: number, bidId: nu
 export function rateCommunityJob(communityId: number, jobId: number, data: { reviewedId: number; rating: number; feedback?: string }): Promise<any> {
   return apiFetch<any>(`/api/communities/${communityId}/jobs/${jobId}/ratings`, { method: 'POST', body: JSON.stringify(data) });
 }
+
+// ============ Image Sharing API ============
+
+export function shareImageToChat(
+  generationId: number,
+  data: {
+    chatId: string;
+    receiverId: number;
+    caption?: string;
+  }
+): Promise<{ success: boolean; message?: string }> {
+  return apiFetch<{ success: boolean; message?: string }>(`/api/image-generator/${generationId}/share`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export interface ImageGeneratorStats {
+  todayGenerations: number;
+  uniqueUsersToday: number;
+  usersAtLimitToday: number;
+  isEnabled: boolean;
+  dailyLimit: number;
+}
+
+export function getImageGeneratorStats(): Promise<ImageGeneratorStats> {
+  return apiFetch<ImageGeneratorStats>('/api/admin/image-generator/stats');
+}
+
+
