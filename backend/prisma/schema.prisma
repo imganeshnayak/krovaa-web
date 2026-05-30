@@ -115,8 +115,6 @@ model User {
   // ── App-only relations ─────────────────────────────────────────────────────
   appSentMessages      AppMessage[]          @relation("AppUserSentMessages")
   conversations        ConversationUser[]
-  appJobs              AppJob[]              @relation("AppPostedJobs")
-  jobApplications      JobApplication[]      @relation("AppUserApplications")
   transactions         Transaction[]
   myPosts              MyPost[]
   ratingsGiven         UserRating[]          @relation("ReviewerUserRatings")
@@ -489,7 +487,7 @@ model Job {
   attachments JobAttachment[]
   applications Application[]
 
-  @@map("web_jobs")
+  @@map("jobs")
 }
 
 model JobAttachment {
@@ -923,41 +921,7 @@ model MyPost {
   @@map("my_posts")
 }
 
-model AppJob {
-  id          Int              @id @default(autoincrement())
-  userId      Int              @map("user_id")
-  title       String
-  company     String
-  budget      String
-  location    String
-  type        String
-  mode        String           @default("")
-  description String
-  createdAt   DateTime         @default(now()) @map("created_at")
-  updatedAt   DateTime         @updatedAt @map("updated_at")
-  user        User             @relation("AppPostedJobs", fields: [userId], references: [id], onDelete: Cascade)
-  applications JobApplication[]
 
-  @@index([userId])
-  @@map("app_jobs")
-}
-
-model JobApplication {
-  id            Int       @id @default(autoincrement())
-  jobId         Int       @map("job_id")
-  userId        Int       @map("user_id")
-  status        String    @default("pending")
-  viewedAt      DateTime? @map("viewed_at")
-  shortlistedAt DateTime? @map("shortlisted_at")
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @default(now()) @updatedAt @map("updated_at")
-  job           AppJob    @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  user          User      @relation("AppUserApplications", fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([jobId, userId])
-  @@index([jobId, status])
-  @@map("job_applications")
-}
 
 model Transaction {
   id           Int      @id @default(autoincrement())
