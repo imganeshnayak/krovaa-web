@@ -1,54 +1,49 @@
-import { lazy, Suspense, useEffect } from "react";
-const Toaster = lazy(() => import("@/components/ui/toaster").then(m => ({ default: m.Toaster })));
+import { Suspense, useEffect, type ReactNode } from "react";
+import { Capacitor } from "@capacitor/core";
+import { Toaster } from "@/components/ui/toaster";
+import { Toaster as Sonner } from "@/components/ui/sonner";
 import { useAuth } from "./contexts/AuthContext";
 import LoadingScreen from "./components/ui/LoadingScreen";
 import BottomNavbar from "./components/BottomNavbar";
-const Sonner = lazy(() => import("@/components/ui/sonner").then(m => ({ default: m.Toaster })));
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import Landing from "./pages/Landing";
-const Login = lazy(() => import("./pages/Login"));
-const Register = lazy(() => import("./pages/Register"));
-const ChatPage = lazy(() => import("./pages/ChatPage"));
-const ProfilePage = lazy(() => import("./pages/ProfilePage"));
-const PostsPage = lazy(() => import("./pages/PostsPage"));
-const ExplorePage = lazy(() => import("./pages/ExplorePage"));
-const PostJobPage = lazy(() => import("./pages/PostJobPage"));
-const JobDetailsPage = lazy(() => import("./pages/JobDetailsPage"));
-const MyListingsPage = lazy(() => import("./pages/MyListingsPage"));
-const EscrowPage = lazy(() => import("./pages/EscrowPage"));
-const WalletPage = lazy(() => import("./pages/WalletPage"));
-const WalletPayPage = lazy(() => import("./pages/WalletPayPage"));
-const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
-const AdminChatView = lazy(() => import("./pages/AdminChatView"));
-const SettingsPage = lazy(() => import("./pages/SettingsPage"));
-const BlockedUsersPage = lazy(() => import("./pages/BlockedUsersPage"));
-const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
-const CommunitiesPage = lazy(() => import("./pages/CommunitiesPage"));
-const CommunityDetailPage = lazy(() => import("./pages/CommunityDetailPage"));
-const Terms = lazy(() => import("./pages/legal/Terms"));
-const Privacy = lazy(() => import("./pages/legal/Privacy"));
-const Refund = lazy(() => import("./pages/legal/Refund"));
-const CookiePolicy = lazy(() => import("./pages/legal/CookiePolicy"));
-const NotFound = lazy(() => import("./pages/NotFound"));
-const CookieConsent = lazy(() => import("./components/CookieConsent"));
-const CommunitiesTabPage = lazy(() => import("./pages/CommunitiesTabPage"));
-const JoinCommunityPage = lazy(() => import("./pages/JoinCommunityPage"));
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import ChatPage from "./pages/ChatPage";
+import ProfilePage from "./pages/ProfilePage";
+import PostsPage from "./pages/PostsPage";
+import ExplorePage from "./pages/ExplorePage";
+import PostJobPage from "./pages/PostJobPage";
+import JobDetailsPage from "./pages/JobDetailsPage";
+import MyListingsPage from "./pages/MyListingsPage";
+import EscrowPage from "./pages/EscrowPage";
+import WalletPage from "./pages/WalletPage";
+import WalletPayPage from "./pages/WalletPayPage";
+import AdminDashboard from "./pages/AdminDashboard";
+import AdminChatView from "./pages/AdminChatView";
+import SettingsPage from "./pages/SettingsPage";
+import BlockedUsersPage from "./pages/BlockedUsersPage";
+import ForgotPassword from "./pages/ForgotPassword";
+import CommunitiesPage from "./pages/CommunitiesPage";
+import CommunityDetailPage from "./pages/CommunityDetailPage";
+import Terms from "./pages/legal/Terms";
+import Privacy from "./pages/legal/Privacy";
+import Refund from "./pages/legal/Refund";
+import CookiePolicy from "./pages/legal/CookiePolicy";
+import NotFound from "./pages/NotFound";
+import CookieConsent from "./components/CookieConsent";
+import CommunitiesTabPage from "./pages/CommunitiesTabPage";
+import JoinCommunityPage from "./pages/JoinCommunityPage";
 // FloatingCommunityButton is rendered by ChatPage only
 import { ENABLE_COMMUNITIES } from "./lib/features";
 
-const QueryWrapper = lazy(() =>
-  import("@tanstack/react-query").then(({ QueryClient, QueryClientProvider }) => {
-    const queryClient = new QueryClient();
+const queryClient = new QueryClient();
 
-    return {
-      default: ({ children }: { children: ReactNode }) => (
-        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-      ),
-    };
-  })
+const QueryWrapper = ({ children }: { children: ReactNode }) => (
+  <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
 );
 
 const AdminRoute = ({ children }: { children: ReactNode }) => {
@@ -108,7 +103,7 @@ const MainContent = () => {
     <main className={`${showNavbar ? "pb-16" : ""} main-wrapper`}>
       <Suspense fallback={<LoadingScreen />}>
       <Routes>
-        <Route path="/" element={<Landing />} />
+        <Route path="/" element={Capacitor.isNativePlatform() ? <Navigate to="/login" replace /> : <Landing />} />
         <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
         <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
         <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
