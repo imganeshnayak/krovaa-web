@@ -16,19 +16,29 @@ const auth = async (req, res, next) => {
     const token = req.cookies?.token || authHeader?.replace('Bearer ', '');
 
     if (!token) {
-        // Temporary Bypass for Development only if no token provided and explicitly enabled
-        // if (process.env.ENABLE_DEV_BYPASS === 'true') {
-        //     console.log('No token provided, using dev bypass (User ID: 1)');
-        //     req.user = { id: 1, username: 'admin', role: 'admin' };
-        //     return next();
-        // }
         return res.status(401).json({ error: 'Access denied. No token provided.' });
     }
 
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-        // CHECK USER STATUS AND PERMISSIONS IN DATABASE
+        // If the JWT already contains role and status, skip the DB query entirely
+        // This is the fast path for every API request (no DB hit needed)
+        if (decoded.role && decoded.status) {
+            if (decoded.status !== 'active') {
+                return res.status(403).json({
+                    error: `Account ${decoded.status}.`,
+                    status: decoded.status
+                });
+            }
+            req.user = {
+                ...decoded,
+                permissions: decoded.permissions || []
+            };
+            return next();
+        }
+
+        // Slow path: JWT is old and doesn't have role/status embedded, check DB once
         const user = await prisma.user.findUnique({
             where: { id: decoded.id },
             select: { status: true, role: true, permissions: true }
@@ -45,7 +55,6 @@ const auth = async (req, res, next) => {
             });
         }
 
-        // Attach DB info to req.user
         req.user = {
             ...decoded,
             role: user.role,
@@ -54,20 +63,6 @@ const auth = async (req, res, next) => {
         next();
     } catch (err) {
         console.error('JWT Verification Error:', err.message);
-        // Fallback for dev if token is invalid and explicitly enabled
-        // if (process.env.ENABLE_DEV_BYPASS === 'true') {
-        //     const devUser = await prisma.user.findFirst({
-        //         where: { role: 'admin' }
-        //     });
-        //     console.log(`Invalid token, falling back to dev bypass (User ID: ${devUser?.id || 1})`);
-        //     req.user = {
-        //         id: devUser?.id || 1,
-        //         username: devUser?.username || 'admin',
-        //         role: 'admin',
-        //         permissions: devUser?.permissions || []
-        //     };
-        //     return next();
-        // }
         res.status(401).json({ error: 'Invalid token.' });
     }
 };
