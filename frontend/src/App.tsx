@@ -1,4 +1,4 @@
-import { Suspense, useEffect, type ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -101,7 +101,6 @@ const MainContent = () => {
 
   return (
     <main className={`${showNavbar ? "pb-16" : ""} main-wrapper`}>
-      <Suspense fallback={<LoadingScreen />}>
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
@@ -142,39 +141,28 @@ const MainContent = () => {
 
         <Route path="*" element={<NotFound />} />
       </Routes>
-      </Suspense>
 
       {showNavbar && (
-        <Suspense fallback={null}>
           <BottomNavbar />
-        </Suspense>
       )}
     </main>
   );
 };
 
 const App = () => (
-  <Suspense fallback={<LoadingScreen />}>
     <QueryWrapper>
       <AuthProvider>
-        <Suspense fallback={null}>
           <TooltipProvider>
-            <Suspense fallback={null}>
               <Toaster />
               <Sonner />
-            </Suspense>
 
             <BrowserRouter>
               <MainContent />
-              <Suspense fallback={null}>
                 <CookieConsent />
-              </Suspense>
             </BrowserRouter>
           </TooltipProvider>
-        </Suspense>
       </AuthProvider>
     </QueryWrapper>
-  </Suspense>
 );
 
 export default App;
