@@ -37,36 +37,50 @@ const clearSession = () => {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(() => readCachedUser());
   const [token, setToken] = useState<string | null>(() => localStorage.getItem("authToken"));
-  const [isLoading, setIsLoading] = useState(() => !localStorage.getItem("authToken"));
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     const restoreSession = async () => {
       const storedToken = localStorage.getItem("authToken");
       const cachedUser = readCachedUser();
 
-      if (storedToken) {
-        setToken(storedToken);
-        if (cachedUser) {
-          setUser(cachedUser);
-        }
-
-        try {
-          const userData = await getCurrentUser();
-          setUser(userData);
-          persistSession(storedToken, userData);
-        } catch (error) {
-          const status = (error as { status?: number })?.status;
-          if (status === 401 || status === 403) {
-            clearSession();
-            setToken(null);
-            setUser(null);
-          } else if (cachedUser) {
-            setUser(cachedUser);
-          }
-        }
+      if (!storedToken) {
+        // No token at all - no need to call API, just show the app immediately
+        setIsLoading(false);
+        return;
       }
 
-      setIsLoading(false);
+      setToken(storedToken);
+      if (cachedUser) {
+        // Instantly render the app using cached user while we verify in background
+        setUser(cachedUser);
+        setIsLoading(false);
+      } else {
+        // No cached user but we have a token, show loading briefly
+        setIsLoading(true);
+      }
+
+      try {
+        // Verify session in the background with a timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout
+        const userData = await getCurrentUser();
+        clearTimeout(timeoutId);
+        setUser(userData);
+        persistSession(storedToken, userData);
+      } catch (error) {
+        const status = (error as { status?: number })?.status;
+        if (status === 401 || status === 403) {
+          clearSession();
+          setToken(null);
+          setUser(null);
+        } else if (cachedUser) {
+          // Network error but we have cached user - keep them logged in
+          setUser(cachedUser);
+        }
+      } finally {
+        setIsLoading(false);
+      }
     };
 
     restoreSession();
