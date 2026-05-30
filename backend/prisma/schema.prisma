@@ -143,6 +143,7 @@ model Message {
   isOpened          Boolean  @default(false) @map("is_opened")
   isViewOnce        Boolean  @default(false) @map("is_view_once")
   color             String?
+  deletedBySender   Boolean  @default(false) @map("deleted_by_sender")
   deletedByReceiver Boolean  @default(false) @map("deleted_by_receiver")
 
   @@index([chatId, createdAt(sort: Desc)])
