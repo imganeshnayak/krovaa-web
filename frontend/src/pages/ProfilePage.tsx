@@ -155,6 +155,7 @@ const ProfilePage = () => {
   const [imageVersion, setImageVersion] = useState(Date.now());
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const coverPhotoInputRef = useRef<HTMLInputElement>(null);
+  const hasFetchedVerification = useRef(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [isUploadingCoverPhoto, setIsUploadingCoverPhoto] = useState(false);
   const [localAvatarOverride, setLocalAvatarOverride] = useState<string | null>(null);
@@ -281,7 +282,11 @@ const ProfilePage = () => {
       loadUser();
     } else if (!authLoading) {
       loadUser();
-      if (currentUser) loadVerificationData();
+      // Only load verification data once per mount, not on every re-render
+      if (currentUser && !hasFetchedVerification.current) {
+        hasFetchedVerification.current = true;
+        loadVerificationData();
+      }
     }
   }, [username, currentUser, authLoading]);
 
