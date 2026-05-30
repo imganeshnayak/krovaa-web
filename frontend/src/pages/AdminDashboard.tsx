@@ -73,8 +73,7 @@ import {
   createAd,
   updateAd,
   deleteAd,
-  pushAdNotification,
-  getImageGeneratorStats
+  pushAdNotification
 } from "@/lib/api";
 
 type AdminTab = "overview" | "users" | "chats" | "escrow" | "activity" | "reports" | "verifications" | "payouts" | "broadcast" | "settings" | "staff";
@@ -137,9 +136,6 @@ const AdminDashboard = () => {
   const [adFilePreview, setAdFilePreview] = useState<string | null>(null);
   const [isSavingAd, setIsSavingAd] = useState(false);
 
-  // --- Image Generation Stats ---
-  const [imageGenStats, setImageGenStats] = useState<any>(null);
-  const [isLoadingImageStats, setIsLoadingImageStats] = useState(false);
 
   const adminPermissions = [
     { id: "users", label: "Users Management" },
@@ -189,16 +185,6 @@ const AdminDashboard = () => {
       const statsData = await getAdminStats();
       setStats(statsData);
 
-      // Load image generation stats
-      try {
-        setIsLoadingImageStats(true);
-        const imageStatsData = await getImageGeneratorStats();
-        setImageGenStats(imageStatsData);
-      } catch (err) {
-        console.error('Failed to load image generation stats:', err);
-      } finally {
-        setIsLoadingImageStats(false);
-      }
 
       if (activeTab === "users") {
         const usersData = await getAdminUsers({ search: searchQuery, status: statusFilter === "all" ? "" : statusFilter });
@@ -729,56 +715,7 @@ const AdminDashboard = () => {
                   </Card>
                 </div>
 
-                {imageGenStats && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <Card className="bg-card border-border border-l-4 border-l-purple-500">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground flex items-center justify-between">
-                          Today's AI Generations
-                          <ImageIcon className="h-4 w-4 text-purple-500" />
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-2xl font-bold text-card-foreground">{imageGenStats.todayGenerations}</div>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {imageGenStats.uniqueUsersToday} users active
-                        </p>
-                      </CardContent>
-                    </Card>
 
-                    <Card className="bg-card border-border border-l-4 border-l-purple-500">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground flex items-center justify-between">
-                          Daily Limit Status
-                          <Zap className="h-4 w-4 text-purple-500" />
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-2xl font-bold text-card-foreground">{imageGenStats.usersAtLimitToday}</div>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Users at limit
-                        </p>
-                      </CardContent>
-                    </Card>
-
-                    <Card className={`bg-card border-border border-l-4 ${imageGenStats.isEnabled ? 'border-l-green-500' : 'border-l-red-500'}`}>
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground flex items-center justify-between">
-                          AI Generator Status
-                          <ImageIcon className={`h-4 w-4 ${imageGenStats.isEnabled ? 'text-green-500' : 'text-red-500'}`} />
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className={`text-lg font-bold ${imageGenStats.isEnabled ? 'text-green-500' : 'text-red-500'}`}>
-                          {imageGenStats.isEnabled ? 'Enabled' : 'Disabled'}
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Limit: {imageGenStats.dailyLimit} images/day
-                        </p>
-                      </CardContent>
-                    </Card>
-                  </div>
-                )}
 
                 <Card className="bg-card border-border">
                   <CardHeader>
