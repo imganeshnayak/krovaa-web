@@ -1,5 +1,5 @@
 import { Suspense, useEffect, type ReactNode } from "react";
-import { Capacitor } from "@capacitor/core";
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { useAuth } from "./contexts/AuthContext";
@@ -103,7 +103,7 @@ const MainContent = () => {
     <main className={`${showNavbar ? "pb-16" : ""} main-wrapper`}>
       <Suspense fallback={<LoadingScreen />}>
       <Routes>
-        <Route path="/" element={Capacitor.isNativePlatform() ? <Navigate to="/login" replace /> : <Landing />} />
+        <Route path="/" element={<Landing />} />
         <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
         <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
         <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
