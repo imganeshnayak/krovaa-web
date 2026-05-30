@@ -137,8 +137,17 @@ const io = new Server(server, {
 
 // API Routes
 app.use(express.static(path.join(__dirname, '../frontend/dist'), {
-    maxAge: '1y',
-    immutable: true
+    setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.html')) {
+            // Never cache index.html
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
+        } else {
+            // Cache static assets like JS and CSS files for 1 year
+            res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        }
+    }
 }));
 
 app.use('/api/auth', authRoutes);
@@ -163,6 +172,9 @@ app.use('/api/groups', groupsRoutes);
 
 // SPA Fallback for React Router (Must be after all /api routes)
 app.get('*', (req, res) => {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
 });
 
