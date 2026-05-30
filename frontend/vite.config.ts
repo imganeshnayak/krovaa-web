@@ -42,22 +42,8 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
-    // Use terser for better dead-code elimination and smaller output (~5-15% vs esbuild)
-    minify: 'terser',
-    terserOptions: {
-      compress: {
-        drop_console: mode === 'production',
-        drop_debugger: true,
-        pure_funcs: ['console.log', 'console.info', 'console.debug'],
-        passes: 2,
-      },
-      mangle: {
-        safari10: true,
-      },
-      format: {
-        comments: false,
-      },
-    },
+    // Use esbuild for incredibly fast, low-memory minification (fixes Docker OOM crashes)
+    minify: 'esbuild',
     cssMinify: true,
     sourcemap: false,
     // Target modern browsers to avoid unnecessary polyfills
