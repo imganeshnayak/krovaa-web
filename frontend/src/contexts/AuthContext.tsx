@@ -63,7 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         // Verify session in the background with a timeout
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout
+        const timeoutId = setTimeout(() => controller.abort(), 3000); // 3s timeout (faster feedback)
         const userData = await getCurrentUser();
         clearTimeout(timeoutId);
         setUser(userData);

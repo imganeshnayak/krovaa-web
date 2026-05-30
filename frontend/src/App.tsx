@@ -49,7 +49,8 @@ const QueryWrapper = ({ children }: { children: ReactNode }) => (
 const AdminRoute = ({ children }: { children: ReactNode }) => {
   const { user, isLoading } = useAuth();
 
-  if (isLoading) return <LoadingScreen />;
+  // Don't show loading if we have cached user - only show on initial auth check
+  if (isLoading && !user) return <LoadingScreen />;
   if (!user) return <Navigate to="/login" replace />;
   if (user.role !== "admin") return <Navigate to="/chat" replace />;
 
@@ -59,7 +60,8 @@ const AdminRoute = ({ children }: { children: ReactNode }) => {
 const ClientRoute = ({ children }: { children: ReactNode }) => {
   const { user, isLoading } = useAuth();
 
-  if (isLoading) return <LoadingScreen />;
+  // Don't show loading if we have cached user - only show on initial auth check
+  if (isLoading && !user) return <LoadingScreen />;
   if (!user) return <Navigate to="/login" replace />;
   if (user.role === "staff") return <Navigate to="/admin" replace />;
 
@@ -69,7 +71,8 @@ const ClientRoute = ({ children }: { children: ReactNode }) => {
 const PublicRoute = ({ children }: { children: ReactNode }) => {
   const { user, isLoading } = useAuth();
 
-  if (isLoading) return <LoadingScreen />;
+  // Don't show loading if we have cached user - only show on initial auth check
+  if (isLoading && !user) return <LoadingScreen />;
   if (user) {
     return <Navigate to={user.role === "admin" || user.role === "staff" ? "/admin" : "/chat"} replace />;
   }

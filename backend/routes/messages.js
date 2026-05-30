@@ -42,21 +42,27 @@ router.get('/chats/list', auth, async (req, res) => {
                 ]
             };
 
+        // Optimization: Get only the last message for each chat (limit 200 most recent chats)
         const messages = await prisma.message.findMany({
             where: whereClause,
             orderBy: { createdAt: 'desc' },
+            take: 500, // Get last 500 messages to find all unique chats, then filter
             include: {
                 sender: { select: { id: true, displayName: true, avatarUrl: true, username: true, verified: true } },
                 receiver: { select: { id: true, displayName: true, avatarUrl: true, username: true, verified: true } }
             },
         });
 
-        // Get unread counts in a single query
+        // Get unread counts efficiently - only count unread messages
         const unreadCounts = await prisma.message.groupBy({
             by: ['chatId'],
             where: {
                 receiverId: req.user.id,
-                read: false
+                read: false,
+                OR: [
+                    { senderId: req.user.id, deletedBySender: false },
+                    { receiverId: req.user.id, deletedByReceiver: false }
+                ]
             },
             _count: { id: true }
         });
