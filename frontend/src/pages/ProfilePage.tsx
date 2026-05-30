@@ -291,9 +291,28 @@ const ProfilePage = () => {
     }
   }, [user]);
 
-  if (authLoading && !username) return <LoadingScreen />;
-  if (isLoading && !user) return <LoadingScreen />;
   if (!user || error) {
+    if (isLoading || authLoading) {
+      // Skeleton profile — renders instantly, no waiting!
+      return (
+        <div className="min-h-screen bg-[#F5F5F5] animate-pulse">
+          <div className="sticky top-0 z-50 border-b border-[#E0E0E0] bg-white/80 h-14" />
+          <div className="max-w-xl mx-auto px-5 pb-20 pt-4">
+            <div className="h-48 rounded-xl bg-gray-200" />
+            <div className="flex flex-col items-center -mt-14 pt-4 gap-3">
+              <div className="w-24 h-24 rounded-xl bg-gray-300 border-4 border-white" />
+              <div className="h-5 w-40 bg-gray-300 rounded" />
+              <div className="h-3 w-24 bg-gray-200 rounded" />
+              <div className="h-8 w-28 bg-gray-200 rounded-lg" />
+            </div>
+            <div className="mt-8 space-y-3">
+              <div className="h-11 bg-gray-200 rounded-lg w-full" />
+              <div className="h-11 bg-gray-200 rounded-lg w-full" />
+            </div>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <p className="text-[#1C1C1C]/40 font-medium">{error || "User not found"}</p>
