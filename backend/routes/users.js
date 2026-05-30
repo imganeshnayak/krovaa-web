@@ -459,46 +459,64 @@ router.get('/:id/profile-full', async (req, res) => {
             } catch (err) {}
         }
 
-        // Fetch user profile
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
-            select: {
-                id: true,
-                username: true,
-                displayName: true,
-                bio: true,
-                avatarUrl: true,
-                coverPhotoUrl: true,
-                socialLinks: true,
-                role: true,
-                status: true,
-                verified: true,
-                city: true,
-                profession: true,
-                skills: true,
-                userGoal: true,
-                createdAt: true,
-                email: true,
-                phoneNumber: true,
-                pincode: true,
-                gender: true,
-                age: true,
-                walletBalance: true
-            },
-        });
+        const viewerId = req.user?.id;
+
+        // Run ALL queries in parallel - massive speed boost!
+        const [user, ratingAgg, posts, ratingEligibilityData] = await Promise.all([
+            // 1. User profile
+            prisma.user.findUnique({
+                where: { id: userId },
+                select: {
+                    id: true, username: true, displayName: true, bio: true,
+                    avatarUrl: true, coverPhotoUrl: true, socialLinks: true,
+                    role: true, status: true, verified: true, city: true,
+                    profession: true, skills: true, userGoal: true, createdAt: true,
+                    email: true, phoneNumber: true, pincode: true, gender: true,
+                    age: true, walletBalance: true, shareId: true
+                },
+            }),
+            // 2. Rating aggregate (no need to fetch all rows!)
+            prisma.rating.aggregate({
+                where: { reviewedId: userId },
+                _avg: { rating: true },
+                _count: { rating: true }
+            }),
+            // 3. Posts
+            prisma.post.findMany({
+                where: { userId },
+                orderBy: { createdAt: 'desc' },
+                take: 10,
+                include: {
+                    user: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
+                    likes: true,
+                    comments: {
+                        include: { user: { select: { id: true, username: true, displayName: true, avatarUrl: true } } },
+                        orderBy: { createdAt: 'desc' },
+                        take: 3,
+                    },
+                },
+            }),
+            // 4. Rating eligibility (only if logged in and viewing someone else's profile)
+            viewerId && viewerId !== userId ? Promise.all([
+                prisma.message.findFirst({ where: { senderId: viewerId, receiverId: userId }, select: { id: true } }),
+                prisma.message.findFirst({ where: { senderId: userId, receiverId: viewerId }, select: { id: true } }),
+                prisma.escrowDeal.findFirst({
+                    where: { OR: [{ clientId: viewerId, vendorId: userId }, { clientId: userId, vendorId: viewerId }] },
+                    select: { id: true }
+                })
+            ]) : Promise.resolve(null)
+        ]);
 
         if (!user) {
             return res.status(404).json({ error: 'User not found.' });
         }
 
-        // Hide staff and admin profiles from public/regular users
         if ((user.role === 'staff' || user.role === 'admin') && (!req.user || req.user.role !== 'admin')) {
             return res.status(404).json({ error: 'User not found.' });
         }
 
-        // Strip private fields if not owner and not admin
-        const isOwner = req.user && req.user.id === userId;
-        const isAdmin = req.user && req.user.role === 'admin';
+        const isOwner = viewerId === userId;
+        const isAdmin = req.user?.role === 'admin';
         if (!isOwner && !isAdmin) {
             delete user.email;
             delete user.phoneNumber;
@@ -508,75 +526,25 @@ router.get('/:id/profile-full', async (req, res) => {
             delete user.walletBalance;
         }
 
-        // Calculate ratings
-        const userRatings = await prisma.rating.findMany({
-            where: { reviewedId: user.id },
-            select: { rating: true }
-        });
-        const ratings = userRatings.map(r => r.rating);
-        const avgRating = ratings.length > 0 ? (ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(1) : "0.0";
+        const avgRating = ratingAgg._avg.rating ? parseFloat(ratingAgg._avg.rating.toFixed(1)) : 0;
+        const ratingCount = ratingAgg._count.rating;
 
-        // Fetch initial posts (first 10)
-        const posts = await prisma.post.findMany({
-            where: { userId },
-            orderBy: { createdAt: 'desc' },
-            take: 10,
-            include: {
-                user: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
-                likes: true,
-                comments: {
-                    include: { user: { select: { id: true, username: true, displayName: true, avatarUrl: true } } },
-                    orderBy: { createdAt: 'desc' },
-                    take: 3,
-                },
-            },
-        });
-
-        // Check rating eligibility if user is authenticated
         let ratingEligibility = { canRate: false, reason: null };
-        if (req.user) {
-            const reviewerId = req.user.id;
-            const reviewedUserId = userId;
-
-            if (reviewerId !== reviewedUserId) {
-                const [hasSent, hasReceived, escrowDeal] = await Promise.all([
-                    prisma.message.findFirst({
-                        where: { senderId: reviewerId, receiverId: reviewedUserId },
-                        select: { id: true }
-                    }),
-                    prisma.message.findFirst({
-                        where: { senderId: reviewedUserId, receiverId: reviewerId },
-                        select: { id: true }
-                    }),
-                    prisma.escrowDeal.findFirst({
-                        where: {
-                            OR: [
-                                { clientId: reviewerId, vendorId: reviewedUserId },
-                                { clientId: reviewedUserId, vendorId: reviewerId }
-                            ]
-                        },
-                        select: { id: true }
-                    })
-                ]);
-
-                if (hasSent && hasReceived && escrowDeal) {
-                    ratingEligibility = { canRate: true, reason: null };
-                } else if (!hasSent || !hasReceived) {
-                    ratingEligibility = { canRate: false, reason: "You can rate only users you have a mutual chat with." };
-                } else {
-                    ratingEligibility = { canRate: false, reason: "You can rate only users you have a deal with." };
-                }
+        if (ratingEligibilityData) {
+            const [hasSent, hasReceived, escrowDeal] = ratingEligibilityData;
+            if (hasSent && hasReceived && escrowDeal) {
+                ratingEligibility = { canRate: true, reason: null };
+            } else if (!hasSent || !hasReceived) {
+                ratingEligibility = { canRate: false, reason: "You can rate only users you have a mutual chat with." };
             } else {
-                ratingEligibility = { canRate: false, reason: "You cannot rate yourself." };
+                ratingEligibility = { canRate: false, reason: "You can rate only users you have a deal with." };
             }
+        } else if (viewerId === userId) {
+            ratingEligibility = { canRate: false, reason: "You cannot rate yourself." };
         }
 
         res.json({
-            user: {
-                ...user,
-                averageRating: parseFloat(avgRating),
-                ratingCount: ratings.length
-            },
+            user: { ...user, averageRating: avgRating, ratingCount },
             posts,
             ratingEligibility
         });
@@ -585,6 +553,7 @@ router.get('/:id/profile-full', async (req, res) => {
         res.status(500).json({ error: 'Server error.' });
     }
 });
+
 
 // GET /api/users/:id - Get user profile with rating
 router.get('/:id', auth, async (req, res) => {
