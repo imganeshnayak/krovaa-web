@@ -57,6 +57,8 @@ app.use((req, res, next) => {
 });
 
 const allowedOrigins = [
+    'http://localhost',
+    'capacitor://localhost',
     'http://localhost:5173',
     'http://localhost:8080',
     'http://localhost:8081',
@@ -158,6 +160,11 @@ app.use('/api/groups', groupsRoutes);
     app.use('/api/communities', requireFeature('VITE_ENABLE_COMMUNITIES'), communitiesRoutes);
     app.use('/api/communities', requireFeature('VITE_ENABLE_COMMUNITIES'), communityJobsRoutes);
     app.use('/api/contracts', requireFeature('VITE_ENABLE_COMMUNITIES'), contractsRoutes);
+
+// SPA Fallback for React Router (Must be after all /api routes)
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
+});
 
 // Global Error Handler
 app.use((err, req, res, next) => {
