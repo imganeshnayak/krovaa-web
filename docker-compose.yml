@@ -28,10 +28,7 @@ services:
     container_name: krovaa-frontend
     restart: always
     ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - "3000:80"
     networks:
       - krovaa_network
 
