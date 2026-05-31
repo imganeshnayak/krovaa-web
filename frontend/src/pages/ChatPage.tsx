@@ -1896,13 +1896,28 @@ const ChatPage = () => {
   }, []);
 
 
-  const loadChats = useCallback(async () => {
-    setIsLoading(true);
+  const loadChats = useCallback(async (showSpinner = true) => {
+    // Only show loading spinner if we have no chats yet (first load)
+    // On subsequent calls (background refresh), keep showing existing chats
+    if (showSpinner) setIsLoading(true);
     try {
-      const data = await getChatList();
-      try {
-        const groups = await getGroupChats();
-        const mappedGroups: ChatType[] = groups.map(g => ({
+      // Run all API calls in parallel to massively speed up loading time
+      const [chatListResult, groupsResult, communitiesResult, supportChatResult] = await Promise.allSettled([
+        getChatList(),
+        getGroupChats(),
+        listCommunities(),
+        user?.role !== 'admin' && user?.role !== 'staff' && user?.id ? getSupportChat() : Promise.resolve(null)
+      ]);
+
+      if (chatListResult.status === 'rejected') {
+        throw chatListResult.reason;
+      }
+      
+      const data = chatListResult.value;
+
+      // Handle Group Chats
+      if (groupsResult.status === 'fulfilled') {
+        const mappedGroups: ChatType[] = groupsResult.value.map(g => ({
           chat_id: `group_${g.id}`,
           last_message: g.messages?.[0]?.content || "Group Chat",
           last_message_time: g.messages?.[0]?.createdAt || new Date().toISOString(),
@@ -1915,14 +1930,13 @@ const ChatPage = () => {
           isOfficial: false,
         }));
         data.push(...mappedGroups);
-        data.sort((a, b) => new Date(b.last_message_time).getTime() - new Date(a.last_message_time).getTime());
-      } catch (err) {
-        console.error("Failed to load group chats", err);
+      } else {
+        console.error("Failed to load group chats", groupsResult.reason);
       }
-      try {
-        const communities = await listCommunities();
-        // only show communities we are a member of
-        const joinedCommunities = communities.filter(c => c.members?.some((m: any) => m.userId === user?.id));
+
+      // Handle Community Chats
+      if (communitiesResult.status === 'fulfilled') {
+        const joinedCommunities = communitiesResult.value.filter(c => c.members?.some((m: any) => m.userId === user?.id));
         const mappedCommunities: ChatType[] = joinedCommunities.map(c => ({
           chat_id: `community_${c.id}`,
           last_message: "Community Chat",
@@ -1936,35 +1950,34 @@ const ChatPage = () => {
           isOfficial: false,
         }));
         data.push(...mappedCommunities);
-        data.sort((a, b) => new Date(b.last_message_time).getTime() - new Date(a.last_message_time).getTime());
-      } catch (err) {
-        console.error("Failed to load communities", err);
+      } else {
+        console.error("Failed to load communities", communitiesResult.reason);
       }
-      if (user?.role !== 'admin' && user?.role !== 'staff' && user?.id) {
-        const supportChatId = `support_${user.id}`;
+
+      // Handle Support Chat
+      if (supportChatResult.status === 'fulfilled' && supportChatResult.value) {
+        const supportChatId = `support_${user?.id}`;
         const hasSupportChat = data.some((chat) => chat.chat_id === supportChatId);
 
         if (!hasSupportChat) {
-          try {
-            const { admin } = await getSupportChat();
-            data.unshift({
-              chat_id: supportChatId,
-              last_message: "Official Support & Notifications",
-              last_message_time: new Date().toISOString(),
-              user_id: admin.id,
-              display_name: "Krovaa",
-              avatar_url: "/krovaa-logo.svg?v=3",
-              username: "krovaa",
-              unread_count: 0,
-              verified: true,
-              isOfficial: true,
-            });
-          } catch {
-            // Leave the list as-is if support cannot be resolved right now.
-          }
+          data.unshift({
+            chat_id: supportChatId,
+            last_message: "Official Support & Notifications",
+            last_message_time: new Date().toISOString(),
+            user_id: supportChatResult.value.admin.id,
+            display_name: "Krovaa",
+            avatar_url: "/krovaa-logo.svg?v=3",
+            username: "krovaa",
+            unread_count: 0,
+            verified: true,
+            isOfficial: true,
+          });
         }
       }
 
+      // Final Sort
+      data.sort((a, b) => new Date(b.last_message_time).getTime() - new Date(a.last_message_time).getTime());
+      
       setChats(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load chats");
@@ -2086,7 +2099,8 @@ const ChatPage = () => {
       return;
     }
     if (user) {
-      loadChats();
+      // Show spinner only if chat list is empty (first time), silent refresh otherwise
+      loadChats(chats.length === 0);
       if (!socketConnectedRef.current) {
         socketService.connect(user.id);
         socketConnectedRef.current = true;
@@ -2116,11 +2130,11 @@ const ChatPage = () => {
         });
         // Mark as read if we are looking at this chat
         if (msg.senderId !== user.id) {
-          markMessagesAsRead(selectedChat.chat_id).then(() => loadChats());
+          markMessagesAsRead(selectedChat.chat_id).then(() => loadChats(false));
         }
       } else {
         // Always refresh chat list to show latest message/unread count
-        loadChats();
+        loadChats(false);
       }
     });
 
@@ -2149,7 +2163,7 @@ const ChatPage = () => {
           prev.map((m) => (m.id === msg.id ? msg : m))
         );
       }
-      loadChats();
+      loadChats(false);
     });
     return cleanup;
   }, [user, selectedChat, loadChats]);
@@ -2163,7 +2177,7 @@ const ChatPage = () => {
       loadMessages(selectedChat.chat_id);
       socketService.joinChat(user.id, selectedChat.chat_id);
       // Mark as read when opening chat
-      markMessagesAsRead(selectedChat.chat_id).then(() => loadChats());
+      markMessagesAsRead(selectedChat.chat_id).then(() => loadChats(false));
     }
   }, [selectedChat?.chat_id, user, loadMessages, loadChats]);
 
@@ -2180,7 +2194,7 @@ const ChatPage = () => {
           )
         );
       }
-      loadChats(); // Update last message in chat list
+      loadChats(false); // Update last message in chat list
     });
     return cleanup;
   }, [user, selectedChat, loadChats]);
@@ -2367,7 +2381,7 @@ const ChatPage = () => {
         });
       }
       await loadMessages(selectedChat.chat_id);
-      await loadChats();
+      await loadChats(false);
 
       // Refocus input after sending (keep keyboard open on mobile)
       if (messageInputRef.current) {
