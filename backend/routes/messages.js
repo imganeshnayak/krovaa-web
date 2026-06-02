@@ -261,8 +261,6 @@ router.post('/', auth, async (req, res) => {
         const io = req.app.get('io');
         if (io) {
             io.to(chat_id).emit('newMessage', maskedResult);
-            // Also notify receiver's personal room to refresh their chat list
-            io.to(`user_${receiver_id}`).emit('newMessage', maskedResult);
 
             // If it's a support chat, broadcast to ALL admins (they see unmasked result)
             if (chat_id.startsWith('support_')) {
@@ -346,8 +344,6 @@ router.post('/upload', auth, upload.single('file'), async (req, res) => {
         const io = req.app.get('io');
         if (io) {
             io.to(chat_id).emit('newMessage', maskedResult);
-            // Also notify receiver's personal room for chat list updates
-            io.to(`user_${receiver_id}`).emit('newMessage', maskedResult);
 
             if (chat_id.startsWith('support_')) {
                 io.to('admin_broadcast').emit('newMessage', result);

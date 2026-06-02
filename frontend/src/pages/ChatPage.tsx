@@ -569,10 +569,10 @@ const ChatView = ({
   currentAcceptType: string;
   setCurrentAcceptType: (val: string) => void;
 }) => {
-  const [isHoldingView, setIsHoldingView] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [previewSenderUsername, setPreviewSenderUsername] = useState<string | null>(null);
+  const [previewCaption, setPreviewCaption] = useState<string | null>(null);
   const inputBarRef = useRef<HTMLDivElement | null>(null);
   const [inputBarHeight, setInputBarHeight] = useState(0);
   const [activeMessageMenu, setActiveMessageMenu] = useState<MessageType | null>(null);
@@ -665,10 +665,42 @@ const ChatView = ({
 
   const handleOpenViewOnce = async (msg: MessageType) => {
     if (msg.senderId === user?.id) return; // Don't handle opening for sender (local only)
+    
+    // Store original values for potential rollback
+    const originalAttachmentUrl = msg.attachmentUrl;
+    const originalContent = msg.content;
+
+    // Optimistically update local messages state so it is marked as opened immediately
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === msg.id
+          ? {
+              ...m,
+              isOpened: true,
+              attachmentUrl: undefined,
+              content: "View Once message opened",
+            }
+          : m
+      )
+    );
+
     try {
       await openViewOnceMessage(msg.id);
     } catch (err) {
       console.error("Failed to open view-once message:", err);
+      // Rollback on error
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === msg.id
+            ? {
+                ...m,
+                isOpened: false,
+                attachmentUrl: originalAttachmentUrl,
+                content: originalContent,
+              }
+            : m
+        )
+      );
     }
   };
   if (!selectedChat) {
@@ -909,6 +941,10 @@ const ChatView = ({
                 const isAdminMsg = selectedChat?.isOfficial && (!isMine || (user?.role === 'admin' || user?.role === 'staff'));
                 const isEscrowOrNotify = msg.messageType?.startsWith?.('escrow_') || msg.message_type?.startsWith?.('escrow_') || msg.messageType === 'notification' || msg.message_type === 'notification' || isAdminMsg;
 
+                const isImageMsg = msg.messageType === 'image' || !!msg.attachmentUrl?.match(/\.(jpg|jpeg|png|gif|webp)$/i);
+                const hasCaption = isImageMsg && msg.content && msg.content !== "Sent a photo" && msg.content.trim() !== "";
+                const isCleanImageBubble = isImageMsg && !hasCaption;
+
                 // Date separator logic
                 const currentDate = new Date(msg.createdAt).toDateString();
                 const previousDate = index > 0 ? new Date(messages[index - 1].createdAt).toDateString() : null;
@@ -992,9 +1028,9 @@ const ChatView = ({
                         </div>
                       )}
                       <div
-                        className={`max-w-[85%] rounded-2xl px-4 py-3 relative privacy-protected ${isMine
-                          ? (isEscrowOrNotify ? "" : "bg-[#00A4EF] text-white rounded-br-md")
-                          : (isEscrowOrNotify ? "" : "bg-[#F5F5F5] text-[#1C1C1C] rounded-bl-md")
+                        className={`max-w-[85%] rounded-2xl relative privacy-protected overflow-hidden ${isCleanImageBubble ? 'p-[3px]' : 'px-4 py-3'} ${isMine
+                          ? (isEscrowOrNotify ? "" : isCleanImageBubble ? "bg-[#d9fdd3] text-[#1c1c1c] rounded-br-md border border-[#d9fdd3]" : "bg-[#00A4EF] text-white rounded-br-md")
+                          : (isEscrowOrNotify ? "" : isCleanImageBubble ? "bg-white text-[#1C1C1C] rounded-bl-md border border-gray-100/50" : "bg-[#F5F5F5] text-[#1C1C1C] rounded-bl-md")
                           } ${msg.isDeleted ? "opacity-60 italic" : ""} ${isEscrowOrNotify ? (
                             (msg.messageType === 'escrow_released' || msg.message_type === 'escrow_released')
                               ? "bg-[#E7F8F2] text-[#0B8C62] shadow-sm border border-[#0FB881]/20 rounded-2xl"
@@ -1024,6 +1060,7 @@ const ChatView = ({
                                   setIsPreviewViewOnce(true);
                                   setPreviewImage(msg.attachmentUrl);
                                   setPreviewSenderUsername(selectedChat.username);
+                                  setPreviewCaption(msg.content && msg.content !== "Sent a photo" && msg.content !== "File shared" ? msg.content : null);
                                   handleOpenViewOnce(msg);
                                 }
                               }
@@ -1154,50 +1191,62 @@ const ChatView = ({
                             />
                           </div>
                         ) : (
-                          <p className="text-sm">{msg.content}</p>
-                        )}
-                        {msg.attachmentUrl && !msg.isDeleted && !msg.isViewOnce && msg.messageType !== 'voice' && (
-                          <div className="mt-2 p-2 bg-black/10 rounded-lg flex items-center gap-2">
-                            {msg.messageType === 'image' || msg.attachmentUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
-                              <div
-                                className="cursor-pointer hover:opacity-90 transition-opacity relative privacy-protected"
-                                onContextMenu={(e) => e.preventDefault()}
-                                onClick={() => {
-                                  setIsPreviewViewOnce(false);
-                                  setPreviewImage(msg.attachmentUrl || null);
-                                  setPreviewSenderUsername(isMine ? user?.username : selectedChat.username);
-                                }}
-                              >
-                                <img src={msg.attachmentUrl} alt="attachment" className="max-w-full rounded h-48 object-cover shadow-sm border border-white/10 select-none pointer-events-none" />
-                                {msg.isUploading && (
-                                  <div className="absolute inset-0 bg-black/40 rounded flex items-center justify-center backdrop-blur-sm">
-                                    <Icon name="Loader2" className="h-8 w-8 text-white animate-spin" />
+                          <>
+                            {msg.attachmentUrl && !msg.isDeleted && !msg.isViewOnce && msg.messageType !== 'voice' && (
+                              <div className={`${isCleanImageBubble ? 'mt-0 p-0 w-full' : 'mt-2 p-2 bg-black/10 rounded-lg'} flex items-center gap-2`}>
+                                {isImageMsg ? (
+                                  <div
+                                    className="cursor-pointer hover:opacity-90 transition-opacity relative privacy-protected w-full"
+                                    onContextMenu={(e) => e.preventDefault()}
+                                    onClick={() => {
+                                      setIsPreviewViewOnce(false);
+                                      setPreviewImage(msg.attachmentUrl || null);
+                                      setPreviewSenderUsername(isMine ? user?.username : selectedChat.username);
+                                      setPreviewCaption(msg.content && msg.content !== "Sent a photo" && msg.content !== "File shared" ? msg.content : null);
+                                    }}
+                                  >
+                                    <img src={msg.attachmentUrl} alt="attachment" className={`max-w-full rounded-[13px] h-48 object-cover shadow-sm select-none pointer-events-none ${isCleanImageBubble ? 'w-full h-auto max-h-[384px]' : 'border border-white/10'}`} />
+                                    {msg.isUploading && (
+                                      <div className="absolute inset-0 bg-black/40 rounded-[13px] flex items-center justify-center backdrop-blur-sm">
+                                        <Icon name="Loader2" className="h-8 w-8 text-white animate-spin" />
+                                      </div>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-2 overflow-hidden">
+                                    <Icon name="FileText" className="h-5 w-5 shrink-0" />
+                                    <button
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        downloadFile(msg.attachmentUrl || "", msg.attachmentName || "download");
+                                      }}
+                                      className="text-xs underline truncate hover:text-primary transition-colors flex items-center gap-1"
+                                    >
+                                      {msg.attachmentName || 'Download File'}
+                                      <Icon name="Download" className="h-3 w-3" />
+                                    </button>
                                   </div>
                                 )}
                               </div>
-                            ) : (
-                              <div className="flex items-center gap-2 overflow-hidden">
-                                <Icon name="FileText" className="h-5 w-5 shrink-0" />
-                                <button
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    downloadFile(msg.attachmentUrl || "", msg.attachmentName || "download");
-                                  }}
-                                  className="text-xs underline truncate hover:text-primary transition-colors flex items-center gap-1"
-                                >
-                                  {msg.attachmentName || 'Download File'}
-                                  <Icon name="Download" className="h-3 w-3" />
-                                </button>
-                              </div>
                             )}
-                          </div>
+                            {!isCleanImageBubble && msg.content && (
+                              <p className="text-sm mt-2">{msg.content}</p>
+                            )}
+                          </>
                         )}
                         <p
-                          className={`text-[10px] mt-1 ${isMine ? "text-primary-foreground/70" : "text-muted-foreground"
-                            }`}
+                          className={
+                            isCleanImageBubble
+                              ? "absolute bottom-2 right-2 text-[10px] text-white bg-black/40 px-2 py-0.5 rounded-full backdrop-blur-[2px] flex items-center gap-1 z-10 select-none pointer-events-none font-sans"
+                              : `text-[10px] mt-1 ${isMine ? "text-primary-foreground/70" : "text-muted-foreground"}`
+                          }
                         >
                           {formatTime(msg.createdAt)}
-                          {isMine && (msg.read ? " ✓✓" : " ✓")}
+                          {isMine && (
+                            <span className={msg.read ? "text-[#53bdeb] font-bold" : "text-white/60 font-bold"}>
+                              {msg.read ? " ✓✓" : " ✓"}
+                            </span>
+                          )}
                         </p>
                       </div>
                     </div>
@@ -1454,16 +1503,14 @@ const ChatView = ({
       </div>
 
       {/* Modals outside flex flow */}
-      <Dialog open={!!previewImage} onOpenChange={(open) => !open && setPreviewImage(null)}>
+      <Dialog open={!!previewImage} onOpenChange={(open) => {
+        if (!open) {
+          setPreviewImage(null);
+          setPreviewCaption(null);
+        }
+      }}>
         <DialogContent className="max-w-4xl p-0 overflow-hidden bg-transparent border-none shadow-none flex items-center justify-center">
-          <div
-            className={`relative group overflow-auto max-h-[90vh] ${isPreviewViewOnce && !isHoldingView ? 'blur-2xl grayscale' : ''}`}
-            onMouseDown={() => isPreviewViewOnce && setIsHoldingView(true)}
-            onMouseUp={() => setIsHoldingView(false)}
-            onMouseLeave={() => setIsHoldingView(false)}
-            onTouchStart={() => isPreviewViewOnce && setIsHoldingView(true)}
-            onTouchEnd={() => setIsHoldingView(false)}
-          >
+          <div className="relative group overflow-auto max-h-[90vh] flex flex-col">
             <img
               src={previewImage || ""}
               alt="Preview"
@@ -1485,23 +1532,22 @@ const ChatView = ({
               </div>
             )}
 
-            {isPreviewViewOnce && !isHoldingView && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm rounded-lg pointer-events-none">
-                <div className="text-center p-6 text-white">
-                  <div className="bg-white/20 p-4 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4 border border-white/30 backdrop-blur-md">
-                    <Icon name="Eye" className="h-8 w-8 text-white" />
-                  </div>
-                  <p className="text-lg font-bold">Press and hold to view</p>
-                  <p className="text-xs opacity-70 mt-1">Screen capture is blocked</p>
-                </div>
+            {/* Caption Display */}
+            {previewCaption && (
+              <div className="mt-4 px-4 py-3 bg-white/90 backdrop-blur-sm rounded-lg shadow-lg max-w-full">
+                <p className="text-sm text-foreground break-words whitespace-pre-wrap">{previewCaption}</p>
               </div>
             )}
+
             <div className="absolute top-4 right-4 flex gap-2">
               <Button
                 variant="secondary"
                 size="icon"
                 className="rounded-full bg-black/50 hover:bg-black/70 border-none text-white h-10 w-10 shadow-lg backdrop-blur-sm"
-                onClick={() => setPreviewImage(null)}
+                onClick={() => {
+                  setPreviewImage(null);
+                  setPreviewCaption(null);
+                }}
               >
                 <Icon name="ArrowLeft" className="h-5 w-5 rotate-180" />
               </Button>
@@ -1837,7 +1883,6 @@ const ChatPage = () => {
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [isBlurred, setIsBlurred] = useState(false);
   const [isPreviewViewOnce, setIsPreviewViewOnce] = useState(false);
-  const [isHoldingView, setIsHoldingView] = useState(false);
   const [selectedCommunity, setSelectedCommunity] = useState<CommunityDetailView | null>(null);
 
   // Hide bottom navbar when in a chat on mobile
