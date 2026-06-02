@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, CheckCircle, Paperclip, X, Briefcase, Building, MapPin, IndianRupee, Clock, Code2, FileText } from "lucide-react";
 import { Job, postJob } from "../lib/api";
+import { Button } from "@/components/ui/button";
 
 const PostJobPage = () => {
   const navigate = useNavigate();

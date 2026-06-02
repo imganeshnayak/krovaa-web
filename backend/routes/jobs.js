@@ -539,7 +539,6 @@ router.post('/:id/apply', auth, async (req, res) => {
                 bidAmount: bidAmount ? parseFloat(bidAmount) : null,
                 deliveryTime: deliveryTime || null,
                 coverLetter: coverLetter || null,
-                terms: termsString || null
             }
         });
 

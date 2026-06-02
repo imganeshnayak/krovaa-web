@@ -73,6 +73,9 @@ const AdminUserDetailDialog = ({ userId, isOpen, onClose }: AdminUserDetailDialo
         }).format(amount);
     };
 
+    const reportsReceived = (details as any)?.reportsReceived ?? (details as any)?.reportReceived ?? [];
+    const ratingsReceived = (details as any)?.ratingReceived ?? (details as any)?.ratingsReceived ?? [];
+
     const handleShareImage = async (generationId: number) => {
         if (!shareChatId || !shareReceiverId) {
             toast({
@@ -94,7 +97,7 @@ const AdminUserDetailDialog = ({ userId, isOpen, onClose }: AdminUserDetailDialo
             toast({
                 title: "Image shared",
                 description: "The selected image was sent to the chat successfully.",
-                variant: "success",
+                variant: "default",
             });
             setShareCaption("");
         } catch (err) {
@@ -259,7 +262,7 @@ const AdminUserDetailDialog = ({ userId, isOpen, onClose }: AdminUserDetailDialo
                                                 {[
                                                     { label: "Client Deals", value: details.clientDeals.length, icon: Handshake },
                                                     { label: "Vendor Deals", value: details.vendorDeals.length, icon: Handshake },
-                                                    { label: "Ratings Received", value: details.ratingReceived.length, icon: Star },
+                                                    { label: "Ratings Received", value: ratingsReceived.length, icon: Star },
                                                     { label: "Payouts Requested", value: details.payoutRequests.length, icon: CreditCard },
                                                 ].map((stat, idx) => (
                                                     <div key={idx} className="bg-card border border-border p-3 rounded-lg text-center shadow-sm">
@@ -461,7 +464,7 @@ const AdminUserDetailDialog = ({ userId, isOpen, onClose }: AdminUserDetailDialo
                                                 <AlertTriangle className="h-4 w-4" /> Reports Received
                                             </h3>
                                             <div className="space-y-2">
-                                                {details.reportsReceived.map((report) => (
+                                                {reportsReceived.map((report: any) => (
                                                     <div key={report.id} className="bg-red-500/5 border border-red-500/20 p-3 rounded-lg text-xs">
                                                         <div className="flex justify-between items-start mb-1">
                                                             <p className="font-bold">By: {report.reporter.displayName}</p>
@@ -471,7 +474,7 @@ const AdminUserDetailDialog = ({ userId, isOpen, onClose }: AdminUserDetailDialo
                                                         <p className="text-muted-foreground">{new Date(report.createdAt).toLocaleDateString()}</p>
                                                     </div>
                                                 ))}
-                                                {details.reportsReceived.length === 0 && <p className="text-center text-muted-foreground text-xs italic py-2 border border-dashed rounded bg-secondary/10">Zero reports received</p>}
+                                                {reportsReceived.length === 0 && <p className="text-center text-muted-foreground text-xs italic py-2 border border-dashed rounded bg-secondary/10">Zero reports received</p>}
                                             </div>
                                         </section>
 
@@ -480,7 +483,7 @@ const AdminUserDetailDialog = ({ userId, isOpen, onClose }: AdminUserDetailDialo
                                                 <Star className="h-4 w-4" /> Ratings Received
                                             </h3>
                                             <div className="space-y-2">
-                                                {details.ratingReceived.map((rating) => (
+                                                {ratingsReceived.map((rating: any) => (
                                                     <div key={rating.id} className="bg-secondary/20 p-3 rounded-lg text-xs border border-border/50">
                                                         <div className="flex justify-between mb-1">
                                                             <p className="font-bold">{rating.reviewer.displayName}</p>
@@ -491,7 +494,7 @@ const AdminUserDetailDialog = ({ userId, isOpen, onClose }: AdminUserDetailDialo
                                                         <p>{rating.comment}</p>
                                                     </div>
                                                 ))}
-                                                {details.ratingReceived.length === 0 && <p className="text-center text-muted-foreground text-xs italic py-2 border border-dashed rounded bg-secondary/10">No ratings yet</p>}
+                                                {ratingsReceived.length === 0 && <p className="text-center text-muted-foreground text-xs italic py-2 border border-dashed rounded bg-secondary/10">No ratings yet</p>}
                                             </div>
                                         </section>
                                     </div>
