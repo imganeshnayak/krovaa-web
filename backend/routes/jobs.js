@@ -72,6 +72,11 @@ const destroyUploadedFile = async (publicId, resourceType) => {
 
 const getUserDisplayName = (user) => user?.displayName || user?.username || 'Someone';
 
+const sanitizeText = (input) => {
+    if (input === undefined || input === null) return input;
+    if (typeof input !== 'string') return input;
+    return input.replace(/["\*]/g, '').trim();
+};
 // GET /api/jobs
 router.get('/', async (req, res) => {
     try {
@@ -433,15 +438,15 @@ router.post('/', auth, uploadJobAttachments, async (req, res) => {
                 io,
                 req.user.id,
                 'Job Posted Successfully',
-                `Your job "${job.title}" is now live and visible to applicants.`,
+                `Your job ${sanitizeText(job.title)} is now live and visible to applicants.`,
                 'success',
                 jobNotificationMetadata
             ),
             ...activeUsers.map((user) => sendUserNotification(
                 io,
                 user.id,
-                `New Job: ${job.title}`,
-                `${posterName} posted a new ${job.mode.toLowerCase()} job at ${job.company} in ${job.location}.`,
+                `New Job: ${sanitizeText(job.title)}`,
+                `${posterName} posted a new ${job.mode.toLowerCase()} job at ${sanitizeText(job.company)} in ${sanitizeText(job.location)}.`,
                 'info',
                 jobNotificationMetadata
             )),
@@ -520,15 +525,15 @@ router.post('/:id/apply', auth, async (req, res) => {
 
         // Send a message to the job poster automatically
         const chatId = `chat_${userId}_${job.postedById}_${Date.now()}`;
-        let applicationMessage = `Hi, I applied for your job: **${job.title}** at ${job.company}.`;
+        let applicationMessage = `Hi, I applied for your job: ${sanitizeText(job.title)} at ${sanitizeText(job.company)}.`;
         if (bidAmount) {
-            applicationMessage += `\n\n**Bid Amount:** ₹${bidAmount}`;
+            applicationMessage += `\n\nBid Amount: ₹${sanitizeText(String(bidAmount))}`;
         }
         if (coverLetter) {
-            applicationMessage += `\n\n**Cover Letter:**\n${coverLetter}`;
+            applicationMessage += `\n\nCover Letter:\n${sanitizeText(coverLetter)}`;
         }
         if (termsString) {
-            applicationMessage += `\n\n**Terms and Conditions:**\n${termsString}`;
+            applicationMessage += `\n\nTerms and Conditions:\n${sanitizeText(termsString)}`;
         }
 
         const message = await prisma.message.create({
@@ -563,7 +568,7 @@ router.post('/:id/apply', auth, async (req, res) => {
                 io, 
                 job.postedById, 
                 "New Job Application", 
-                `${applicantName} has applied for your job: ${job.title}`, 
+                `${applicantName} has applied for your job: ${sanitizeText(job.title)}`, 
                 'info',
                 { jobId: job.id }
             );
