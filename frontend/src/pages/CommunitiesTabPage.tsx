@@ -26,7 +26,7 @@ interface CommunityDetail {
   isPrivate: boolean;
   creatorId: number;
   createdAt: string;
-  members?: Array<{ id: number; userId: number; role: string; joinedAt: string }>;
+  members?: Array<{ id: number; userId: number; role: string; joinedAt: string; user?: { id: number; displayName: string; username: string; avatarUrl?: string } }>;
   projects?: Array<{ id: number; name: string; description?: string; createdAt: string }>;
   isMember?: boolean;
   isCreator?: boolean;
@@ -71,7 +71,7 @@ const CommunitiesTabPage = () => {
       {/* Master View Sidebar */}
       <div className="w-80 border-r border-[#E0E0E0] bg-white flex flex-col shrink-0">
         <div className="p-4 border-b border-[#E0E0E0] flex items-center justify-between bg-white z-10">
-          <h2 className="text-base font-bold tracking-tight text-[#1C1C1C]">Hub Clusters</h2>
+          <h2 className="text-base font-bold tracking-tight text-[#1C1C1C]">Communities</h2>
           <Button 
             variant="ghost" 
             size="sm" 
@@ -87,7 +87,7 @@ const CommunitiesTabPage = () => {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#1C1C1C]/40" />
             <Input 
-              placeholder="Filter nodes by signature..." 
+              placeholder="Search communities..." 
               value={query} 
               onChange={(e) => setQuery(e.target.value)}
               className="pl-9 h-9 bg-white border-[#E0E0E0] text-xs rounded-lg focus:border-[#00A4EF] shadow-none outline-none placeholder:text-[#1C1C1C]/30"
@@ -95,7 +95,7 @@ const CommunitiesTabPage = () => {
           </div>
         </div>
 
-        {/* Master Node Feed */}
+        {/* Community List */}
         <div className="flex-1 overflow-y-auto p-2 space-y-1 bg-white">
           {loading ? (
             <div className="space-y-2 p-2">
@@ -129,12 +129,12 @@ const CommunitiesTabPage = () => {
                       )}
                     </div>
                     <p className={`text-[11px] line-clamp-1 font-normal ${isSelected ? 'text-white/60' : 'text-[#1C1C1C]/50'}`}>
-                      {c.description || 'No network summary available.'}
+                      {c.description || 'No description'}
                     </p>
                     <div className="flex items-center gap-1 pt-1">
                       <Users className={`w-3 h-3 ${isSelected ? 'text-white/40' : 'text-[#1C1C1C]/30'}`} />
                       <span className={`text-[10px] font-semibold ${isSelected ? 'text-white/40' : 'text-[#1C1C1C]/40'}`}>
-                        {c.memberCount || 0} Nodes
+                        {c.memberCount || 0} Members
                       </span>
                     </div>
                   </div>
@@ -171,7 +171,7 @@ const CommunitiesTabPage = () => {
                         </Badge>
                       )}
                     </div>
-                    <p className="text-xs text-[#1C1C1C]/50 max-w-xl leading-relaxed">{selected.description || 'No descriptive structural log updated for this active partition matrix.'}</p>
+                    <p className="text-xs text-[#1C1C1C]/50 max-w-xl leading-relaxed">{selected.description || 'No description'}</p>
                   </div>
                 </div>
                 
@@ -179,7 +179,7 @@ const CommunitiesTabPage = () => {
                   onClick={() => navigate(`/communities/${selected.id}`)}
                   className="bg-[#00A4EF] hover:bg-[#0087d1] text-white text-xs font-bold h-10 px-4 rounded-xl transition-all shadow-md shadow-[#00A4EF]/10 shrink-0 self-end sm:self-auto"
                 >
-                  Enter Cluster
+                  Open Community
                   <ArrowUpRight className="w-3.5 h-3.5 ml-1.5 stroke-[2.5]" />
                 </Button>
               </div>
@@ -189,63 +189,75 @@ const CommunitiesTabPage = () => {
             <div className="flex-1 overflow-y-auto p-6">
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start max-w-6xl">
                 
-                {/* Embedded Pipeline Logs / Discussion Preview */}
+                {/* Community Overview Card */}
                 <div className="lg:col-span-2 bg-white rounded-2xl border border-[#E0E0E0] p-5 sm:p-6 shadow-sm min-h-[300px] flex flex-col justify-between">
                   <div>
                     <h4 className="font-bold text-xs uppercase tracking-wider text-[#1C1C1C]/40 flex items-center gap-2 mb-4">
                       <MessageSquare className="w-4 h-4 text-[#00A4EF]" />
-                      Channel Activity Pipeline
+                      Overview
                     </h4>
                     
-                    {/* Empty Node Workspace Indicator */}
                     <div className="flex flex-col items-center justify-center py-14 border border-dashed border-[#E0E0E0] rounded-xl bg-slate-50/40">
-                      <p className="text-xs font-medium text-[#1C1C1C]/40">No localized message sequences broadcasted yet.</p>
-                      <Button variant="outline" size="sm" className="mt-3 border-[#E0E0E0] text-xs font-semibold h-8 rounded-lg hover:bg-white transition-all">
-                        Initialize Discussion Block
+                      <p className="text-xs font-medium text-[#1C1C1C]/40">
+                        {selected.members && selected.members.length > 0
+                          ? `${selected.members.length} members · ${selected.projects?.length || 0} projects`
+                          : 'Start collaborating by joining this community.'
+                        }
+                      </p>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="mt-3 border-[#E0E0E0] text-xs font-semibold h-8 rounded-lg hover:bg-white transition-all"
+                        onClick={() => navigate(`/communities/${selected.id}`)}
+                      >
+                        View Details
                       </Button>
                     </div>
                   </div>
                   
                   <div className="text-[11px] text-[#1C1C1C]/30 font-medium border-t border-slate-50 pt-3 mt-4">
-                    Active workspace encryption index synchronized.
+                    {selected.isPrivate ? 'Private community' : 'Public community'} · Created {new Date(selected.createdAt).toLocaleDateString()}
                   </div>
                 </div>
 
-                {/* Local Network Node Directory (Members Side Panel) */}
+                {/* Members Panel */}
                 <div className="bg-white rounded-2xl border border-[#E0E0E0] p-5 sm:p-6 shadow-sm space-y-4">
                   <h4 className="font-bold text-xs uppercase tracking-wider text-[#1C1C1C]/40 flex items-center gap-2">
                     <Users className="w-4 h-4 text-[#00A4EF]" />
-                    Node Handshakes ({(selected.members || []).length})
+                    Members ({(selected.members || []).length})
                   </h4>
                   
                   <div className="divide-y divide-slate-50 max-h-[360px] overflow-y-auto pr-1">
                     {(selected.members || []).slice(0, 8).map((member, i) => (
                       <div key={member.id || i} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0 group">
                         <Avatar className="h-9 w-9 border-2 border-white shadow-sm shrink-0">
+                          <AvatarImage src={member.user?.avatarUrl} />
                           <AvatarFallback className="bg-slate-100 text-[#1C1C1C]/60 text-xs font-bold">
-                            M{i + 1}
+                            {(member.user?.displayName || member.user?.username || '?')[0]?.toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex-1 min-w-0">
-                          <div className="text-xs font-bold text-[#1C1C1C] truncate group-hover:text-[#00A4EF] transition-colors">Cluster Engineer {i + 1}</div>
+                          <div className="text-xs font-bold text-[#1C1C1C] truncate group-hover:text-[#00A4EF] transition-colors">
+                            {member.user?.displayName || member.user?.username || `Member ${i + 1}`}
+                          </div>
                           <div className="text-[10px] font-mono uppercase text-[#1C1C1C]/40 mt-0.5 flex items-center gap-1">
                             {member.role === 'creator' || member.role === 'admin' ? (
                               <ShieldCheck className="w-3 h-3 text-[#00A4EF] shrink-0" />
                             ) : null}
-                            {member.role}
+                            {member.role === 'creator' ? 'Admin' : member.role}
                           </div>
                         </div>
                       </div>
                     ))}
                     
                     {(selected.members || []).length === 0 && (
-                      <p className="text-xs text-[#1C1C1C]/40 text-center py-10 italic">No member nodes signed to segment.</p>
+                      <p className="text-xs text-[#1C1C1C]/40 text-center py-10 italic">No members yet.</p>
                     )}
                   </div>
 
                   {(selected.members || []).length > 8 && (
                     <Button variant="ghost" size="sm" className="w-full text-xs font-bold text-[#00A4EF] hover:text-[#007BB5] hover:bg-[#00A4EF]/5 rounded-xl mt-2 h-9">
-                      View full matrix ({(selected.members || []).length})
+                      View all ({(selected.members || []).length})
                     </Button>
                   )}
                 </div>
@@ -260,8 +272,8 @@ const CommunitiesTabPage = () => {
               <div className="w-14 h-14 bg-slate-50 border border-[#E0E0E0] rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm">
                 <Users className="w-5 h-5 text-[#1C1C1C]/30" />
               </div>
-              <p className="text-sm font-bold text-[#1C1C1C] tracking-tight">Select a Community Node</p>
-              <p className="text-xs text-[#1C1C1C]/40 mt-1">Choose from the directory matrix on the left sidebar map to engage the live dashboard ecosystem workspace.</p>
+              <p className="text-sm font-bold text-[#1C1C1C] tracking-tight">Select a Community</p>
+              <p className="text-xs text-[#1C1C1C]/40 mt-1">Choose a community from the left sidebar to view its details.</p>
             </div>
           </div>
         )}

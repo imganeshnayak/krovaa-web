@@ -472,8 +472,8 @@ router.post('/verify', auth, async (req, res) => {
                     });
 
                     const io = req.app.get('io');
-                    sendUserNotification(io, req.user.id, '✅ Payment Successful', `Your payment of ₹${amount.toLocaleString('en-IN')} for "${deal.title}" was successful.`, 'success', { type: 'escrow', dealId: deal.id, chatId: deal.chatId });
-                    sendUserNotification(io, deal.vendorId, '💰 Payment Received', `A client paid ₹${amount.toLocaleString('en-IN')} for the deal "${deal.title}".`, 'success', { type: 'escrow', dealId: deal.id, chatId: deal.chatId });
+                    sendUserNotification(io, req.user.id, 'Payment Successful', `Your payment of ₹${amount.toLocaleString('en-IN')} for "${deal.title}" was successful.`, 'success', { type: 'escrow', dealId: deal.id, chatId: deal.chatId });
+                    sendUserNotification(io, deal.vendorId, 'Payment Received', `A client paid ₹${amount.toLocaleString('en-IN')} for the deal "${deal.title}".`, 'success', { type: 'escrow', dealId: deal.id, chatId: deal.chatId });
 
                     const systemMessage = await tx.message.create({
                         data: {
@@ -516,7 +516,7 @@ router.post('/verify', auth, async (req, res) => {
                     });
 
                     const io = req.app.get('io');
-                    sendUserNotification(io, req.user.id, '🛡️ Verification Payment Received', `We received your payment for verification. Our team will review your account shortly.`, 'success', { type: 'wallet' });
+                    sendUserNotification(io, req.user.id, 'Verification Payment Received', `We received your payment for verification. Our team will review your account shortly.`, 'success', { type: 'wallet' });
                 } else if (type === 'wallet') {
                     await tx.user.update({
                         where: { id: req.user.id },
@@ -547,7 +547,7 @@ router.post('/verify', auth, async (req, res) => {
                     });
 
                     const io = req.app.get('io');
-                    sendUserNotification(io, req.user.id, '💰 Wallet Credited', `₹${amount.toLocaleString('en-IN')} added to wallet.`, 'success', { type: 'wallet' });
+                    sendUserNotification(io, req.user.id, 'Wallet Credited', `₹${amount.toLocaleString('en-IN')} added to wallet.`, 'success', { type: 'wallet' });
                 }
             });
 
@@ -672,12 +672,12 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
                     const io = req.app.get('io');
                     if (result.type === 'escrow') {
                         const deal = result.deal;
-                        sendUserNotification(io, deal.clientId, '✅ Payment Successful', `Payment for "${deal.title}" received.`, 'success', { type: 'escrow', dealId: deal.id, chatId: deal.chatId });
-                        sendUserNotification(io, deal.vendorId, '💰 Payment Received', `Payment for "${deal.title}" received.`, 'success', { type: 'escrow', dealId: deal.id, chatId: deal.chatId });
+                        sendUserNotification(io, deal.clientId, 'Payment Successful', `Payment for "${deal.title}" received.`, 'success', { type: 'escrow', dealId: deal.id, chatId: deal.chatId });
+                        sendUserNotification(io, deal.vendorId, 'Payment Received', `Payment for "${deal.title}" received.`, 'success', { type: 'escrow', dealId: deal.id, chatId: deal.chatId });
                     } else if (result.type === 'verification') {
-                        sendUserNotification(io, result.request.userId, '🛡️ Verification Payment Received', `Payment received.`, 'success', { type: 'wallet' });
+                        sendUserNotification(io, result.request.userId, 'Verification Payment Received', `Payment received.`, 'success', { type: 'wallet' });
                     } else if (result.type === 'wallet') {
-                        sendUserNotification(io, result.userId, '💰 Wallet Credited', `₹${result.amount.toLocaleString('en-IN')} added to wallet.`, 'success', { type: 'wallet' });
+                        sendUserNotification(io, result.userId, 'Wallet Credited', `₹${result.amount.toLocaleString('en-IN')} added to wallet.`, 'success', { type: 'wallet' });
                     }
                 }
             } catch (err) {
@@ -692,7 +692,7 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
             });
             const io = req.app.get('io');
             const deal = await prisma.escrowDeal.findFirst({ where: { razorpayOrderId: orderId } });
-            if (deal) sendUserNotification(io, deal.clientId, '❌ Payment Failed', `Payment for "${deal.title}" failed.`, 'alert', { type: 'escrow', dealId: deal.id, chatId: deal.chatId });
+            if (deal) sendUserNotification(io, deal.clientId, 'Payment Failed', `Payment for "${deal.title}" failed.`, 'alert', { type: 'escrow', dealId: deal.id, chatId: deal.chatId });
         }
         res.json({ status: 'ok' });
     } catch (err) {

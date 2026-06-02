@@ -1,5 +1,3 @@
-import { motion } from 'framer-motion';
-
 export default function Timeline() {
   const steps = [
     { num: '01', title: 'Create & Share', desc: 'Set up your profile and share it with a link or QR code.' },
@@ -20,12 +18,12 @@ export default function Timeline() {
             <div className="h-px bg-gradient-to-r from-transparent via-[#E6E6E6] to-transparent" />
           </div>
 
-          {steps.map((s, idx) => (
-            <motion.div key={s.num} initial={{ opacity: 0, y: 8 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: idx * 0.12 }} className="flex flex-col items-center text-center">
+          {steps.map((s) => (
+            <div key={s.num} className="flex flex-col items-center text-center animate-fade-in-up">
               <div className="w-16 h-16 rounded-full flex items-center justify-center mb-6 text-[#00A4EF] font-extrabold bg-white border border-[#ECEFF1]">{s.num}</div>
               <h3 className="text-lg font-bold mb-2">{s.title}</h3>
               <p className="text-sm text-slate-600 max-w-xs">{s.desc}</p>
-            </motion.div>
+            </div>
           ))}
         </div>
       </div>

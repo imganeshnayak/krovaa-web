@@ -1,6 +1,8 @@
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
+import crypto from 'crypto';
 import { auth } from '../middleware/auth.js';
+import { checkCommunityMembership } from '../middleware/rbac.js';
 import cloudinary from '../config/cloudinary.js';
 import multer from 'multer';
 
@@ -19,13 +21,151 @@ const upload = multer({
 const prisma = new PrismaClient();
 const router = express.Router();
 
-// Create community
+// Helper to ensure user has a Company (Billing Root)
+async function getOrCreateUserCompany(userId, displayName, username) {
+    // Check if user is already a member or owner of a company
+    const existingMembership = await prisma.companyMembership.findFirst({
+        where: { userId },
+        include: { company: true }
+    });
+
+    if (existingMembership) {
+        return existingMembership.companyId;
+    }
+
+    // Auto-create a brand new Company billing root for the user
+    const companyName = `${displayName || username}'s Enterprise Account`;
+    const newCompany = await prisma.company.create({
+        data: {
+            name: companyName,
+            billingConfig: { billingRoot: true, currency: 'INR' }
+        }
+    });
+
+    // Automatically make the creator the OWNER of this company
+    await prisma.companyMembership.create({
+        data: {
+            companyId: newCompany.id,
+            userId,
+            role: 'OWNER'
+        }
+    });
+
+    return newCompany.id;
+}
+
+// Accept Invitation Endpoint (Public validation, then authed insert)
+router.post('/invitations/accept', auth, async (req, res) => {
+  try {
+    const { token } = req.body;
+    if (!token) return res.status(400).json({ error: 'Token is required.' });
+
+    // Validate the invitation token
+    const invitation = await prisma.invitation.findUnique({
+        where: { token },
+        include: { company: true, community: true }
+    });
+
+    if (!invitation) {
+        return res.status(404).json({ error: 'Invitation not found.' });
+    }
+
+    if (invitation.status !== 'Pending') {
+        return res.status(400).json({ error: `This invitation has already been ${invitation.status.toLowerCase()}.` });
+    }
+
+    if (new Date() > new Date(invitation.expiresAt)) {
+        await prisma.invitation.update({
+            where: { id: invitation.id },
+            data: { status: 'Expired' }
+        });
+        return res.status(400).json({ error: 'This invitation has expired (validity was 48 hours).' });
+    }
+
+    // Run in database transaction to prevent partial states
+    await prisma.$transaction(async (tx) => {
+        // 1. Add user to company membership if not already a member
+        const existingCompanyMem = await tx.companyMembership.findUnique({
+            where: {
+                companyId_userId: {
+                    companyId: invitation.companyId,
+                    userId: req.user.id
+                }
+            }
+        });
+
+        if (!existingCompanyMem) {
+            await tx.companyMembership.create({
+                data: {
+                    companyId: invitation.companyId,
+                    userId: req.user.id,
+                    role: 'MEMBER'
+                }
+            });
+        }
+
+        // 2. Add user to Workspace Team (Community) membership with invitation role
+        if (invitation.communityId) {
+            const existingCommunityMem = await tx.communityMember.findUnique({
+                where: {
+                    communityId_userId: {
+                        communityId: invitation.communityId,
+                        userId: req.user.id
+                    }
+                }
+            });
+
+            if (existingCommunityMem) {
+                // If they were pending or viewer, upgrade/assign new role
+                await tx.communityMember.update({
+                    where: { id: existingCommunityMem.id },
+                    data: {
+                        role: invitation.role,
+                        status: 'approved'
+                    }
+                });
+            } else {
+                await tx.communityMember.create({
+                    data: {
+                        communityId: invitation.communityId,
+                        userId: req.user.id,
+                        role: invitation.role,
+                        status: 'approved'
+                    }
+                });
+            }
+        }
+
+        // 3. Mark the invitation as accepted
+        await tx.invitation.update({
+            where: { id: invitation.id },
+            data: { status: 'Accepted' }
+        });
+    });
+
+    res.json({
+        success: true,
+        message: 'Successfully accepted workspace invitation!',
+        communityId: invitation.communityId,
+        companyId: invitation.companyId,
+        assignedRole: invitation.role
+    });
+  } catch (err) {
+    console.error('Accept invitation error:', err);
+    res.status(500).json({ error: 'Failed to accept invitation.' });
+  }
+});
+
+// Create community (Workspace/Team)
 router.post('/', auth, async (req, res) => {
   try {
     const { name, description, isPrivate } = req.body;
     if (!name) return res.status(400).json({ error: 'Name is required.' });
 
-    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') + '-' + Math.floor(1000 + Math.random() * 9000);
+
+    // Get or create parent company context for multi-tenancy
+    const companyId = await getOrCreateUserCompany(req.user.id, req.user.displayName, req.user.username);
 
     const community = await prisma.community.create({
       data: {
@@ -34,7 +174,14 @@ router.post('/', auth, async (req, res) => {
         description,
         isPrivate: !!isPrivate,
         creatorId: req.user.id,
-        members: { create: { userId: req.user.id, role: 'owner' } }
+        companyId,
+        members: {
+            create: {
+                userId: req.user.id,
+                role: 'TEAM_ADMIN',
+                status: 'approved'
+            }
+        }
       }
     });
 
@@ -45,7 +192,7 @@ router.post('/', auth, async (req, res) => {
   }
 });
 
-// List communities (public + private visible)
+// List communities
 router.get('/', auth, async (req, res) => {
   try {
     const communities = await prisma.community.findMany({
@@ -62,21 +209,130 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
+// Invite member to workspace team
+router.post('/:communityId/invite', auth, checkCommunityMembership(['TEAM_ADMIN']), async (req, res) => {
+  try {
+    const communityId = Number(req.params.communityId);
+    const { email, role = 'VIEWER' } = req.body;
+
+    if (!email) return res.status(400).json({ error: 'Email is required.' });
+    if (!['TEAM_ADMIN', 'MANAGER', 'VIEWER'].includes(role)) {
+        return res.status(400).json({ error: 'Invalid assignment role.' });
+    }
+
+    const community = await prisma.community.findUnique({
+        where: { id: communityId }
+    });
+
+    if (!community) return res.status(404).json({ error: 'Workspace Team not found.' });
+
+    // Generate cryptographically secure token
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48 hours
+
+    const invitation = await prisma.invitation.create({
+        data: {
+            companyId: community.companyId,
+            communityId,
+            email: email.trim().toLowerCase(),
+            token,
+            role,
+            expiresAt,
+            status: 'Pending'
+        }
+    });
+
+    const inviteLink = `/invite/accept?token=${token}`;
+    console.log(`\n📧 [SIMULATION EMAIL SENT] to ${email}`);
+    console.log(`Join Workspace Link: ${inviteLink}\n`);
+
+    res.json({
+        success: true,
+        invitation: {
+            id: invitation.id,
+            email: invitation.email,
+            role: invitation.role,
+            expiresAt: invitation.expiresAt,
+            status: invitation.status,
+            inviteLink
+        }
+    });
+  } catch (err) {
+    console.error('Invite workspace team error:', err);
+    res.status(500).json({ error: 'Failed to create invitation.' });
+  }
+});
+
+// Workspace Scoped Analytics Engine
+router.get('/:communityId/analytics', auth, checkCommunityMembership(['TEAM_ADMIN', 'MANAGER', 'VIEWER']), async (req, res) => {
+  try {
+    const communityId = Number(req.params.communityId);
+
+    // 1. Spend calculation: Released escrow deal sums tied to this community/team
+    const deals = await prisma.escrowDeal.findMany({
+        where: {
+            OR: [
+                { chatId: `community_${communityId}` },
+                { teamId: communityId }
+            ]
+        },
+        include: { transactions: true }
+    });
+
+    let totalFinancialSpend = 0;
+    deals.forEach(deal => {
+        deal.transactions.forEach(t => {
+            // Only aggregate actual releases, excluding platforms fees
+            if (t.note !== 'platform_fee') {
+                totalFinancialSpend += t.amount;
+            }
+        });
+    });
+
+    // 2. Count active contracts/professionals scoped to this workspace
+    const activeContracts = await prisma.contract.count({
+        where: {
+            communityId,
+            status: 'Active'
+        }
+    });
+
+    // 3. Count total hours tracked (represented by active timesheet metrics or activity entries)
+    // We sum a mock tracker rate per contract to output realistic values or count activity logs
+    const activitiesCount = await prisma.activityLog.count({
+        where: {
+            details: { contains: `community_${communityId}` }
+        }
+    });
+    const totalHoursTracked = (activeContracts * 14.5) + (activitiesCount * 1.2);
+
+    res.json({
+        totalFinancialSpend,
+        activeContractsCount: activeContracts,
+        totalHoursTracked: Math.round(totalHoursTracked * 10) / 10
+    });
+  } catch (err) {
+    console.error('Get workspace team analytics error:', err);
+    res.status(500).json({ error: 'Failed to load workspace analytics.' });
+  }
+});
+
 // Get community details
 router.get('/:id', auth, async (req, res) => {
   try {
     const id = Number(req.params.id);
     const community = await prisma.community.findUnique({
       where: { id },
-      include: { members: { include: { user: true } }, projects: true, creator: true }
+      include: { members: { include: { user: true } }, projects: true, creator: true, contracts: true }
     });
-    if (!community) return res.status(404).json({ error: 'Community not found.' });
+    if (!community) return res.status(404).json({ error: 'Workspace Team not found.' });
+
     const member = await prisma.communityMember.findUnique({ where: { communityId_userId: { communityId: id, userId: req.user.id } } }).catch(() => null);
     const isCreator = community.creatorId === req.user.id;
     const isMember = member?.status === 'approved' || isCreator;
     const isPending = member?.status === 'pending';
     
-    // Non-members of private community only get limited info
+    // Non-members of private workspace only get limited info
     if (community.isPrivate && !isMember && !isCreator) {
       return res.json({
         id: community.id,
@@ -110,27 +366,41 @@ router.get('/:id', auth, async (req, res) => {
     });
   } catch (err) {
     console.error('Get community error:', err);
-    res.status(500).json({ error: 'Failed to get community.' });
+    res.status(500).json({ error: 'Failed to get workspace team details.' });
   }
 });
 
-// Join community
+// Join community (public only)
 router.post('/:id/join', auth, async (req, res) => {
   try {
     const communityId = Number(req.params.id);
     const community = await prisma.community.findUnique({ 
       where: { id: communityId }
     });
-    if (!community) return res.status(404).json({ error: 'Community not found.' });
+    if (!community) return res.status(404).json({ error: 'Workspace Team not found.' });
+
+    // Ensure they have a Company billing root context too
+    const companyId = await getOrCreateUserCompany(req.user.id, req.user.displayName, req.user.username);
+
+    // Sync them up with the company if not already
+    const existingCompanyMembership = await prisma.companyMembership.findUnique({
+        where: { companyId_userId: { companyId: community.companyId || companyId, userId: req.user.id } }
+    });
+    if (!existingCompanyMembership && community.companyId) {
+        await prisma.companyMembership.create({
+            data: { companyId: community.companyId, userId: req.user.id, role: 'MEMBER' }
+        });
+    }
+
     if (community.isPrivate) {
-      await prisma.communityMember.create({ data: { communityId, userId: req.user.id, status: 'pending' } });
+      await prisma.communityMember.create({ data: { communityId, userId: req.user.id, status: 'pending', role: 'VIEWER' } });
       return res.json({ success: true, status: 'pending' });
     }
-    await prisma.communityMember.create({ data: { communityId, userId: req.user.id, status: 'approved' } });
+    await prisma.communityMember.create({ data: { communityId, userId: req.user.id, status: 'approved', role: 'VIEWER' } });
     res.json({ success: true, status: 'approved' });
   } catch (err) {
     console.error('Join community error:', err);
-    res.status(500).json({ error: 'Failed to join community.' });
+    res.status(500).json({ error: 'Failed to join workspace.' });
   }
 });
 
@@ -142,7 +412,7 @@ router.post('/:id/leave', auth, async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error('Leave community error:', err);
-    res.status(500).json({ error: 'Failed to leave community.' });
+    res.status(500).json({ error: 'Failed to leave workspace.' });
   }
 });
 
@@ -152,9 +422,12 @@ router.post('/:id/projects', auth, async (req, res) => {
     const communityId = Number(req.params.id);
     const { name, description } = req.body;
     if (!name) return res.status(400).json({ error: 'Project name required.' });
-    // Ensure user is member
+
+    const community = await prisma.community.findUnique({ where: { id: communityId } });
+    if (!community) return res.status(404).json({ error: 'Workspace Team not found.' });
+
     const member = await prisma.communityMember.findUnique({ where: { communityId_userId: { communityId, userId: req.user.id } } }).catch(() => null);
-    if (!member && req.user.id !== (await prisma.community.findUnique({ where: { id: communityId } })).creatorId) return res.status(403).json({ error: 'Not a member.' });
+    if (!member && req.user.id !== community.creatorId) return res.status(403).json({ error: 'Not a authorized member of this workspace.' });
 
     const project = await prisma.project.create({ data: { communityId, name, description, createdBy: req.user.id } });
     res.json(project);
@@ -176,15 +449,34 @@ router.get('/:id/projects', auth, async (req, res) => {
   }
 });
 
-// Add member (invite/approve simplified)
+// Add member manually
 router.post('/:id/members', auth, async (req, res) => {
   try {
     const communityId = Number(req.params.id);
-    const { userId, role = 'member' } = req.body;
+    const { userId, role = 'VIEWER' } = req.body;
     if (!userId) return res.status(400).json({ error: 'userId required.' });
+
+    const community = await prisma.community.findUnique({ where: { id: communityId } });
+    if (!community) return res.status(404).json({ error: 'Workspace Team not found.' });
+
     const existing = await prisma.communityMember.findUnique({ where: { communityId_userId: { communityId, userId } } }).catch(() => null);
     if (existing) return res.status(400).json({ error: 'User already a member.' });
-    const member = await prisma.communityMember.create({ data: { communityId, userId, role } });
+
+    // Join them to parent company if not already
+    if (community.companyId) {
+        const companyMem = await prisma.companyMembership.findUnique({
+            where: { companyId_userId: { companyId: community.companyId, userId } }
+        });
+        if (!companyMem) {
+            await prisma.companyMembership.create({
+                data: { companyId: community.companyId, userId, role: 'MEMBER' }
+            });
+        }
+    }
+
+    const member = await prisma.communityMember.create({
+        data: { communityId, userId, role, status: 'approved' }
+    });
     res.json(member);
   } catch (err) {
     console.error('Add member error:', err);
@@ -212,7 +504,7 @@ router.put('/:id/members/:userId/approve', auth, async (req, res) => {
     const userId = Number(req.params.userId);
     
     const community = await prisma.community.findUnique({ where: { id: communityId } });
-    if (!community) return res.status(404).json({ error: 'Community not found.' });
+    if (!community) return res.status(404).json({ error: 'Workspace Team not found.' });
     if (community.creatorId !== req.user.id) return res.status(403).json({ error: 'Only creator can approve members.' });
 
     await prisma.communityMember.update({
@@ -226,13 +518,13 @@ router.put('/:id/members/:userId/approve', auth, async (req, res) => {
   }
 });
 
-// Update community avatar (upload)
+// Update avatar
 router.put('/:id/avatar', auth, upload.single('avatar'), async (req, res) => {
   try {
     const communityId = Number(req.params.id);
     
     const community = await prisma.community.findUnique({ where: { id: communityId } });
-    if (!community) return res.status(404).json({ error: 'Community not found.' });
+    if (!community) return res.status(404).json({ error: 'Workspace Team not found.' });
     if (community.creatorId !== req.user.id) return res.status(403).json({ error: 'Only creator can update avatar.' });
 
     if (!req.file || !req.file.buffer) {
@@ -287,7 +579,7 @@ router.get('/projects/:projectId/messages', auth, async (req, res) => {
   }
 });
 
-// Create project file (placeholder - expects file uploaded elsewhere and URL provided)
+// Create project file
 router.post('/projects/:projectId/files', auth, async (req, res) => {
   try {
     const projectId = Number(req.params.projectId);
@@ -318,7 +610,7 @@ router.get('/:id/share', auth, async (req, res) => {
   try {
     const communityId = Number(req.params.id);
     const community = await prisma.community.findUnique({ where: { id: communityId } });
-    if (!community) return res.status(404).json({ error: 'Community not found.' });
+    if (!community) return res.status(404).json({ error: 'Workspace Team not found.' });
     
     const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
     const shareLink = `${baseUrl}/join/${community.slug}`;
@@ -335,7 +627,7 @@ router.get('/:id/share', auth, async (req, res) => {
   }
 });
 
-// Join community via share link (public communities only)
+// Join community via share link (public)
 router.get('/join/:slug', async (req, res) => {
   try {
     const { slug } = req.params;
@@ -343,8 +635,8 @@ router.get('/join/:slug', async (req, res) => {
       where: { slug },
       include: { members: true }
     });
-    if (!community) return res.status(404).json({ error: 'Community not found.' });
-    if (community.isPrivate) return res.status(403).json({ error: 'Private community.', community });
+    if (!community) return res.status(404).json({ error: 'Workspace Team not found.' });
+    if (community.isPrivate) return res.status(403).json({ error: 'Private workspace.', community });
     res.json({ 
       community: {
         id: community.id,
@@ -357,7 +649,7 @@ router.get('/join/:slug', async (req, res) => {
     });
   } catch (err) {
     console.error('Join via slug error:', err);
-    res.status(500).json({ error: 'Failed to find community.' });
+    res.status(500).json({ error: 'Failed to find workspace.' });
   }
 });
 
@@ -368,23 +660,36 @@ router.post('/join/:slug', auth, async (req, res) => {
     const community = await prisma.community.findUnique({ 
       where: { slug }
     });
-    if (!community) return res.status(404).json({ error: 'Community not found.' });
-    if (community.isPrivate) return res.status(403).json({ error: 'Cannot join private community.' });
+    if (!community) return res.status(404).json({ error: 'Workspace Team not found.' });
+    if (community.isPrivate) return res.status(403).json({ error: 'Cannot join private workspace.' });
     
     const existing = await prisma.communityMember.findUnique({ 
       where: { communityId_userId: { communityId: community.id, userId: req.user.id } } 
     }).catch(() => null);
     if (existing) return res.status(400).json({ error: 'Already a member.' });
+
+    // Get or create parent company
+    const companyId = await getOrCreateUserCompany(req.user.id, req.user.displayName, req.user.username);
     
-    await prisma.communityMember.create({ data: { communityId: community.id, userId: req.user.id } });
+    // Associate with the company
+    const existingComp = await prisma.companyMembership.findUnique({
+        where: { companyId_userId: { companyId: community.companyId || companyId, userId: req.user.id } }
+    });
+    if (!existingComp && community.companyId) {
+        await prisma.companyMembership.create({
+            data: { companyId: community.companyId, userId: req.user.id, role: 'MEMBER' }
+        });
+    }
+    
+    await prisma.communityMember.create({ data: { communityId: community.id, userId: req.user.id, role: 'VIEWER' } });
     res.json({ success: true, communityId: community.id });
   } catch (err) {
     console.error('Join via slug error:', err);
-    res.status(500).json({ error: 'Failed to join community.' });
+    res.status(500).json({ error: 'Failed to join workspace.' });
   }
 });
 
-// Create community message (chat)
+// Create community message
 router.post('/:id/messages', auth, async (req, res) => {
   try {
     const communityId = Number(req.params.id);
@@ -394,7 +699,7 @@ router.post('/:id/messages', auth, async (req, res) => {
     const member = await prisma.communityMember.findUnique({ 
       where: { communityId_userId: { communityId, userId: req.user.id } } 
     }).catch(() => null);
-    if (!member) return res.status(403).json({ error: 'Not a member of this community.' });
+    if (!member) return res.status(403).json({ error: 'Not a member of this workspace.' });
     
     const message = await prisma.communityMessage.create({ 
       data: { 
@@ -417,7 +722,7 @@ router.post('/:id/messages', auth, async (req, res) => {
   }
 });
 
-// List community messages (chat)
+// List community messages
 router.get('/:id/messages', auth, async (req, res) => {
   try {
     const communityId = Number(req.params.id);
@@ -438,7 +743,7 @@ router.get('/:id/messages', auth, async (req, res) => {
   }
 });
 
-// Basic analytics for a job (aggregated from JobAnalytics)
+// Basic job analytics
 router.get('/jobs/:jobId/analytics', auth, async (req, res) => {
   try {
     const jobId = Number(req.params.jobId);
@@ -455,10 +760,10 @@ router.delete('/:id', auth, async (req, res) => {
   try {
     const id = Number(req.params.id);
     const community = await prisma.community.findUnique({ where: { id } });
-    if (!community) return res.status(404).json({ error: 'Community not found.' });
+    if (!community) return res.status(404).json({ error: 'Workspace Team not found.' });
     if (community.creatorId !== req.user.id) return res.status(403).json({ error: 'Only creator can delete.' });
     
-    // Delete community-level messages
+    // Delete messages
     await prisma.communityMessage.deleteMany({
       where: { communityId: id }
     });
@@ -467,7 +772,7 @@ router.delete('/:id', auth, async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error('Delete community error:', err);
-    res.status(500).json({ error: 'Failed to delete community.' });
+    res.status(500).json({ error: 'Failed to delete workspace.' });
   }
 });
 

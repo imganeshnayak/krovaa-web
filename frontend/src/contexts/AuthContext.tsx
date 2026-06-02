@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { AuthUser, loginUser as apiLogin, registerUser as apiRegister, loginWithTelegram as apiTelegramLogin, getCurrentUser } from '@/lib/api';
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+
+import { AuthUser, getCurrentUser, loginUser as apiLogin, loginWithTelegram as apiTelegramLogin, logoutUser as apiLogout, registerUser as apiRegister } from "@/lib/api";
 
 interface AuthContextType {
   user: AuthUser | null;
@@ -14,41 +15,72 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [token, setToken] = useState<string | null>(localStorage.getItem('authToken'));
-  const [isLoading, setIsLoading] = useState(true);
+const readCachedUser = () => {
+  try {
+    const rawUser = localStorage.getItem("authUser");
+    return rawUser ? (JSON.parse(rawUser) as AuthUser) : null;
+  } catch {
+    return null;
+  }
+};
 
-  // Restore user on mount if token exists
+const persistSession = (token: string, user: AuthUser) => {
+  localStorage.setItem("authToken", token);
+  localStorage.setItem("authUser", JSON.stringify(user));
+};
+
+const clearSession = () => {
+  localStorage.removeItem("authToken");
+  localStorage.removeItem("authUser");
+};
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<AuthUser | null>(() => readCachedUser());
+  const [token, setToken] = useState<string | null>(() => localStorage.getItem("authToken"));
+  const [isLoading, setIsLoading] = useState(false);
+
   useEffect(() => {
     const restoreSession = async () => {
-      const storedToken = localStorage.getItem('authToken');
-      if (storedToken) {
-        setToken(storedToken);
-        try {
-          const userData = await getCurrentUser();
-          setUser(userData);
-        } catch (error) {
-          // Only clear token on explicit auth errors; keep token for transient failures
-          const status = (error as any)?.status;
-          if (status === 401 || status === 403) {
-            localStorage.removeItem('authToken');
-            setToken(null);
-            setUser(null);
-          } else {
-            // transient error (network/provider); keep token and schedule a retry
-            setTimeout(async () => {
-              try {
-                const retryUser = await getCurrentUser();
-                setUser(retryUser);
-              } catch (e) {
-                // On retry failure, don't aggressively clear token here
-              }
-            }, 3000);
-          }
-        }
+      const storedToken = localStorage.getItem("authToken");
+      const cachedUser = readCachedUser();
+
+      if (!storedToken) {
+        // No token at all - no need to call API, just show the app immediately
+        setIsLoading(false);
+        return;
       }
-      setIsLoading(false);
+
+      setToken(storedToken);
+      if (cachedUser) {
+        // Instantly render the app using cached user while we verify in background
+        setUser(cachedUser);
+        setIsLoading(false);
+      } else {
+        // No cached user but we have a token, show loading briefly
+        setIsLoading(true);
+      }
+
+      try {
+        // Verify session in the background with a timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000); // 3s timeout (faster feedback)
+        const userData = await getCurrentUser();
+        clearTimeout(timeoutId);
+        setUser(userData);
+        persistSession(storedToken, userData);
+      } catch (error) {
+        const status = (error as { status?: number })?.status;
+        if (status === 401 || status === 403) {
+          clearSession();
+          setToken(null);
+          setUser(null);
+        } else if (cachedUser) {
+          // Network error but we have cached user - keep them logged in
+          setUser(cachedUser);
+        }
+      } finally {
+        setIsLoading(false);
+      }
     };
 
     restoreSession();
@@ -58,9 +90,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(true);
     try {
       const response = await apiLogin({ email, password });
-      setToken(response.token);
+      setToken(response.token || "cookie_session");
       setUser(response.user);
-      localStorage.setItem('authToken', response.token);
+      persistSession(response.token || "cookie_session", response.user);
       return response.user;
     } finally {
       setIsLoading(false);
@@ -71,9 +103,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(true);
     try {
       const response = await apiTelegramLogin(data);
-      setToken(response.token);
+      setToken(response.token || "cookie_session");
       setUser(response.user);
-      localStorage.setItem('authToken', response.token);
+      persistSession(response.token || "cookie_session", response.user);
       return response.user;
     } finally {
       setIsLoading(false);
@@ -84,27 +116,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(true);
     try {
       const response = await apiRegister({ username, email, password, display_name: displayName, otp, profession });
-      setToken(response.token);
+      setToken(response.token || "cookie_session");
       setUser(response.user);
-      localStorage.setItem('authToken', response.token);
+      persistSession(response.token || "cookie_session", response.user);
       return response.user;
     } finally {
       setIsLoading(false);
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await apiLogout();
+    } catch (error) {
+      console.error("Logout failed", error);
+    }
+
     setUser(null);
     setToken(null);
-    localStorage.removeItem('authToken');
+    clearSession();
   };
 
   const refreshUser = async () => {
-    if (!token) return;
     try {
       const userData = await getCurrentUser();
       setUser(userData);
-    } catch (error) {
+      persistSession(token || "cookie_session", userData);
+    } catch {
       logout();
     }
   };
@@ -119,7 +157,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within AuthProvider');
+    throw new Error("useAuth must be used within AuthProvider");
   }
   return context;
 }

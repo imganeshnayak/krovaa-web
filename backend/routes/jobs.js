@@ -124,6 +124,7 @@ router.get('/my', auth, async (req, res) => {
                         createdAt: true,
                         bidAmount: true,
                         coverLetter: true,
+                        terms: true,
                         user: {
                             select: {
                                 id: true,
@@ -300,6 +301,24 @@ router.get('/:id', async (req, res) => {
             }
         }
 
+        // Fetch all applications for the job to make them publicly visible
+        const applications = await prisma.application.findMany({
+            where: { jobId },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        username: true,
+                        displayName: true,
+                        avatarUrl: true,
+                        profession: true
+                    }
+                }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+        jobWithStatus.applications = applications;
+
         // If user is authenticated, check their application status and if they own it
         if (reqUser) {
             const application = await prisma.application.findUnique({
@@ -313,50 +332,6 @@ router.get('/:id', async (req, res) => {
 
             jobWithStatus.hasApplied = !!application;
             jobWithStatus.isOwner = job.postedById === reqUser.id;
-
-            // If owner, fetch and include all applications
-            if (jobWithStatus.isOwner) {
-                const applications = await prisma.application.findMany({
-                    where: { jobId },
-                    include: {
-                        user: {
-                            select: {
-                                id: true,
-                                username: true,
-                                displayName: true,
-                                avatarUrl: true,
-                                profession: true
-                            }
-                        }
-                    },
-                    orderBy: { createdAt: 'desc' }
-                });
-                jobWithStatus.applications = applications;
-            }
-            // If user has applied but is not owner, include their own application
-            else if (jobWithStatus.hasApplied) {
-                const userApplication = await prisma.application.findUnique({
-                    where: {
-                        jobId_userId: {
-                            jobId,
-                            userId: reqUser.id
-                        }
-                    },
-                    include: {
-                        user: {
-                            select: {
-                                id: true,
-                                username: true,
-                                displayName: true,
-                                avatarUrl: true,
-                                profession: true
-                            }
-                        }
-                    }
-                });
-                // Add user's application to applications array for frontend access
-                jobWithStatus.applications = userApplication ? [userApplication] : [];
-            }
         }
 
         res.json(jobWithStatus);
@@ -369,7 +344,7 @@ router.get('/:id', async (req, res) => {
 // POST /api/jobs
 router.post('/', auth, uploadJobAttachments, async (req, res) => {
     try {
-        const { title, company, location, budget, mode, description, terms, termsAndConditions } = req.body;
+        const { title, company, location, budget, mode, description, terms, termsAndConditions, deadline } = req.body;
         if (!title || !company || !location || !budget || !description) {
             return res.status(400).json({ error: 'Title, company, location, budget, and description are required.' });
         }
@@ -411,6 +386,7 @@ router.post('/', auth, uploadJobAttachments, async (req, res) => {
                     mode: normalizedMode,
                     description: description.trim(),
                     terms: termsArray,
+                    deadline: deadline ? new Date(deadline) : null,
                     postedById: req.user.id,
                     attachments: uploadedFiles.length > 0 ? {
                         create: uploadedFiles.map((attachment) => ({
@@ -456,7 +432,7 @@ router.post('/', auth, uploadJobAttachments, async (req, res) => {
             sendUserNotification(
                 io,
                 req.user.id,
-                '✅ Job Posted Successfully',
+                'Job Posted Successfully',
                 `Your job "${job.title}" is now live and visible to applicants.`,
                 'success',
                 jobNotificationMetadata
@@ -464,7 +440,7 @@ router.post('/', auth, uploadJobAttachments, async (req, res) => {
             ...activeUsers.map((user) => sendUserNotification(
                 io,
                 user.id,
-                `🆕 New Job: ${job.title}`,
+                `New Job: ${job.title}`,
                 `${posterName} posted a new ${job.mode.toLowerCase()} job at ${job.company} in ${job.location}.`,
                 'info',
                 jobNotificationMetadata
@@ -641,6 +617,47 @@ router.put('/:id/terms', auth, async (req, res) => {
     } catch (err) {
         console.error('Update job terms error:', err);
         res.status(500).json({ error: 'Failed to update job terms.' });
+    }
+});
+
+// DELETE /api/jobs/:id/withdraw
+router.delete('/:id/withdraw', auth, async (req, res) => {
+    try {
+        const jobId = Number(req.params.id);
+        if (Number.isNaN(jobId)) {
+            return res.status(400).json({ error: 'Invalid job ID.' });
+        }
+
+        const userId = req.user.id;
+
+        // Check if application exists
+        const existingApplication = await prisma.application.findUnique({
+            where: {
+                jobId_userId: {
+                    jobId,
+                    userId
+                }
+            }
+        });
+
+        if (!existingApplication) {
+            return res.status(404).json({ error: 'Application not found.' });
+        }
+
+        // Delete the application
+        await prisma.application.delete({
+            where: {
+                jobId_userId: {
+                    jobId,
+                    userId
+                }
+            }
+        });
+
+        res.json({ message: 'Application withdrawn successfully.' });
+    } catch (err) {
+        console.error('Withdraw application error:', err);
+        res.status(500).json({ error: 'Failed to withdraw application.' });
     }
 });
 

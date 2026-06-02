@@ -3,10 +3,7 @@ import { apiUrl } from "./config";
 // src/lib/api.ts
 
 export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
-  const token = localStorage.getItem("authToken");
-
   const headers: Record<string, string> = {
-    ...(token && { 'Authorization': `Bearer ${token}` }),
     ...(options?.headers as Record<string, string> || {}),
   };
 
@@ -78,6 +75,7 @@ export interface AuthUser {
   age?: number;
   userGoal?: string;
   skills?: string[];
+  walletBalance?: number;
 }
 
 export interface AuthResponse {
@@ -116,6 +114,12 @@ export function loginWithTelegram(data: any): Promise<AuthResponse> {
   });
 }
 
+export function logoutUser(): Promise<{ success: boolean }> {
+  return apiFetch<{ success: boolean }>("/api/auth/logout", {
+    method: "POST",
+  });
+}
+
 export function getCurrentUser(): Promise<AuthUser> {
   return apiFetch<AuthUser>("/api/auth/me");
 }
@@ -134,16 +138,52 @@ export function getUserByShareId(shareId: string): Promise<AuthUser> {
   return apiFetch<AuthUser>(`/api/users/share-id/${encodeURIComponent(shareId)}`);
 }
 
+export interface ProfileFull {
+  user: AuthUser & { averageRating: number; ratingCount: number };
+  posts: Post[];
+  ratingEligibility: { canRate: boolean; reason?: string | null };
+}
+
+export function getProfileFull(userId: number): Promise<ProfileFull> {
+  return apiFetch<ProfileFull>(`/api/users/${userId}/profile-full`);
+}
+
 export function searchUsers(query: string): Promise<AuthUser[]> {
   return apiFetch<AuthUser[]>(`/api/users/search?q=${encodeURIComponent(query)}`);
 }
 
-export function getBestProfiles(params: { city?: string; pincode?: string; profession?: string }): Promise<AuthUser[]> {
+export interface BestProfileUser extends AuthUser {
+  score: number;
+  avgRating: number;
+  ratingCount: number;
+  matchedSkills: string[];
+  profileCompleteness: number;
+}
+
+export interface BestProfilesResponse {
+  users: BestProfileUser[];
+  total: number;
+  page: number;
+  limit: number;
+  hasMore: boolean;
+}
+
+export function getBestProfiles(params: {
+  profession?: string;
+  city?: string;
+  pincode?: string;
+  skills?: string[];
+  page?: number;
+  limit?: number;
+}): Promise<BestProfilesResponse> {
   const query = new URLSearchParams();
+  if (params.profession) query.append("profession", params.profession);
   if (params.city) query.append("city", params.city);
   if (params.pincode) query.append("pincode", params.pincode);
-  if (params.profession) query.append("profession", params.profession);
-  return apiFetch<AuthUser[]>(`/api/users/best-profiles?${query.toString()}`);
+  if (params.skills && params.skills.length > 0) query.append("skills", JSON.stringify(params.skills));
+  if (params.page) query.append("page", String(params.page));
+  if (params.limit) query.append("limit", String(params.limit));
+  return apiFetch<BestProfilesResponse>(`/api/users/best-profiles?${query.toString()}`);
 }
 
 export function rateUser(data: {
@@ -266,7 +306,6 @@ export interface Chat {
   unread_count: number;
   verified: boolean;
   isOfficial?: boolean;
-  isKrovAI?: boolean;
 }
 
 // ============ Moderation API ============
@@ -390,6 +429,71 @@ export function approveCommunityMember(communityId: number, userId: number): Pro
   });
 }
 
+// ============ Workspace Teams & Contracts API ============
+
+export interface WorkspaceInvitation {
+  id: number;
+  email: string;
+  role: string;
+  expiresAt: string;
+  status: string;
+  inviteLink: string;
+}
+
+export interface WorkspaceAnalytics {
+  totalFinancialSpend: number;
+  activeContractsCount: number;
+  totalHoursTracked: number;
+}
+
+export interface Contract {
+  id: number;
+  communityId: number;
+  professionalId: number;
+  title: string;
+  rate: number;
+  status: string;
+  escrowDealId?: number;
+  createdAt: string;
+  professional?: { id: number; username: string; displayName: string; avatarUrl?: string };
+}
+
+export function inviteToWorkspace(communityId: number, email: string, role: string): Promise<{ success: boolean; invitation: WorkspaceInvitation }> {
+  return apiFetch<{ success: boolean; invitation: WorkspaceInvitation }>(`/api/communities/${communityId}/invite`, {
+    method: 'POST',
+    body: JSON.stringify({ email, role })
+  });
+}
+
+export function acceptWorkspaceInvitation(token: string): Promise<any> {
+  return apiFetch<any>('/api/communities/invitations/accept', {
+    method: 'POST',
+    body: JSON.stringify({ token })
+  });
+}
+
+export function getWorkspaceAnalytics(communityId: number): Promise<WorkspaceAnalytics> {
+  return apiFetch<WorkspaceAnalytics>(`/api/communities/${communityId}/analytics`);
+}
+
+export function getWorkspaceContracts(communityId: number): Promise<Contract[]> {
+  return apiFetch<Contract[]>(`/api/contracts?communityId=${communityId}`);
+}
+
+export function createWorkspaceContract(data: { communityId: number; professionalId: number; title: string; rate: number }): Promise<Contract> {
+  return apiFetch<Contract>('/api/contracts', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+}
+
+export function transferWorkspaceContract(contractId: number, targetCommunityId: number): Promise<any> {
+  return apiFetch<any>(`/api/contracts/${contractId}/transfer`, {
+    method: 'POST',
+    body: JSON.stringify({ targetCommunityId })
+  });
+}
+
 export interface ShareLinkData {
   shareLink: string;
   slug: string;
@@ -460,14 +564,10 @@ export async function uploadFile(data: {
   if (data.content) formData.append("content", data.content);
   if (data.is_view_once) formData.append("is_view_once", "true");
 
-  const token = localStorage.getItem("authToken");
-
   const res = await fetch(apiUrl("/api/messages/upload"), {
     method: "POST",
-    headers: {
-      ...(token && { 'Authorization': `Bearer ${token}` }),
-    },
     body: formData,
+    credentials: "include",
   });
 
   if (!res.ok) {
@@ -1228,6 +1328,7 @@ export interface Job {
   description: string;
   attachments?: JobAttachment[];
   terms?: string[];
+  deadline?: string;
   createdAt: string;
 }
 
@@ -1292,6 +1393,7 @@ export function postJob(data: {
   duration?: string;
   skills?: string[];
   terms?: string;
+  deadline?: string;
 }): Promise<Job> {
   const hasAttachments = (data.attachments?.length || 0) > 0;
 
@@ -1306,6 +1408,7 @@ export function postJob(data: {
     if (data.duration) formData.append('duration', data.duration);
     if (data.skills) formData.append('skills', JSON.stringify(data.skills));
     if (data.terms) formData.append('terms', data.terms);
+    if (data.deadline) formData.append('deadline', data.deadline);
 
     data.attachments?.forEach((file) => {
       formData.append('attachments', file);
@@ -1331,6 +1434,12 @@ export function applyJob(jobId: number, data: {
   return apiFetch<{ message: string; application: any }>(`/api/jobs/${jobId}/apply`, {
     method: 'POST',
     body: JSON.stringify(data),
+  });
+}
+
+export function withdrawJobApplication(jobId: number): Promise<{ message: string }> {
+  return apiFetch<{ message: string }>(`/api/jobs/${jobId}/withdraw`, {
+    method: 'DELETE',
   });
 }
 
@@ -1395,10 +1504,8 @@ export function deleteAd(id: number): Promise<{ success: boolean }> {
 }
 
 export function createAd(formData: FormData): Promise<Ad> {
-  const token = localStorage.getItem("authToken");
   return fetch(apiUrl("/api/ads"), {
     method: "POST",
-    headers: { ...(token && { Authorization: `Bearer ${token}` }) },
     body: formData,
     credentials: "include",
   }).then(async (res) => {
@@ -1411,10 +1518,8 @@ export function createAd(formData: FormData): Promise<Ad> {
 }
 
 export function updateAd(id: number, formData: FormData): Promise<Ad> {
-  const token = localStorage.getItem("authToken");
   return fetch(apiUrl(`/api/ads/${id}`), {
     method: "PUT",
-    headers: { ...(token && { Authorization: `Bearer ${token}` }) },
     body: formData,
     credentials: "include",
   }).then(async (res) => {
@@ -1461,14 +1566,12 @@ export interface Post {
 }
 
 export function createPost(text: string, files: File[]): Promise<Post> {
-  const token = localStorage.getItem("authToken");
   const formData = new FormData();
   if (text) formData.append("text", text);
   files.forEach((file) => formData.append("files", file));
 
   return fetch(apiUrl("/api/posts"), {
     method: "POST",
-    headers: { ...(token && { Authorization: `Bearer ${token}` }) },
     body: formData,
     credentials: "include",
   }).then(async (res) => {
@@ -1511,120 +1614,6 @@ export function deletePost(postId: number): Promise<{ success: boolean }> {
   });
 }
 
-// ============ Image Generator API ============
-
-export interface GeneratedImage {
-  id: number;
-  imageUrl: string;
-  prompt: string;
-  style: string;
-  size: string;
-  createdAt: string;
-}
-
-export interface ImageGenerationHistory {
-  generations: GeneratedImage[];
-  total: number;
-  page: number;
-  totalPages: number;
-}
-
-export function generateImage(data: {
-  prompt: string;
-  size?: string;
-  image?: string | File;
-  frontendGeneratedImage?: string;
-}): Promise<GeneratedImage> {
-  if (data.image instanceof File) {
-    const formData = new FormData();
-    formData.append('prompt', data.prompt);
-    if (data.size) formData.append('size', data.size);
-    formData.append('image', data.image);
-    if (data.frontendGeneratedImage) formData.append('frontendGeneratedImage', data.frontendGeneratedImage);
-    return apiFetch<GeneratedImage>("/api/image-generator/generate", {
-      method: "POST",
-      body: formData,
-    });
-  }
-  return apiFetch<GeneratedImage>("/api/image-generator/generate", {
-    method: "POST",
-    body: JSON.stringify(data),
-  });
-}
-
-export function getImageHistory(page = 1, limit = 20): Promise<ImageGenerationHistory> {
-  return apiFetch<ImageGenerationHistory>(`/api/image-generator/history?page=${page}&limit=${limit}`);
-}
-
-export function deleteGeneratedImage(id: number): Promise<{ success: boolean }> {
-  return apiFetch<{ success: boolean }>(`/api/image-generator/${id}`, {
-    method: "DELETE",
-  });
-}
-
-export function getImageGeneratorStats(): Promise<{
-  totalGenerations: number;
-  todayGenerations: number;
-  topStyles: { style: string; _count: number }[];
-  dailyLimit: number;
-  isEnabled: boolean;
-  provider: string;
-  supportsImg2Img: boolean;
-  usersAtLimitToday: number;
-  uniqueUsersToday: number;
-  totalDailyUsers: number[];
-  averagePerUser: number | string;
-}> {
-  return apiFetch("/api/image-generator/stats");
-}
-
-export interface DailyLimitInfo {
-  limit: number;
-  used: number;
-  remaining: number;
-  resetTime: string;
-}
-
-export function getDailyGenerationLimit(): Promise<DailyLimitInfo> {
-  return apiFetch<DailyLimitInfo>("/api/image-generator/daily-limit/check");
-}
-
-export function shareImageToChat(imageId: number, data: {
-  chatId: string;
-  receiverId: number;
-  caption?: string;
-}): Promise<{ success: boolean; message: { id: number; content: string; attachmentUrl: string; createdAt: string } }> {
-  return apiFetch(`/api/image-generator/${imageId}/share-to-chat`, {
-    method: "POST",
-    body: JSON.stringify(data),
-  });
-}
-
-export interface SubscriptionStatus {
-  planId: string;
-  planName: string;
-  billingCycle: string;
-  monthlyLimit: number;
-  imagesUsed: number;
-  imagesThisMonth: number;
-  status: string;
-  hasSubscription: boolean;
-  expiresAt?: string;
-}
-
-export function getSubscriptionStatus(): Promise<SubscriptionStatus> {
-  return apiFetch<SubscriptionStatus>("/api/subscriptions/status");
-}
-
-export function checkImageGenerationUsage(): Promise<{
-  canGenerate: boolean;
-  remaining: number;
-  monthlyLimit: number;
-  imagesThisMonth: number;
-  planId: string;
-}> {
-  return apiFetch("/api/subscriptions/check-usage");
-}
 
 // ============ Teams API ============
 
@@ -1683,5 +1672,101 @@ export function sendGroupMessage(groupId: number, data: { content: string; messa
   return apiFetch<any>(`/api/groups/${groupId}/messages`, { method: 'POST', body: JSON.stringify(data) });
 }
 
+// ============ Community Jobs API ============
+
+export interface CommunityJob {
+  id: number;
+  communityId: number;
+  clientId: number;
+  title: string;
+  description: string;
+  budget: number;
+  deadline?: string;
+  skills: string[];
+  status: string;
+  escrowDealId?: number;
+  createdAt: string;
+  client?: { id: number; username: string; displayName: string; avatarUrl?: string };
+  _count?: { bids: number };
+}
+
+export interface CommunityBidMember {
+  id: number;
+  userId: number;
+  role?: string;
+  paymentPercent: number;
+  user?: { id: number; username: string; displayName: string; avatarUrl?: string };
+}
+
+export interface CommunityBid {
+  id: number;
+  jobId: number;
+  leaderId: number;
+  isGroup: boolean;
+  coverLetter?: string;
+  bidAmount: number;
+  estimatedDays?: number;
+  status: string;
+  createdAt: string;
+  leader?: { id: number; username: string; displayName: string; avatarUrl?: string };
+  members: CommunityBidMember[];
+}
+
+export function getCommunityJobs(communityId: number, status?: string): Promise<CommunityJob[]> {
+  const query = status ? `?status=${status}` : '';
+  return apiFetch<CommunityJob[]>(`/api/communities/${communityId}/jobs${query}`);
+}
+
+export function postCommunityJob(communityId: number, data: { title: string; description: string; budget: number; deadline?: string; skills?: string[] }): Promise<CommunityJob> {
+  return apiFetch<CommunityJob>(`/api/communities/${communityId}/jobs`, { method: 'POST', body: JSON.stringify(data) });
+}
+
+export function getCommunityJobDetail(communityId: number, jobId: number): Promise<CommunityJob & { bids: CommunityBid[] }> {
+  return apiFetch<CommunityJob & { bids: CommunityBid[] }>(`/api/communities/${communityId}/jobs/${jobId}`);
+}
+
+export function submitCommunityBid(communityId: number, jobId: number, data: { isGroup: boolean; coverLetter?: string; bidAmount: number; estimatedDays?: number; members?: { userId: number; role?: string; paymentPercent: number }[] }): Promise<CommunityBid> {
+  return apiFetch<CommunityBid>(`/api/communities/${communityId}/jobs/${jobId}/bids`, { method: 'POST', body: JSON.stringify(data) });
+}
+
+export function withdrawCommunityBid(communityId: number, jobId: number, bidId: number): Promise<{ success: boolean }> {
+  return apiFetch<{ success: boolean }>(`/api/communities/${communityId}/jobs/${jobId}/bids/${bidId}`, { method: 'DELETE' });
+}
+
+export function acceptCommunityBid(communityId: number, jobId: number, bidId: number): Promise<any> {
+  return apiFetch<any>(`/api/communities/${communityId}/jobs/${jobId}/bids/${bidId}/accept`, { method: 'POST' });
+}
+
+export function rateCommunityJob(communityId: number, jobId: number, data: { reviewedId: number; rating: number; feedback?: string }): Promise<any> {
+  return apiFetch<any>(`/api/communities/${communityId}/jobs/${jobId}/ratings`, { method: 'POST', body: JSON.stringify(data) });
+}
+
+// ============ Image Sharing API ============
+
+export function shareImageToChat(
+  generationId: number,
+  data: {
+    chatId: string;
+    receiverId: number;
+    caption?: string;
+  }
+): Promise<{ success: boolean; message?: string }> {
+  return apiFetch<{ success: boolean; message?: string }>(`/api/image-generator/${generationId}/share`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export interface ImageGeneratorStats {
+  todayGenerations: number;
+  uniqueUsersToday: number;
+  usersAtLimitToday: number;
+  isEnabled: boolean;
+  dailyLimit: number;
+}
+
+export function getImageGeneratorStats(): Promise<ImageGeneratorStats> {
+  return apiFetch<ImageGeneratorStats>('/api/admin/image-generator/stats');
+}
 
 

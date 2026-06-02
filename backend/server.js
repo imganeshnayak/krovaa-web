@@ -7,6 +7,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import compression from 'compression';
+import cookieParser from 'cookie-parser';
 
 // Resolve __dirname for ESM and load .env from the project root
 const __filename = fileURLToPath(import.meta.url);
@@ -30,11 +31,13 @@ import notificationRoutes from './routes/notifications.js';
 import adsRoutes from './routes/ads.js';
 import jobsRoutes from './routes/jobs.js';
 import postsRoutes from './routes/posts.js';
-import imageGeneratorRoutes from './routes/imageGenerator.js';
 import subscriptionRoutes from './routes/subscriptions.js';
 import teamsRoutes from './routes/teams.js';
 import groupsRoutes from './routes/groups.js';
 import communitiesRoutes from './routes/communities.js';
+import communityJobsRoutes from './routes/communityJobs.js';
+import contractsRoutes from './routes/contracts.js';
+import { requireFeature } from './middleware/features.js';
 import setupSocket from './socket/chat.js';
 
 const app = express();
@@ -54,6 +57,8 @@ app.use((req, res, next) => {
 });
 
 const allowedOrigins = [
+    'http://localhost',
+    'capacitor://localhost',
     'http://localhost:5173',
     'http://localhost:8080',
     'http://localhost:8081',
@@ -72,6 +77,7 @@ const allowedOrigins = [
 
 // Middleware
 app.use(compression());
+app.use(cookieParser());
 app.use(cors({
     origin: (origin, callback) => {
         // Allow requests with no origin (like mobile apps/curl)
@@ -131,8 +137,17 @@ const io = new Server(server, {
 
 // API Routes
 app.use(express.static(path.join(__dirname, '../frontend/dist'), {
-    maxAge: '1y',
-    immutable: true
+    setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.html')) {
+            // Never cache index.html
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
+        } else {
+            // Cache static assets like JS and CSS files for 1 year
+            res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        }
+    }
 }));
 
 app.use('/api/auth', authRoutes);
@@ -148,11 +163,20 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/ads', adsRoutes);
 app.use('/api/jobs', jobsRoutes);
 app.use('/api/posts', postsRoutes);
-app.use('/api/image-generator', imageGeneratorRoutes);
 app.use('/api/subscriptions', subscriptionRoutes);
 app.use('/api/teams', teamsRoutes);
 app.use('/api/groups', groupsRoutes);
-app.use('/api/communities', communitiesRoutes);
+    app.use('/api/communities', requireFeature('VITE_ENABLE_COMMUNITIES'), communitiesRoutes);
+    app.use('/api/communities', requireFeature('VITE_ENABLE_COMMUNITIES'), communityJobsRoutes);
+    app.use('/api/contracts', requireFeature('VITE_ENABLE_COMMUNITIES'), contractsRoutes);
+
+// SPA Fallback for React Router (Must be after all /api routes)
+app.get('*', (req, res) => {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
+});
 
 // Global Error Handler
 app.use((err, req, res, next) => {

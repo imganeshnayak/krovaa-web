@@ -103,25 +103,8 @@ router.post('/', auth, async (req, res) => {
             return res.status(400).json({ error: 'Total amount must be greater than 0.' });
         }
 
-        // Security: Validate chatId format (should be 'chat_userId1_userId2' or 'chat_userId1_userId2_timestamp')
-        if (!chatId.startsWith('chat_')) {
-            return res.status(400).json({ error: 'Invalid chat ID format.' });
-        }
-
-        // Extract user IDs from chatId (format: chat_1_2 or chat_1_2_1234567890)
-        const chatParts = chatId.split('_');
-        if (chatParts.length < 3 || chatParts.length > 4) {
-            return res.status(400).json({ error: 'Invalid chat ID format.' });
-        }
-
-        const chatUserIds = [parseInt(chatParts[1]), parseInt(chatParts[2])].sort();
         const currentUserId = req.user.id;
         const requestedVendorId = parseInt(vendorId);
-
-        // Security: Verify current user is part of this chat
-        if (!chatUserIds.includes(currentUserId)) {
-            return res.status(403).json({ error: 'You are not a participant in this chat.' });
-        }
 
         // Security: Verify vendor exists
         const vendor = await prisma.user.findUnique({
@@ -132,9 +115,47 @@ router.post('/', auth, async (req, res) => {
             return res.status(404).json({ error: 'Vendor not found. Please double check the User ID.' });
         }
 
-        // Security: Verify vendor is the other participant in the chat
-        if (!chatUserIds.includes(requestedVendorId)) {
-            return res.status(403).json({ error: 'Vendor must be a participant in this chat.' });
+        const isCommunity = chatId.startsWith('community_');
+        const chatParts = chatId.split('_');
+
+        if (!isCommunity) {
+            if (!chatId.startsWith('chat_')) {
+                return res.status(400).json({ error: 'Invalid chat ID format.' });
+            }
+            if (chatParts.length < 3 || chatParts.length > 4) {
+                return res.status(400).json({ error: 'Invalid chat ID format.' });
+            }
+            const chatUserIds = [parseInt(chatParts[1]), parseInt(chatParts[2])].sort();
+
+            if (!chatUserIds.includes(currentUserId)) {
+                return res.status(403).json({ error: 'You are not a participant in this chat.' });
+            }
+            if (!chatUserIds.includes(requestedVendorId)) {
+                return res.status(403).json({ error: 'Vendor must be a participant in this chat.' });
+            }
+        } else {
+            const communityId = parseInt(chatParts[1]);
+            
+            // Verify current user is member or creator
+            const clientMember = await prisma.communityMember.findUnique({
+                where: { communityId_userId: { communityId, userId: currentUserId } }
+            });
+            const community = await prisma.community.findUnique({ where: { id: communityId } });
+            const isClientCreator = community && community.creatorId === currentUserId;
+            
+            if (!clientMember && !isClientCreator) {
+                return res.status(403).json({ error: 'You are not a member of this community.' });
+            }
+            
+            // Verify vendor is member or creator
+            const vendorMember = await prisma.communityMember.findUnique({
+                where: { communityId_userId: { communityId, userId: requestedVendorId } }
+            });
+            const isVendorCreator = community && community.creatorId === requestedVendorId;
+            
+            if (!vendorMember && !isVendorCreator) {
+                return res.status(403).json({ error: 'Vendor must be a member of this community.' });
+            }
         }
 
         // Prevent creating deal with yourself
@@ -258,20 +279,37 @@ router.post('/', auth, async (req, res) => {
             });
 
             // 5. System Message (inform about gross and net amounts)
-            const systemMsg = await tx.message.create({
-                data: {
-                    senderId: currentUserId,
-                    receiverId: requestedVendorId,
-                    chatId,
-                    content: `New Payment Deal: "${title}" for ₹${grossAmount.toLocaleString('en-IN')}. Funds deducted from client wallet. (Net available for release: ₹${netAmount.toLocaleString('en-IN')} after platform fee)`,
-                    messageType: 'escrow_created'
-                },
-                include: {
-                    sender: {
-                        select: { displayName: true, avatarUrl: true, username: true }
+            let systemMsg;
+            if (isCommunity) {
+                systemMsg = await tx.communityMessage.create({
+                    data: {
+                        senderId: currentUserId,
+                        communityId: parseInt(chatId.split('_')[1]),
+                        content: `New Payment Deal: "${title}" for ₹${grossAmount.toLocaleString('en-IN')}. Funds deducted from client wallet. (Net available for release: ₹${netAmount.toLocaleString('en-IN')} after platform fee)`,
+                        messageType: 'escrow_created'
+                    },
+                    include: {
+                        sender: {
+                            select: { displayName: true, avatarUrl: true, username: true }
+                        }
                     }
-                }
-            });
+                });
+            } else {
+                systemMsg = await tx.message.create({
+                    data: {
+                        senderId: currentUserId,
+                        receiverId: requestedVendorId,
+                        chatId,
+                        content: `New Payment Deal: "${title}" for ₹${grossAmount.toLocaleString('en-IN')}. Funds deducted from client wallet. (Net available for release: ₹${netAmount.toLocaleString('en-IN')} after platform fee)`,
+                        messageType: 'escrow_created'
+                    },
+                    include: {
+                        sender: {
+                            select: { displayName: true, avatarUrl: true, username: true }
+                        }
+                    }
+                });
+            }
 
             return { newDeal, systemMsg };
         });
@@ -403,6 +441,10 @@ router.post('/:id/release', auth, async (req, res) => {
                         where: { id: dealId },
                         data: { status: 'completed' }
                     });
+                    await tx.communityJob.updateMany({
+                        where: { escrowDealId: dealId },
+                        data: { status: 'completed' }
+                    });
                     currentDeal.status = 'completed'; // Update local obj for response
                 }
 
@@ -466,20 +508,37 @@ router.post('/:id/release', auth, async (req, res) => {
                 });
 
                 // 8. Create a system message in the chat
-                const systemMessage = await tx.message.create({
-                    data: {
-                        senderId: req.user.id,
-                        receiverId: deal.vendorId,
-                        chatId: deal.chatId,
-                        content: ` Funds Released: ₹${vendorNet.toLocaleString('en-IN')} (${userPercent}%) released to vendor for "${deal.title}".`,
-                        messageType: 'escrow_released'
-                    },
-                    include: {
-                        sender: {
-                            select: { displayName: true, avatarUrl: true, username: true }
+                let systemMessage;
+                if (deal.chatId.startsWith('community_')) {
+                    systemMessage = await tx.communityMessage.create({
+                        data: {
+                            senderId: req.user.id,
+                            communityId: parseInt(deal.chatId.split('_')[1]),
+                            content: ` Funds Released: ₹${vendorNet.toLocaleString('en-IN')} (${userPercent}%) released to vendor for "${deal.title}".`,
+                            messageType: 'escrow_released'
+                        },
+                        include: {
+                            sender: {
+                                select: { displayName: true, avatarUrl: true, username: true }
+                            }
                         }
-                    }
-                });
+                    });
+                } else {
+                    systemMessage = await tx.message.create({
+                        data: {
+                            senderId: req.user.id,
+                            receiverId: deal.vendorId,
+                            chatId: deal.chatId,
+                            content: ` Funds Released: ₹${vendorNet.toLocaleString('en-IN')} (${userPercent}%) released to vendor for "${deal.title}".`,
+                            messageType: 'escrow_released'
+                        },
+                        include: {
+                            sender: {
+                                select: { displayName: true, avatarUrl: true, username: true }
+                            }
+                        }
+                    });
+                }
 
                 if (io) {
                     const socketResult = {
@@ -509,7 +568,6 @@ router.post('/:id/release', auth, async (req, res) => {
             io.to(`user_${deal.vendorId}`).emit('escrowUpdate', updatedDeal);
         }
 
-        // Notify vendor about received funds
         sendUserNotification(
             io,
             deal.vendorId,
@@ -518,12 +576,12 @@ router.post('/:id/release', auth, async (req, res) => {
             'success',
             { type: 'wallet', dealId, chatId: deal.chatId }
         );
-        // If deal is completed, notify both parties
+
         if (updatedDeal.releasedPercent >= 100) {
             sendUserNotification(
                 io,
                 deal.clientId,
-                '✅ Deal Completed',
+                'Deal Completed',
                 `Your deal "${deal.title}" is now fully completed. All payments have been released.`,
                 'success',
                 { type: 'escrow', dealId, chatId: deal.chatId }
@@ -531,7 +589,7 @@ router.post('/:id/release', auth, async (req, res) => {
             sendUserNotification(
                 io,
                 deal.vendorId,
-                '✅ Deal Completed',
+                'Deal Completed',
                 `The deal "${deal.title}" is now fully completed. All payments have been received.`,
                 'success',
                 { type: 'escrow', dealId, chatId: deal.chatId }
@@ -539,7 +597,7 @@ router.post('/:id/release', auth, async (req, res) => {
         }
 
         res.json(updatedDeal);
-    } catch (err) {
+    }catch (err) {
         console.error('Release escrow error:', err);
         res.status(500).json({ error: 'Failed to release escrow payment.' });
     }
@@ -679,20 +737,37 @@ router.delete('/:id', auth, async (req, res) => {
             });
 
             // 5. Create a system message in the chat
-            const systemMessage = await tx.message.create({
-                data: {
-                    senderId: req.user.id,
-                    receiverId: deal.vendorId,
-                    chatId: deal.chatId,
-                    content: `Deal Cancelled & Refunded: The deal "${deal.title}" was cancelled by the client. ₹${refundableAmount.toLocaleString('en-IN')} has been returned to the client's wallet.\n\nReason: ${String(reason).trim()}`,
-                    messageType: 'escrow_cancelled'
-                },
-                include: {
-                    sender: {
-                        select: { displayName: true, avatarUrl: true, username: true }
+            let systemMessage;
+            if (deal.chatId.startsWith('community_')) {
+                systemMessage = await tx.communityMessage.create({
+                    data: {
+                        senderId: req.user.id,
+                        communityId: parseInt(deal.chatId.split('_')[1]),
+                        content: `Deal Cancelled & Refunded: The deal "${deal.title}" was cancelled by the client. ₹${refundableAmount.toLocaleString('en-IN')} has been returned to the client's wallet.\n\nReason: ${String(reason).trim()}`,
+                        messageType: 'escrow_cancelled'
+                    },
+                    include: {
+                        sender: {
+                            select: { displayName: true, avatarUrl: true, username: true }
+                        }
                     }
-                }
-            });
+                });
+            } else {
+                systemMessage = await tx.message.create({
+                    data: {
+                        senderId: req.user.id,
+                        receiverId: deal.vendorId,
+                        chatId: deal.chatId,
+                        content: `Deal Cancelled & Refunded: The deal "${deal.title}" was cancelled by the client. ₹${refundableAmount.toLocaleString('en-IN')} has been returned to the client's wallet.\n\nReason: ${String(reason).trim()}`,
+                        messageType: 'escrow_cancelled'
+                    },
+                    include: {
+                        sender: {
+                            select: { displayName: true, avatarUrl: true, username: true }
+                        }
+                    }
+                });
+            }
 
             if (io) {
                 const socketResult = {

@@ -147,7 +147,7 @@ router.put('/requests/:id/approve', auth, adminOnly, async (req, res) => {
         sendUserNotification(
             io,
             verificationRequest.userId,
-            '🛡️ Account Verified',
+            'Account Verified',
             'Congratulations! Your verification request has been approved. You now have a verified badge.',
             'success',
             { type: 'wallet' }
@@ -191,7 +191,7 @@ router.put('/requests/:id/reject', auth, adminOnly, async (req, res) => {
         sendUserNotification(
             io,
             verificationRequest.userId,
-            '❌ Verification Rejected',
+            'Verification Rejected',
             `Your verification request was rejected. ${adminNote ? 'Reason: ' + adminNote : ''}`,
             'alert',
             { type: 'wallet' }

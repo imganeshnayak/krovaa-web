@@ -1,0 +1,19 @@
+{
+  "name": "Krovaa",
+  "short_name": "Krovaa",
+  "description": "A premium vendor-client chat application designed for seamless professional communication, speed, and visual excellence.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#161b2c",
+  "theme_color": "#161b2c",
+  "orientation": "portrait",
+  "lang": "en",
+  "icons": [
+    {
+      "src": "/krovaa-logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

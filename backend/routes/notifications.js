@@ -60,23 +60,22 @@ router.get('/', auth, async (req, res) => {
 // GET /api/notifications/unread-count — quick unread count
 router.get('/unread-count', auth, async (req, res) => {
     try {
-        const total = await prisma.notification.count({
+        const count = await prisma.notification.count({
             where: {
                 OR: [
                     { targetUserId: null },
                     { targetUserId: req.user.id }
                 ],
-                // Exclude deleted notifications
                 reads: {
-                    none: { userId: req.user.id, isDeleted: true }
+                    none: {
+                        userId: req.user.id
+                    }
                 }
             }
         });
-        const read = await prisma.notificationRead.count({
-            where: { userId: req.user.id, isDeleted: false }
-        });
-        res.json({ count: Math.max(0, total - read) });
+        res.json({ count });
     } catch (err) {
+        console.error('Get unread count error:', err);
         res.status(500).json({ error: 'Failed to get count' });
     }
 });

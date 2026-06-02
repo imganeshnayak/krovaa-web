@@ -598,16 +598,16 @@ router.put('/payouts/:id', auth, adminOnly, checkPermission('payouts'), async (r
 
         // Notify user about payout status change
         const io = req.app.get('io');
-        let notificationTitle = '💸 Payout Update';
+        let notificationTitle = 'Payout Update';
         let notificationMessage = `Your payout request of ₹${payout.amount.toLocaleString('en-IN')} is now ${status}.`;
         let notificationType = 'info';
 
         if (status === 'completed') {
-            notificationTitle = '✅ Payout Completed';
+            notificationTitle = 'Payout Completed';
             notificationMessage = `Your payout of ₹${payout.amount.toLocaleString('en-IN')} has been successfully processed.`;
             notificationType = 'success';
         } else if (status === 'failed' || status === 'cancelled') {
-            notificationTitle = status === 'failed' ? '❌ Payout Failed' : '❌ Payout Cancelled';
+            notificationTitle = status === 'failed' ? 'Payout Failed' : 'Payout Cancelled';
             notificationMessage = `Your payout of ₹${payout.amount.toLocaleString('en-IN')} was ${status}. ${adminNote ? 'Reason: ' + adminNote : 'The amount has been refunded to your wallet.'}`;
             notificationType = 'alert';
         } else if (status === 'processing') {

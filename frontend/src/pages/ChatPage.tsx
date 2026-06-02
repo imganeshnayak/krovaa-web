@@ -6,16 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import {
-  Search, Send, Paperclip, Smile, ArrowLeft, Image, FileText,
-  Mic, MoreVertical, IndianRupee, User as UserIcon, Plus,
-  Trash2, Ban, AlertTriangle, Download, X, CheckCircle2, Loader2, LogOut, Settings, User, HelpCircle, ShieldCheck, EyeOff, Eye, Lock, Shield, Camera, Film, Square,
-  Sparkles, History
-} from "lucide-react";
+import Icon from "@/components/ui/icon";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { useScreenshotProtection } from "@/hooks/useScreenshotProtection";
-import { useMobileScreenshotProtection } from "@/hooks/useMobileScreenshotProtection";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Dialog,
@@ -56,13 +49,13 @@ import {
   deleteMessage, deleteMessagesBatch, getSupportChat, openViewOnceMessage,
   getBestProfiles, getGroupChats, getGroupMessages, sendGroupMessage,
   listCommunities, getCommunity, getCommunityMessages, sendCommunityMessage,
-  Chat as ChatType, Message as MessageType, AuthUser
+  Chat as ChatType, Message as MessageType, AuthUser,
+  BestProfileUser
 } from "@/lib/api";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { socketService } from "@/lib/socket";
 import { getCloudinaryDownloadUrl, downloadFile } from "@/lib/cloudinary";
 import LoadingScreen from "@/components/ui/LoadingScreen";
-import { detectDevice, applyPlatformSpecificProtections } from "@/lib/mobileProtectionService";
 import { createScreenshotNotification } from "@/lib/screenshotNotification";
 import { notifyScreenshotAttempt } from "@/lib/api";
 import FilePreviewDialog from "@/components/chat/FilePreviewDialog";
@@ -242,17 +235,12 @@ const ConversationList = ({
   const [showWelcomeBanner, setShowWelcomeBanner] = useState(() => localStorage.getItem("show_welcome_banner") === "true");
 
   useEffect(() => {
-    if (showWelcomeBanner && isMobile && !searchQuery.trim() && filteredChats.length <= 1) {
-      const timer = setTimeout(() => {
-        setShowWelcomeBanner(false);
-        localStorage.removeItem("show_welcome_banner");
-      }, 5000);
-      return () => clearTimeout(timer);
-    }
+    // Removed auto-dismiss timer to prevent layout shift.
+    // The banner will stay until the user manually dismisses it.
   }, [showWelcomeBanner, isMobile, searchQuery, filteredChats.length]);
 
   return (
-    <div className="flex flex-col h-full min-h-0 bg-white overflow-hidden font-dm-sans">
+    <div className="flex flex-col min-h-screen bg-white overflow-hidden font-dm-sans">
 
       {/* Header */}
       <div className="p-4 border-b border-[#E0E0E0] sticky top-0 z-10 bg-white/80 backdrop-blur-xl">
@@ -266,7 +254,7 @@ const ConversationList = ({
           ) : (
 
             <div className="flex-1 relative mr-2 animate-in fade-in slide-in-from-right-4 duration-200">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Icon name="Search" className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 autoFocus
                 className="h-9 pl-9 pr-9 bg-secondary/80 border-none text-sm placeholder:text-muted-foreground/50 w-full rounded-full focus-visible:ring-1 focus-visible:ring-primary/20"
@@ -280,7 +268,7 @@ const ConversationList = ({
                   onClick={() => setSearchQuery("")}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  <X className="h-4 w-4" />
+                  <Icon name="X" className="h-4 w-4" />
                 </button>
               )}
             </div>
@@ -301,7 +289,7 @@ const ConversationList = ({
               }}
               title={isSearchVisible ? "Close search" : "Search"}
             >
-              {isSearchVisible ? <X className="h-5 w-5" /> : <Search className="h-5 w-5" />}
+              {isSearchVisible ? <Icon name="X" className="h-5 w-5" /> : <Icon name="Search" className="h-5 w-5" />}
             </Button>
 
             {!isSearchVisible && (
@@ -314,7 +302,7 @@ const ConversationList = ({
 
                         <Avatar className="h-full w-full">
                           <AvatarImage src={user.avatarUrl} />
-                          <AvatarFallback className="bg-primary/5 text-primary text-xs font-bold">{user.displayName[0]}</AvatarFallback>
+                          <AvatarFallback className="bg-primary/5 text-primary text-xs font-bold">{user.displayName?.[0] || '?'}</AvatarFallback>
                         </Avatar>
                       </Button>
                     </DropdownMenuTrigger>
@@ -322,7 +310,7 @@ const ConversationList = ({
                       <div className="flex items-center gap-3 p-3 border-b border-border/50 mb-1.5 bg-secondary/30 rounded-lg">
                         <Avatar className="h-10 w-10 border border-primary/10 shadow-sm">
                           <AvatarImage src={user.avatarUrl} />
-                          <AvatarFallback className="bg-primary/5 text-primary font-bold">{user.displayName[0]}</AvatarFallback>
+                          <AvatarFallback className="bg-primary/5 text-primary font-bold">{user.displayName?.[0] || '?'}</AvatarFallback>
                         </Avatar>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-bold text-foreground truncate leading-none mb-1">{user.displayName}</p>
@@ -330,7 +318,7 @@ const ConversationList = ({
                         </div>
                       </div>
                       <DropdownMenuItem onClick={() => window.location.href = '/profile'} className="rounded-md cursor-pointer">
-                        <User className="mr-2 h-4 w-4 opacity-70" /> Profile
+                        <Icon name="User" className="mr-2 h-4 w-4 opacity-70" /> Profile
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => window.location.href = '/wallet'} className="rounded-md cursor-pointer">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="mr-2 h-4 w-4 opacity-70">
@@ -339,11 +327,11 @@ const ConversationList = ({
                         Wallet
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => window.location.href = '/settings'} className="rounded-md cursor-pointer">
-                        <Settings className="mr-2 h-4 w-4 opacity-70" /> Settings
+                        <Icon name="Settings" className="mr-2 h-4 w-4 opacity-70" /> Settings
                       </DropdownMenuItem>
                       <DropdownMenuSeparator className="bg-border/50" />
                       <DropdownMenuItem onClick={onLogout} className="text-destructive focus:text-destructive focus:bg-destructive/10 rounded-md cursor-pointer">
-                        <LogOut className="mr-2 h-4 w-4" /> Logout
+                        <Icon name="LogOut" className="mr-2 h-4 w-4" /> Logout
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -358,7 +346,7 @@ const ConversationList = ({
       {isMobile && !searchQuery.trim() && filteredChats.length <= 1 && showWelcomeBanner && (
         <div className="mx-4 mt-2 mb-4 p-5 rounded-2xl bg-gradient-to-br from-[#00A4EF]/10 to-[#007BB5]/5 border border-[#00A4EF]/20 relative overflow-hidden group shadow-lg shadow-[#00A4EF]/10 animate-in slide-in-from-top-4 duration-500">
           <div className="absolute top-0 right-0 p-3 opacity-[0.05] group-hover:scale-110 transition-transform duration-500">
-            <Shield className="w-14 h-14 text-[#00A4EF]" />
+            <Icon name="Shield" className="w-14 h-14 text-[#00A4EF]" />
           </div>
           <button
             onClick={() => {
@@ -367,7 +355,7 @@ const ConversationList = ({
             }}
             className="absolute top-2 right-2 p-1.5 rounded-full hover:bg-black/5 text-[#1C1C1C40] hover:text-[#1C1C1C] transition-colors z-20"
           >
-            <X className="h-4 w-4" />
+            <Icon name="X" className="h-4 w-4" />
           </button>
           <div className="relative z-10">
             <h2 style={{ fontFamily: "'Inter', sans-serif" }} className="text-xl font-extrabold text-[#1C1C1C] tracking-tight mb-1.5 flex items-center gap-2">
@@ -407,13 +395,13 @@ const ConversationList = ({
                   >
                     <Avatar className="h-10 w-10">
                       <AvatarImage src={foundUser.avatarUrl} />
-                      <AvatarFallback>{foundUser.displayName[0]}</AvatarFallback>
+                      <AvatarFallback>{foundUser.displayName?.[0] || '?'}</AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0 text-left">
                       <p className="font-medium text-foreground truncate">{foundUser.displayName}</p>
                       <p className="text-xs text-muted-foreground truncate">@{foundUser.username}</p>
                     </div>
-                    <Plus className="h-4 w-4 text-muted-foreground" />
+                    <Icon name="Plus" className="h-4 w-4 text-muted-foreground" />
                   </button>
                 ))
               )}
@@ -441,13 +429,9 @@ const ConversationList = ({
             <button
               key={chat.chat_id}
               onClick={() => {
-                if (chat.isKrovAI) {
-                  navigate('/image-generator');
-                } else {
-                  setSelectedChat(chat);
-                }
+                setSelectedChat(chat);
               }}
-              className={`w-full grid grid-cols-[48px_1fr_auto] items-center gap-3 p-4 hover:bg-secondary/60 transition-colors border-b border-border text-left overflow-hidden ${selectedChat?.chat_id === chat.chat_id ? "bg-secondary" : ""} ${chat.isKrovAI ? 'bg-gradient-to-r from-[#FDF4FF]/80 to-[#FDF4FF]/40' : ''}`}
+              className={`w-full grid grid-cols-[48px_1fr_auto] items-center gap-3 p-4 hover:bg-secondary/60 transition-colors border-b border-border text-left overflow-hidden ${selectedChat?.chat_id === chat.chat_id ? "bg-secondary" : ""}`}
             >
               <Avatar className="h-12 w-12 shrink-0">
                 <AvatarImage src={chat.avatar_url} />
@@ -460,19 +444,14 @@ const ConversationList = ({
                 <div className="flex items-center gap-1.5 overflow-hidden">
                   <span className="font-semibold text-foreground text-[14px] truncate leading-tight">{chat.display_name}</span>
                   <div className="flex items-center gap-1 shrink-0">
-                    {chat.isKrovAI ? (
-                      <Badge variant="secondary" className="bg-gradient-to-r from-[#D946EF]/10 to-[#F97316]/10 text-[#D946EF] text-[9px] h-3.5 px-1 border-none flex items-center gap-0.5">
-                        <Sparkles className="h-2.5 w-2.5" />
-                        AI
-                      </Badge>
-                    ) : chat.isOfficial ? (
+                    {chat.isOfficial ? (
                       <Badge variant="secondary" className="bg-primary/10 text-primary text-[9px] h-3.5 px-1 border-none flex items-center gap-0.5">
-                        <ShieldCheck className="h-2.5 w-2.5" />
+                        <Icon name="ShieldCheck" className="h-2.5 w-2.5" />
                         OFFICIAL
                       </Badge>
                     ) : chat.chat_id.startsWith('support_') ? (
                       <Badge variant="secondary" className="bg-indigo-100/80 text-indigo-700 text-[9px] h-3.5 px-1 border-none flex items-center gap-0.5 dark:bg-indigo-900/30 dark:text-indigo-400">
-                        <HelpCircle className="h-2.5 w-2.5" />
+                        <Icon name="HelpCircle" className="h-2.5 w-2.5" />
                         SUPPORT
                       </Badge>
                     ) : chat.verified && (
@@ -542,6 +521,10 @@ const ChatView = ({
   botData,
   setBotData,
   setMessages,
+  recommendationCards,
+  setRecommendationCards,
+  recommendationMeta,
+  setRecommendationMeta,
   selectedCommunity,
 }: {
   selectedChat: ChatType | null;
@@ -565,11 +548,15 @@ const ChatView = ({
   pendingFile: File | null;
   setPendingFile: (file: File | null) => void;
   handleConfirmUpload: (caption: string, viewOnce: boolean) => void;
-  botState: 'IDLE' | 'AWAITING_PROFESSION' | 'AWAITING_CITY' | 'AWAITING_PINCODE' | 'SEARCHING';
-  setBotState: (state: 'IDLE' | 'AWAITING_PROFESSION' | 'AWAITING_CITY' | 'AWAITING_PINCODE' | 'SEARCHING') => void;
-  botData: { city?: string; pincode?: string; profession?: string };
-  setBotData: (data: { city?: string; pincode?: string; profession?: string } | ((prev: { city?: string; pincode?: string; profession?: string }) => { city?: string; pincode?: string; profession?: string })) => void;
+  botState: 'IDLE' | 'AWAITING_PROFESSION' | 'AWAITING_LOCATION' | 'SEARCHING';
+  setBotState: (state: 'IDLE' | 'AWAITING_PROFESSION' | 'AWAITING_LOCATION' | 'SEARCHING') => void;
+  botData: { city?: string; pincode?: string; profession?: string; skills?: string[] };
+  setBotData: (data: { city?: string; pincode?: string; profession?: string; skills?: string[] } | ((prev: { city?: string; pincode?: string; profession?: string; skills?: string[] }) => { city?: string; pincode?: string; profession?: string; skills?: string[] })) => void;
   setMessages: React.Dispatch<React.SetStateAction<MessageType[]>>;
+  recommendationCards: Record<number, BestProfileUser[]>;
+  setRecommendationCards: React.Dispatch<React.SetStateAction<Record<number, BestProfileUser[]>>>;
+  recommendationMeta: Record<number, { total: number; hasMore: boolean }>;
+  setRecommendationMeta: React.Dispatch<React.SetStateAction<Record<number, { total: number; hasMore: boolean }>>>;
   isLoading: boolean;
   isRecordingVoice: boolean;
   recordingSeconds: number;
@@ -692,7 +679,7 @@ const ChatView = ({
 
         <div className="text-center relative z-10 p-8">
           <div className="bg-[#00A4EF]/10 h-24 w-24 rounded-3xl flex items-center justify-center mx-auto mb-8 border border-[#00A4EF]/20 shadow-2xl shadow-[#00A4EF]/10 -rotate-6 animate-float">
-            <Send className="h-10 w-10 text-[#00A4EF] opacity-80" />
+            <Icon name="Send" className="h-10 w-10 text-[#00A4EF] opacity-80" />
           </div>
           <h2 style={{ fontFamily: "'Inter', sans-serif" }} className="text-3xl font-bold text-[#1C1C1C] mb-4 tracking-tight">Welcome to Krovaa</h2>
           <p className="max-w-[280px] mx-auto text-sm text-[#1C1C1C60] leading-relaxed font-light">
@@ -712,7 +699,7 @@ const ChatView = ({
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-xl animate-in fade-in duration-200 pointer-events-auto">
           <div className="text-center p-6 scale-in-95 animate-in duration-300">
             <div className="bg-destructive/10 p-4 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4 border 2px border-destructive/30 shadow-lg">
-              <Shield className="h-10 w-10 text-destructive animate-pulse" />
+              <Icon name="Shield" className="h-10 w-10 text-destructive animate-pulse" />
             </div>
             <h2 className="text-2xl font-bold text-foreground mb-3 tracking-tight">Screenshot Detected</h2>
             <p className="text-sm text-muted-foreground mb-2">Unauthorized screen capture attempt blocked.</p>
@@ -730,7 +717,7 @@ const ChatView = ({
       )}
 
       {/* Chat header */}
-      <div className={`flex items-center gap-3 p-4 border-b border-white/5 z-20 min-h-[73px] flex-shrink-0 ${selectedChat?.isKrovAI ? 'bg-gradient-to-r from-[#FDF4FF]/90 to-[#FDF4FF]/60 backdrop-blur-xl' : 'bg-background/40 backdrop-blur-xl'}`}>
+      <div className="flex items-center gap-3 p-4 border-b border-white/5 z-20 min-h-[73px] flex-shrink-0 bg-background/40 backdrop-blur-xl">
 
         {isSelectionMode ? (
           <div className="flex items-center justify-between w-full">
@@ -739,7 +726,7 @@ const ChatView = ({
                 onClick={() => setSelectedMessages([])}
                 className="p-1 hover:bg-secondary rounded-full transition-colors"
               >
-                <X className="h-6 w-6 text-foreground" />
+                <Icon name="X" className="h-6 w-6 text-foreground" />
               </button>
               <h3 className="font-semibold text-lg">{selectedMessages.length}</h3>
             </div>
@@ -751,7 +738,7 @@ const ChatView = ({
                     size="icon"
                     className="text-destructive hover:text-destructive hover:bg-destructive/10"
                   >
-                    <Trash2 className="h-5 w-5" />
+                    <Icon name="Trash2" className="h-5 w-5" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56 bg-background border-border">
@@ -759,7 +746,7 @@ const ChatView = ({
                     onClick={() => onDeleteMessagesBatch(selectedMessages, 'me')}
                     className="cursor-pointer gap-2"
                   >
-                    <EyeOff className="h-4 w-4" />
+                    <Icon name="EyeOff" className="h-4 w-4" />
                     <span>Delete for Me</span>
                   </DropdownMenuItem>
                   {(user?.role === 'admin' || user?.role === 'staff' || selectedMessages.every(id => messages.find(m => m.id === id)?.senderId === user?.id)) && (
@@ -767,7 +754,7 @@ const ChatView = ({
                       onClick={() => onDeleteMessagesBatch(selectedMessages, 'everyone')}
                       className="text-destructive focus:text-destructive cursor-pointer gap-2"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Icon name="Trash2" className="h-4 w-4" />
                       <span>Delete for Everyone</span>
                     </DropdownMenuItem>
                   )}
@@ -779,7 +766,7 @@ const ChatView = ({
           <>
             {isMobile && (
               <button onClick={() => setSelectedChat(null)}>
-                <ArrowLeft className="h-5 w-5 text-foreground" />
+                <Icon name="ArrowLeft" className="h-5 w-5 text-foreground" />
               </button>
             )}
             {selectedChat.chat_id.startsWith("community_") && selectedCommunity ? (
@@ -807,14 +794,9 @@ const ChatView = ({
               <div className="flex items-center gap-1.5">
                 <h3 style={{ fontFamily: "'Syne', sans-serif" }} className="font-bold text-foreground tracking-tight truncate">{selectedChat.display_name}</h3>
 
-                {selectedChat.isKrovAI ? (
-                  <Badge variant="secondary" className="bg-gradient-to-r from-[#D946EF]/10 to-[#F97316]/10 text-[#D946EF] text-[10px] px-1.5 border-none flex items-center gap-0.5">
-                    <Sparkles className="h-3 w-3" />
-                    AI
-                  </Badge>
-                ) : selectedChat.isOfficial ? (
+                {selectedChat.isOfficial ? (
                   <Badge variant="secondary" className="bg-primary/10 text-primary text-[10px] px-1.5 border-none flex items-center gap-0.5">
-                    <ShieldCheck className="h-3.5 w-3.5" />
+                    <Icon name="ShieldCheck" className="h-3.5 w-3.5" />
                     OFFICIAL
                   </Badge>
                 ) : selectedChat.verified && (
@@ -825,21 +807,12 @@ const ChatView = ({
                 {selectedChat.isOfficial ? "Official Support Channel" : `@${selectedChat.username}`}
               </p>
             </div>
-            {selectedChat.isKrovAI ? (
-              <div className="flex gap-2 items-center">
-                <button
-                  onClick={() => navigate('/image-generator')}
-                  className="p-2 hover:bg-[#D946EF]/10 rounded-lg transition-colors text-[#1C1C1C]/40 hover:text-[#D946EF]"
-                >
-                  <History className="h-5 w-5" />
-                </button>
-              </div>
-            ) : selectedChat.chat_id.startsWith("community_") ? (
+            {selectedChat.chat_id.startsWith("community_") ? (
               <div className="flex gap-1">
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button variant="ghost" size="icon" title="View Members">
-                      <UserIcon className="h-5 w-5" />
+                      <Icon name="User" className="h-5 w-5" />
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-64 p-3" align="end">
@@ -880,7 +853,7 @@ const ChatView = ({
             ) : !(selectedChat.isOfficial && (user?.role !== 'admin' && user?.role !== 'staff')) && (
               <div className="flex gap-1">
                 <Button variant="ghost" size="icon" onClick={() => navigate(`/${selectedChat.username}`)}>
-                  <UserIcon className="h-5 w-5" />
+                  <Icon name="User" className="h-5 w-5" />
                 </Button>
                 <Button
                   variant="ghost"
@@ -901,29 +874,28 @@ const ChatView = ({
         )}
       </div>
 
-      {/* Persistent Ad Banner below header */}
-      {!adDismissed && chatAd && selectedChat && !selectedChat.isOfficial && (
-        <div className="z-10 shadow-lg border-b border-white/5 bg-background/60 backdrop-blur-md">
-          <AdBanner
-            ad={chatAd}
-            onDismiss={() => {
-              setAdDismissed(true);
-              sessionStorage.setItem(`ad_dismissed_${selectedChat!.chat_id}`, '1');
-            }}
-          />
-        </div>
-      )}
-
       {/* Messages */}
       <div className="flex-1 relative overflow-hidden min-h-0 bg-[#050810]/30" data-nocontext>
 
+        {/* Persistent Ad Banner below header (Floating to prevent Layout Shift) */}
+        {!adDismissed && chatAd && selectedChat && !selectedChat.isOfficial && (
+          <div className="absolute top-0 left-0 right-0 z-20 shadow-lg border-b border-white/5 bg-background/60 backdrop-blur-md animate-in slide-in-from-top-2 duration-300">
+            <AdBanner
+              ad={chatAd}
+              onDismiss={() => {
+                setAdDismissed(true);
+                sessionStorage.setItem(`ad_dismissed_${selectedChat!.chat_id}`, '1');
+              }}
+            />
+          </div>
+        )}
 
         <div
-          className={`h-full overflow-y-auto scrollbar-thin scrollbar-thumb-primary/20 scroll-smooth relative z-10 ${selectedChat?.isKrovAI ? 'bg-[#FDF4FF]/30' : ''}`}
+          className="h-full overflow-y-auto scrollbar-thin scrollbar-thumb-primary/20 scroll-smooth relative z-10"
           data-nocontext
         >
           <div
-            className={`px-4 pt-4 pb-2 space-y-1 chat-message-container privacy-protected ${selectedChat?.isKrovAI ? 'bg-[#FDF4FF]/30' : ''}`}
+            className="px-4 pt-4 pb-2 space-y-1 chat-message-container privacy-protected"
             style={{
               marginBottom: 12
             }}
@@ -973,7 +945,7 @@ const ChatView = ({
                       {isSelectionMode && (
                         <div className={`absolute ${isMine ? "left-2" : "right-2"} z-10`}>
                           <div className={`h-5 w-5 rounded-full border-2 ${selectedMessages.includes(msg.id) ? "bg-primary border-primary flex items-center justify-center" : "border-muted-foreground"}`}>
-                            {selectedMessages.includes(msg.id) && <CheckCircle2 className="h-3 w-3 text-primary-foreground" />}
+                            {selectedMessages.includes(msg.id) && <Icon name="CheckCircle2" className="h-3 w-3 text-primary-foreground" />}
                           </div>
                         </div>
                       )}
@@ -982,7 +954,7 @@ const ChatView = ({
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-secondary">
-                                <MoreVertical className="h-4 w-4 text-muted-foreground" />
+                                <Icon name="MoreVertical" className="h-4 w-4 text-muted-foreground" />
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align={isMine ? "end" : "start"} className="w-56 bg-card border-border">
@@ -993,7 +965,7 @@ const ChatView = ({
                                 }}
                                 className="gap-2 cursor-pointer"
                               >
-                                <EyeOff className="h-4 w-4" /> Delete for Me
+                                <Icon name="EyeOff" className="h-4 w-4" /> Delete for Me
                               </DropdownMenuItem>
 
                               {(isMine || user?.role === 'admin') && (
@@ -1004,7 +976,7 @@ const ChatView = ({
                                   }}
                                   className="text-destructive focus:text-destructive gap-2 cursor-pointer"
                                 >
-                                  <Trash2 className="h-4 w-4" /> Delete for Everyone
+                                  <Icon name="Trash2" className="h-4 w-4" /> Delete for Everyone
                                 </DropdownMenuItem>
                               )}
                               <DropdownMenuItem
@@ -1013,7 +985,7 @@ const ChatView = ({
                                   toggleMessageSelection(msg.id);
                                 }}
                               >
-                                <CheckCircle2 className="mr-2 h-4 w-4" /> Select
+                                <Icon name="CheckCircle2" className="mr-2 h-4 w-4" /> Select
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -1058,7 +1030,7 @@ const ChatView = ({
                             }}
                           >
                             <div className={`h-8 w-8 rounded-full flex items-center justify-center ${isMine ? 'bg-white/20' : 'bg-[#00A4EF]/10 text-[#00A4EF]'}`}>
-                              {msg.isOpened ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                              {msg.isOpened ? <Icon name="EyeOff" className="h-4 w-4" /> : <Icon name="Eye" className="h-4 w-4" />}
                             </div>
                             <div className="flex flex-col">
                               <span className="text-sm font-bold">
@@ -1078,10 +1050,10 @@ const ChatView = ({
                                   : 'bg-[#00A4EF]/10 border border-[#00A4EF]/20'
                                 }`}>
                                 {msg.messageType === 'escrow_created' || msg.message_type === 'escrow_created'
-                                  ? <Plus className="h-4 w-4 text-[#00A4EF]" />
+                                  ? <Icon name="Plus" className="h-4 w-4 text-[#00A4EF]" />
                                   : (msg.messageType === 'escrow_released' || msg.message_type === 'escrow_released')
-                                    ? <IndianRupee className="h-4 w-4 text-[#0FB881]" />
-                                    : <ShieldCheck className="h-4 w-4 text-[#00A4EF]" />
+                                    ? <Icon name="IndianRupee" className="h-4 w-4 text-[#0FB881]" />
+                                    : <Icon name="ShieldCheck" className="h-4 w-4 text-[#00A4EF]" />
                                 }
                               </div>
                               <div className="flex-1 min-w-0">
@@ -1114,7 +1086,14 @@ const ChatView = ({
 
                             {/* Message body */}
                             <div className={`text-[13px] leading-relaxed font-normal ${(msg.messageType === 'escrow_released' || msg.message_type === 'escrow_released') ? 'text-[#0B8C62]/80' : 'text-[#1C1C1C]'}`}>
-                              {isAdminMsg ? (
+                              {isAdminMsg && msg.content.startsWith('__REC__') ? (
+                                <RecommendationCards
+                                  cards={recommendationCards[msg.id] || []}
+                                  meta={recommendationMeta[msg.id]}
+                                  navigate={navigate}
+                                  username={selectedChat?.username || ''}
+                                />
+                              ) : isAdminMsg ? (
                                 msg.content.split('\n').map((line, i) => (
                                   <React.Fragment key={i}>
                                     {line.split(/(\*\*.*?\*\*)/).map((part, j) => {
@@ -1144,7 +1123,7 @@ const ChatView = ({
                                   : "border-white/10 text-white/70 hover:bg-white/5"
                                   }`}
                               >
-                                View Details <ArrowLeft className="h-3.5 w-3.5 rotate-180" />
+                                View Details <Icon name="ArrowLeft" className="h-3.5 w-3.5 rotate-180" />
                               </button>
                             )}
                           </div>
@@ -1161,11 +1140,11 @@ const ChatView = ({
                                   setActiveMessageMenu(msg);
                                 }}
                               >
-                                <MoreVertical className="h-3.5 w-3.5" />
+                                <Icon name="MoreVertical" className="h-3.5 w-3.5" />
                               </button>
                             )}
                             <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.2em] opacity-70">
-                              <Mic className="h-3.5 w-3.5" />
+                              <Icon name="Mic" className="h-3.5 w-3.5" />
                               Voice message
                             </div>
                             <audio
@@ -1192,13 +1171,13 @@ const ChatView = ({
                                 <img src={msg.attachmentUrl} alt="attachment" className="max-w-full rounded h-48 object-cover shadow-sm border border-white/10 select-none pointer-events-none" />
                                 {msg.isUploading && (
                                   <div className="absolute inset-0 bg-black/40 rounded flex items-center justify-center backdrop-blur-sm">
-                                    <Loader2 className="h-8 w-8 text-white animate-spin" />
+                                    <Icon name="Loader2" className="h-8 w-8 text-white animate-spin" />
                                   </div>
                                 )}
                               </div>
                             ) : (
                               <div className="flex items-center gap-2 overflow-hidden">
-                                <FileText className="h-5 w-5 shrink-0" />
+                                <Icon name="FileText" className="h-5 w-5 shrink-0" />
                                 <button
                                   onClick={(e) => {
                                     e.preventDefault();
@@ -1207,7 +1186,7 @@ const ChatView = ({
                                   className="text-xs underline truncate hover:text-primary transition-colors flex items-center gap-1"
                                 >
                                   {msg.attachmentName || 'Download File'}
-                                  <Download className="h-3 w-3" />
+                                  <Icon name="Download" className="h-3 w-3" />
                                 </button>
                               </div>
                             )}
@@ -1309,11 +1288,45 @@ const ChatView = ({
           </div>
         )}
 
+        {selectedChat?.isOfficial && botState === 'AWAITING_LOCATION' && (
+          <div className="flex flex-col gap-2 mb-3 max-w-[320px]">
+            <p className="text-[10px] text-muted-foreground font-medium px-1">City or Pincode (optional):</p>
+            <div className="flex gap-2">
+              <Input
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                placeholder="e.g. Mumbai or 400001"
+                className="h-9 bg-card border-border rounded-xl text-sm flex-1"
+                onKeyDown={(e) => { if (e.key === 'Enter' && newMessage.trim()) handleSend(); }}
+              />
+              <Button
+                onClick={handleSend}
+                size="sm"
+                className="bg-primary hover:bg-primary/90 rounded-xl"
+                disabled={!newMessage.trim()}
+              >
+                Search
+              </Button>
+            </div>
+            {(user?.city || user?.pincode) && (
+              <button
+                onClick={() => {
+                  setBotData(prev => ({ ...prev, city: user.city, pincode: user.pincode }));
+                  setBotState('SEARCHING');
+                }}
+                className="text-[10px] text-primary font-semibold hover:underline flex items-center gap-1 self-start"
+              >
+                <Icon name="MapPin" className="w-3 h-3" /> Use my location{user?.city ? ` (${user.city}${user?.pincode ? `, ${user.pincode}` : ''})` : ''}
+              </button>
+            )}
+          </div>
+        )}
+
         {botState !== 'IDLE' && (
           <div className="flex items-center justify-between mb-2">
             <span className="text-[10px] uppercase tracking-widest font-bold text-primary animate-pulse flex items-center gap-1.5">
               <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-              Bot: {botState === 'AWAITING_PROFESSION' ? "Awaiting Profession..." : botState === 'AWAITING_CITY' ? "Awaiting City..." : botState === 'AWAITING_PINCODE' ? "Awaiting Pincode..." : "Searching Profiles..."}
+              Bot: {botState === 'AWAITING_PROFESSION' ? "Awaiting Profession..." : botState === 'AWAITING_LOCATION' ? "Awaiting Location..." : "Searching Profiles..."}
             </span>
             <button
               onClick={() => {
@@ -1334,13 +1347,13 @@ const ChatView = ({
                 onClick={() => navigate('/image-generator/pricing')}
                 className="mt-2 flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-[#D946EF] to-[#F97316] text-white text-sm font-semibold hover:opacity-90 transition-opacity w-full justify-center"
               >
-                <Sparkles className="h-4 w-4" />
+                <Icon name="Sparkles" className="h-4 w-4" />
                 Upgrade Now
               </button>
             )}
           </div>
         )}
-        <div className={`flex items-center gap-2 ${selectedChat?.isKrovAI ? 'bg-[#FDF4FF]/80 backdrop-blur-xl border-t border-[#D946EF]/10' : ''}`}>
+        <div className="flex items-center gap-2">
           {isRecordingVoice && (
             <div className="flex items-center gap-2 rounded-full bg-destructive/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-destructive shrink-0">
               <span className="h-2 w-2 rounded-full bg-destructive animate-pulse" />
@@ -1350,7 +1363,7 @@ const ChatView = ({
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="ghost" size="icon" className="shrink-0">
-                <Smile className="h-5 w-5 text-muted-foreground" />
+                <Icon name="Smile" className="h-5 w-5 text-muted-foreground" />
               </Button>
             </PopoverTrigger>
             <EmojiPicker onSelect={(emoji) => setNewMessage(newMessage + emoji)} />
@@ -1362,7 +1375,7 @@ const ChatView = ({
                 size="icon"
                 className="shrink-0"
               >
-                <Paperclip className="h-5 w-5 text-muted-foreground" />
+                <Icon name="Paperclip" className="h-5 w-5 text-muted-foreground" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-48 bg-card border-border">
@@ -1372,7 +1385,7 @@ const ChatView = ({
                   setTimeout(() => fileInputRef.current?.click(), 50);
                 }}
               >
-                <Camera className="h-4 w-4 mr-2" />
+                <Icon name="Camera" className="h-4 w-4 mr-2" />
                 <span>Camera</span>
               </DropdownMenuItem>
               <DropdownMenuItem
@@ -1381,7 +1394,7 @@ const ChatView = ({
                   setTimeout(() => fileInputRef.current?.click(), 50);
                 }}
               >
-                <Image className="h-4 w-4 mr-2" />
+                <Icon name="Image" className="h-4 w-4 mr-2" />
                 <span>Photos</span>
               </DropdownMenuItem>
               <DropdownMenuItem
@@ -1390,7 +1403,7 @@ const ChatView = ({
                   setTimeout(() => fileInputRef.current?.click(), 50);
                 }}
               >
-                <Film className="h-4 w-4 mr-2" />
+                <Icon name="Film" className="h-4 w-4 mr-2" />
                 <span>Videos</span>
               </DropdownMenuItem>
               <DropdownMenuItem
@@ -1399,7 +1412,7 @@ const ChatView = ({
                   setTimeout(() => fileInputRef.current?.click(), 50);
                 }}
               >
-                <FileText className="h-4 w-4 mr-2" />
+                <Icon name="FileText" className="h-4 w-4 mr-2" />
                 <span>Documents</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -1413,8 +1426,8 @@ const ChatView = ({
           />
           <Input
             ref={messageInputRef}
-            className={`${selectedChat?.isKrovAI ? 'bg-white/60 border-[#D946EF]/20 focus-visible:ring-[#D946EF]/30' : 'bg-secondary border-border'}`}
-            placeholder={selectedChat?.isKrovAI ? "Ask me anything..." : "Type a message..."}
+            className="bg-secondary border-border"
+            placeholder="Type a message..."
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSend()}
@@ -1424,17 +1437,17 @@ const ChatView = ({
             autoComplete="off"
           />
           {newMessage.trim() ? (
-            <Button size="icon" onClick={handleSend} className={`shrink-0 ${selectedChat?.isKrovAI ? 'bg-gradient-to-r from-[#D946EF] to-[#F97316] hover:opacity-90 text-white' : ''}`}>
-              <Send className="h-4 w-4" />
+            <Button size="icon" onClick={handleSend} className="shrink-0">
+              <Icon name="Send" className="h-4 w-4" />
             </Button>
           ) : (
             <Button
               size="icon"
               onClick={isRecordingVoice ? stopVoiceRecording : startVoiceRecording}
-              className={`shrink-0 ${isRecordingVoice ? 'bg-destructive hover:bg-destructive/90 text-destructive-foreground animate-pulse' : selectedChat?.isKrovAI ? 'bg-gradient-to-r from-[#D946EF] to-[#F97316] hover:opacity-90 text-white' : ''}`}
+              className={`shrink-0 ${isRecordingVoice ? 'bg-destructive hover:bg-destructive/90 text-destructive-foreground animate-pulse' : ''}`}
               aria-label={isRecordingVoice ? 'Stop voice recording' : 'Start voice recording'}
             >
-              {isRecordingVoice ? <Square className="h-4 w-4 fill-current" /> : <Mic className="h-4 w-4" />}
+              {isRecordingVoice ? <Icon name="Square" className="h-4 w-4 fill-current" /> : <Icon name="Mic" className="h-4 w-4" />}
             </Button>
           )}
         </div>
@@ -1476,7 +1489,7 @@ const ChatView = ({
               <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm rounded-lg pointer-events-none">
                 <div className="text-center p-6 text-white">
                   <div className="bg-white/20 p-4 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4 border border-white/30 backdrop-blur-md">
-                    <Eye className="h-8 w-8 text-white" />
+                    <Icon name="Eye" className="h-8 w-8 text-white" />
                   </div>
                   <p className="text-lg font-bold">Press and hold to view</p>
                   <p className="text-xs opacity-70 mt-1">Screen capture is blocked</p>
@@ -1490,7 +1503,7 @@ const ChatView = ({
                 className="rounded-full bg-black/50 hover:bg-black/70 border-none text-white h-10 w-10 shadow-lg backdrop-blur-sm"
                 onClick={() => setPreviewImage(null)}
               >
-                <ArrowLeft className="h-5 w-5 rotate-180" />
+                <Icon name="ArrowLeft" className="h-5 w-5 rotate-180" />
               </Button>
               {!isPreviewViewOnce && (
                 <button
@@ -1500,7 +1513,7 @@ const ChatView = ({
                   }}
                   className="flex items-center justify-center h-10 w-10 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg transition-transform active:scale-95"
                 >
-                  <Download className="h-5 w-5" />
+                  <Icon name="Download" className="h-5 w-5" />
                 </button>
               )}
             </div>
@@ -1533,7 +1546,7 @@ const ChatView = ({
                     setActiveMessageMenu(null);
                   }}
                 >
-                  <EyeOff className="mr-4 h-6 w-6" /> Delete for Me
+                  <Icon name="EyeOff" className="mr-4 h-6 w-6" /> Delete for Me
                 </Button>
 
                 {(activeMessageMenu?.senderId === user?.id || user?.role === 'admin') && (
@@ -1545,7 +1558,7 @@ const ChatView = ({
                       setActiveMessageMenu(null);
                     }}
                   >
-                    <Trash2 className="mr-4 h-6 w-6" /> Delete for Everyone
+                    <Icon name="Trash2" className="mr-4 h-6 w-6" /> Delete for Everyone
                   </Button>
                 )}
               </>
@@ -1558,20 +1571,77 @@ const ChatView = ({
                 setActiveMessageMenu(null);
               }}
             >
-              <CheckCircle2 className="mr-4 h-6 w-6" /> Select More
+              <Icon name="CheckCircle2" className="mr-4 h-6 w-6" /> Select More
             </Button>
             <DrawerClose asChild>
               <Button
                 variant="secondary"
                 className="w-full h-14 text-lg font-semibold rounded-2xl px-6 bg-secondary text-secondary-foreground"
               >
-                <X className="mr-4 h-6 w-6" /> Cancel
+                <Icon name="X" className="mr-4 h-6 w-6" /> Cancel
               </Button>
             </DrawerClose>
           </div>
         </DrawerContent>
       </Drawer>
     </div >
+  );
+};
+
+const RecommendationCards = ({ cards, meta, navigate, username }: {
+  cards: BestProfileUser[];
+  meta?: { total: number; hasMore: boolean };
+  navigate: ReturnType<typeof useNavigate>;
+  username: string;
+}) => {
+  if (cards.length === 0) return null;
+  return (
+    <div className="space-y-2 py-1">
+      <p className="text-xs font-bold opacity-80 mb-2">
+        {meta?.total || cards.length} matching profile{cards.length !== 1 ? 's' : ''}
+        {meta?.hasMore ? ` (${meta.total - cards.length} more)` : ''}
+      </p>
+      <div className="grid grid-cols-2 gap-2">
+        {cards.slice(0, 6).map(user => (
+          <div
+            key={user.id}
+            onClick={() => navigate(`/${user.username}`)}
+            className="flex items-center gap-2.5 bg-white border border-slate-200 rounded-xl p-2.5 cursor-pointer hover:border-blue-300 hover:shadow-sm transition-all active:scale-[0.97]"
+          >
+            <Avatar className="h-10 w-10 shrink-0 ring-2 ring-slate-100">
+              <AvatarImage src={user.avatarUrl || undefined} />
+              <AvatarFallback className="bg-blue-100 text-blue-700 text-xs font-bold">
+                {(user.displayName || user.username)[0]?.toUpperCase() || '?'}
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-bold text-slate-900 truncate leading-tight">
+                {user.displayName || user.username}
+              </p>
+              <p className="text-[9px] text-slate-500 truncate leading-tight">
+                {user.profession || ''}
+              </p>
+              <div className="flex items-center gap-1 mt-0.5">
+                {user.verified && (
+                  <span className="text-[8px] bg-blue-100 text-blue-600 font-bold px-1 rounded">✓</span>
+                )}
+                {user.avgRating > 0 && (
+                  <span className="text-[8px] text-amber-600 font-bold">★{user.avgRating}</span>
+                )}
+                {user.score > 0 && (
+                  <span className="text-[8px] text-green-600 font-medium">{Math.round(user.score * 100)}%</span>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      {cards.length > 6 && (
+        <p className="text-[10px] text-blue-600 font-semibold text-center pt-1">
+          +{cards.length - 6} more profiles
+        </p>
+      )}
+    </div>
   );
 };
 
@@ -1639,19 +1709,19 @@ const ChatMoreMenu = ({
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="icon">
-            <MoreVertical className="h-5 w-5" />
+            <Icon name="MoreVertical" className="h-5 w-5" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48 bg-card border-border">
           <DropdownMenuItem onClick={() => setIsClearDialogOpen(true)} className="text-foreground">
-            <Trash2 className="mr-2 h-4 w-4" /> Clear History
+            <Icon name="Trash2" className="mr-2 h-4 w-4" /> Clear History
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => setIsBlockDialogOpen(true)} className="text-destructive focus:text-destructive">
-            <Ban className="mr-2 h-4 w-4" /> Block User
+            <Icon name="Ban" className="mr-2 h-4 w-4" /> Block User
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => setIsReportDialogOpen(true)} className="text-foreground">
-            <AlertTriangle className="mr-2 h-4 w-4" /> Report User
+            <Icon name="AlertTriangle" className="mr-2 h-4 w-4" /> Report User
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -1749,8 +1819,10 @@ const ChatPage = () => {
   const [newMessage, setNewMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
-  const [botState, setBotState] = useState<'IDLE' | 'AWAITING_PROFESSION' | 'AWAITING_CITY' | 'AWAITING_PINCODE' | 'SEARCHING'>('IDLE');
-  const [botData, setBotData] = useState<{ city?: string; pincode?: string; profession?: string }>({});
+  const [botState, setBotState] = useState<'IDLE' | 'AWAITING_PROFESSION' | 'AWAITING_LOCATION' | 'SEARCHING'>('IDLE');
+  const [botData, setBotData] = useState<{ city?: string; pincode?: string; profession?: string; skills?: string[] }>({});
+  const [recommendationCards, setRecommendationCards] = useState<Record<number, BestProfileUser[]>>({});
+  const [recommendationMeta, setRecommendationMeta] = useState<Record<number, { total: number; hasMore: boolean }>>({});
   const [error, setError] = useState("");
   const messageInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1819,13 +1891,28 @@ const ChatPage = () => {
   }, []);
 
 
-  const loadChats = useCallback(async () => {
-    setIsLoading(true);
+  const loadChats = useCallback(async (showSpinner = true) => {
+    // Only show loading spinner if we have no chats yet (first load)
+    // On subsequent calls (background refresh), keep showing existing chats
+    if (showSpinner) setIsLoading(true);
     try {
-      const data = await getChatList();
-      try {
-        const groups = await getGroupChats();
-        const mappedGroups: ChatType[] = groups.map(g => ({
+      // Run all API calls in parallel to massively speed up loading time
+      const [chatListResult, groupsResult, communitiesResult, supportChatResult] = await Promise.allSettled([
+        getChatList(),
+        getGroupChats(),
+        listCommunities(),
+        user?.role !== 'admin' && user?.role !== 'staff' && user?.id ? getSupportChat() : Promise.resolve(null)
+      ]);
+
+      if (chatListResult.status === 'rejected') {
+        throw chatListResult.reason;
+      }
+      
+      const data = chatListResult.value;
+
+      // Handle Group Chats
+      if (groupsResult.status === 'fulfilled') {
+        const mappedGroups: ChatType[] = groupsResult.value.map(g => ({
           chat_id: `group_${g.id}`,
           last_message: g.messages?.[0]?.content || "Group Chat",
           last_message_time: g.messages?.[0]?.createdAt || new Date().toISOString(),
@@ -1838,14 +1925,13 @@ const ChatPage = () => {
           isOfficial: false,
         }));
         data.push(...mappedGroups);
-        data.sort((a, b) => new Date(b.last_message_time).getTime() - new Date(a.last_message_time).getTime());
-      } catch (err) {
-        console.error("Failed to load group chats", err);
+      } else {
+        console.error("Failed to load group chats", groupsResult.reason);
       }
-      try {
-        const communities = await listCommunities();
-        // only show communities we are a member of
-        const joinedCommunities = communities.filter(c => c.members?.some((m: any) => m.userId === user?.id));
+
+      // Handle Community Chats
+      if (communitiesResult.status === 'fulfilled') {
+        const joinedCommunities = communitiesResult.value.filter(c => c.members?.some((m: any) => m.userId === user?.id));
         const mappedCommunities: ChatType[] = joinedCommunities.map(c => ({
           chat_id: `community_${c.id}`,
           last_message: "Community Chat",
@@ -1859,54 +1945,35 @@ const ChatPage = () => {
           isOfficial: false,
         }));
         data.push(...mappedCommunities);
-        data.sort((a, b) => new Date(b.last_message_time).getTime() - new Date(a.last_message_time).getTime());
-      } catch (err) {
-        console.error("Failed to load communities", err);
+      } else {
+        console.error("Failed to load communities", communitiesResult.reason);
       }
-      if (user?.role !== 'admin' && user?.role !== 'staff' && user?.id) {
-        const supportChatId = `support_${user.id}`;
+
+      // Handle Support Chat
+      if (supportChatResult.status === 'fulfilled' && supportChatResult.value) {
+        const supportChatId = `support_${user?.id}`;
         const hasSupportChat = data.some((chat) => chat.chat_id === supportChatId);
 
         if (!hasSupportChat) {
-          try {
-            const { admin } = await getSupportChat();
-            data.unshift({
-              chat_id: supportChatId,
-              last_message: "Official Support & Notifications",
-              last_message_time: new Date().toISOString(),
-              user_id: admin.id,
-              display_name: "Krovaa",
-              avatar_url: "/krovaa-logo.svg?v=3",
-              username: "krovaa",
-              unread_count: 0,
-              verified: true,
-              isOfficial: true,
-            });
-          } catch {
-            // Leave the list as-is if support cannot be resolved right now.
-          }
+          data.unshift({
+            chat_id: supportChatId,
+            last_message: "Official Support & Notifications",
+            last_message_time: new Date().toISOString(),
+            user_id: supportChatResult.value.admin.id,
+            display_name: "Krovaa",
+            avatar_url: "/krovaa-logo.svg?v=3",
+            username: "krovaa",
+            unread_count: 0,
+            verified: true,
+            isOfficial: true,
+          });
         }
       }
 
+      // Final Sort
+      data.sort((a, b) => new Date(b.last_message_time).getTime() - new Date(a.last_message_time).getTime());
+      
       setChats(data);
-          // Inject KrovAI chat row
-          const isImageGeneratorEnabled = localStorage.getItem("image_generator_enabled") !== "false";
-          const krovaiChatId = `krovai_${user?.id}`;
-          const hasKrovaiChat = data.some((chat) => chat.chat_id === krovaiChatId);
-          if (isImageGeneratorEnabled && !hasKrovaiChat && user?.role !== 'admin' && user?.role !== 'staff' && user?.id) {
-            data.unshift({
-              chat_id: krovaiChatId,
-              last_message: "Generate images & chat with AI!",
-              last_message_time: new Date().toISOString(),
-              user_id: 0,
-              display_name: "KrovAI",
-              avatar_url: "/ai-sparkle.svg",
-              username: "krovai",
-              unread_count: 0,
-              verified: false,
-              isKrovAI: true,
-            });
-          }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load chats");
     } finally {
@@ -2027,7 +2094,8 @@ const ChatPage = () => {
       return;
     }
     if (user) {
-      loadChats();
+      // Show spinner only if chat list is empty (first time), silent refresh otherwise
+      loadChats(chats.length === 0);
       if (!socketConnectedRef.current) {
         socketService.connect(user.id);
         socketConnectedRef.current = true;
@@ -2057,11 +2125,11 @@ const ChatPage = () => {
         });
         // Mark as read if we are looking at this chat
         if (msg.senderId !== user.id) {
-          markMessagesAsRead(selectedChat.chat_id).then(() => loadChats());
+          markMessagesAsRead(selectedChat.chat_id).then(() => loadChats(false));
         }
       } else {
         // Always refresh chat list to show latest message/unread count
-        loadChats();
+        loadChats(false);
       }
     });
 
@@ -2090,7 +2158,7 @@ const ChatPage = () => {
           prev.map((m) => (m.id === msg.id ? msg : m))
         );
       }
-      loadChats();
+      loadChats(false);
     });
     return cleanup;
   }, [user, selectedChat, loadChats]);
@@ -2104,7 +2172,7 @@ const ChatPage = () => {
       loadMessages(selectedChat.chat_id);
       socketService.joinChat(user.id, selectedChat.chat_id);
       // Mark as read when opening chat
-      markMessagesAsRead(selectedChat.chat_id).then(() => loadChats());
+      markMessagesAsRead(selectedChat.chat_id).then(() => loadChats(false));
     }
   }, [selectedChat?.chat_id, user, loadMessages, loadChats]);
 
@@ -2121,7 +2189,7 @@ const ChatPage = () => {
           )
         );
       }
-      loadChats(); // Update last message in chat list
+      loadChats(false); // Update last message in chat list
     });
     return cleanup;
   }, [user, selectedChat, loadChats]);
@@ -2168,9 +2236,8 @@ const ChatPage = () => {
     if (selectedChat?.isOfficial) {
       if (botState === 'AWAITING_PROFESSION') {
         setBotData(prev => ({ ...prev, profession: messageToSend }));
-        setBotState('AWAITING_CITY');
+        setBotState('AWAITING_LOCATION');
 
-        // Add user message to UI immediately for better UX
         const userMsg: MessageType = {
           id: Date.now(),
           senderId: user.id,
@@ -2183,14 +2250,13 @@ const ChatPage = () => {
         };
         setMessages(prev => [...prev, userMsg]);
 
-        // Add Bot reply
         setTimeout(() => {
           const botReply: MessageType = {
             id: Date.now() + 1,
             senderId: selectedChat.user_id,
             receiverId: user.id,
             chatId: selectedChat.chat_id,
-            content: "Got it. Now, which City are you looking in?",
+            content: "Got it! Now enter a city or pincode (optional) to find matching profiles near you.",
             messageType: 'text',
             read: true,
             createdAt: new Date().toISOString()
@@ -2198,43 +2264,15 @@ const ChatPage = () => {
           setMessages(prev => [...prev, botReply]);
         }, 600);
         return;
-      } else if (botState === 'AWAITING_CITY') {
-        setBotData(prev => ({ ...prev, city: messageToSend }));
-        setBotState('AWAITING_PINCODE');
+      } else if (botState === 'AWAITING_LOCATION') {
+        const isPincode = /^\d{6}$/.test(messageToSend.trim());
+        const locationData = isPincode
+          ? { pincode: messageToSend.trim() }
+          : { city: messageToSend.trim() };
 
-        // Add user message to UI immediately for better UX
-        const userMsg: MessageType = {
-          id: Date.now(),
-          senderId: user.id,
-          receiverId: selectedChat.user_id,
-          chatId: selectedChat.chat_id,
-          content: messageToSend,
-          messageType: 'text',
-          read: true,
-          createdAt: new Date().toISOString()
-        };
-        setMessages(prev => [...prev, userMsg]);
-
-        // Add Bot reply
-        setTimeout(() => {
-          const botReply: MessageType = {
-            id: Date.now() + 1,
-            senderId: selectedChat.user_id,
-            receiverId: user.id,
-            chatId: selectedChat.chat_id,
-            content: "Great! Now please enter your Pincode to narrow down results.",
-            messageType: 'text',
-            read: true,
-            createdAt: new Date().toISOString()
-          };
-          setMessages(prev => [...prev, botReply]);
-        }, 600);
-        return;
-      } else if (botState === 'AWAITING_PINCODE') {
-        setBotData(prev => ({ ...prev, pincode: messageToSend }));
+        setBotData(prev => ({ ...prev, ...locationData }));
         setBotState('SEARCHING');
 
-        // Add user message
         const userMsg: MessageType = {
           id: Date.now(),
           senderId: user.id,
@@ -2250,33 +2288,55 @@ const ChatPage = () => {
         // Trigger Search
         setTimeout(async () => {
           try {
-            const results = await getBestProfiles({ 
-              city: botData.city, 
-              pincode: messageToSend,
-              profession: botData.profession 
+            const profession = botData.profession || '';
+            const city = botData.city || locationData.city || '';
+            const pincode = botData.pincode || locationData.pincode || '';
+            const userSkills = (user?.skills as string[]) || [];
+
+            const response = await getBestProfiles({
+              profession,
+              city,
+              pincode,
+              skills: userSkills,
+              limit: 10
             });
+
+            const results = response.users;
             setBotState('IDLE');
             setBotData({});
 
-            let content = "";
+            const msgId = Date.now() + 2;
             if (results.length === 0) {
-              content = `I couldn't find any verified ${botData.profession || ''} profiles in ${botData.city || 'that location'}. 😔`;
+              const botReply: MessageType = {
+                id: msgId,
+                senderId: selectedChat.user_id,
+                receiverId: user.id,
+                chatId: selectedChat.chat_id,
+                content: `I couldn't find any verified ${profession || 'profile'}s${city ? ` in ${city}` : ''}${pincode ? ` (${pincode})` : ''}. 😔`,
+                messageType: 'text',
+                read: true,
+                createdAt: new Date().toISOString()
+              };
+              setMessages(prev => [...prev, botReply]);
             } else {
-              content = `I found ${results.length} verified ${botData.profession || 'profile'}(s) for you! 🌟\n\n` +
-                results.map(u => `• @${u.username} (${u.displayName || 'No Name'})${u.city ? ` in ${u.city}` : ''}`).join('\n');
-            }
+              const header = `**${response.total}** verified ${profession || 'profile'}(s) found${city ? ` in **${city}**` : ''}${pincode ? ` (**${pincode}**)` : ''}`;
+              const footer = response.hasMore ? `\n+${response.total - results.length} more` : '';
 
-            const botReply: MessageType = {
-              id: Date.now() + 2,
-              senderId: selectedChat.user_id,
-              receiverId: user.id,
-              chatId: selectedChat.chat_id,
-              content: content,
-              messageType: 'text',
-              read: true,
-              createdAt: new Date().toISOString()
-            };
-            setMessages(prev => [...prev, botReply]);
+              setRecommendationCards(prev => ({ ...prev, [msgId]: results }));
+              setRecommendationMeta(prev => ({ ...prev, [msgId]: { total: response.total, hasMore: response.hasMore } }));
+
+              const botReply: MessageType = {
+                id: msgId,
+                senderId: selectedChat.user_id,
+                receiverId: user.id,
+                chatId: selectedChat.chat_id,
+                content: `__REC__${header}${footer}`,
+                messageType: 'text',
+                read: true,
+                createdAt: new Date().toISOString()
+              };
+              setMessages(prev => [...prev, botReply]);
+            }
           } catch (err) {
             setBotState('IDLE');
             const botReply: MessageType = {
@@ -2291,7 +2351,7 @@ const ChatPage = () => {
             };
             setMessages(prev => [...prev, botReply]);
           }
-        }, 1000);
+        }, 800);
         return;
       }
     }
@@ -2316,7 +2376,7 @@ const ChatPage = () => {
         });
       }
       await loadMessages(selectedChat.chat_id);
-      await loadChats();
+      await loadChats(false);
 
       // Refocus input after sending (keep keyboard open on mobile)
       if (messageInputRef.current) {
@@ -2331,6 +2391,79 @@ const ChatPage = () => {
       setNewMessage(messageToSend);
     }
   }, [newMessage, selectedChat, user, loadMessages, loadChats]);
+
+  // Handle "Use my location" button — triggers search when botState becomes SEARCHING
+  useEffect(() => {
+    if (botState !== 'SEARCHING' || !selectedChat?.isOfficial || !user) return;
+    const profession = botData.profession || '';
+    const city = botData.city || '';
+    const pincode = botData.pincode || '';
+    if (!profession && !city && !pincode) return;
+
+    const userSkills = (user?.skills as string[]) || [];
+
+    (async () => {
+      try {
+        const response = await getBestProfiles({
+          profession,
+          city,
+          pincode,
+          skills: userSkills,
+          limit: 10
+        });
+
+        const results = response.users;
+        setBotState('IDLE');
+        setBotData({});
+
+        const msgId = Date.now() + 2;
+        if (results.length === 0) {
+          const botReply: MessageType = {
+            id: msgId,
+            senderId: selectedChat.user_id,
+            receiverId: user.id,
+            chatId: selectedChat.chat_id,
+            content: `I couldn't find any verified ${profession || 'profile'}s${city ? ` in ${city}` : ''}${pincode ? ` (${pincode})` : ''}. 😔`,
+            messageType: 'text',
+            read: true,
+            createdAt: new Date().toISOString()
+          };
+          setMessages(prev => [...prev, botReply]);
+        } else {
+          const header = `**${response.total}** verified ${profession || 'profile'}(s) found${city ? ` in **${city}**` : ''}${pincode ? ` (**${pincode}**)` : ''}`;
+          const footer = response.hasMore ? `\n+${response.total - results.length} more` : '';
+
+          setRecommendationCards(prev => ({ ...prev, [msgId]: results }));
+          setRecommendationMeta(prev => ({ ...prev, [msgId]: { total: response.total, hasMore: response.hasMore } }));
+
+          const botReply: MessageType = {
+            id: msgId,
+            senderId: selectedChat.user_id,
+            receiverId: user.id,
+            chatId: selectedChat.chat_id,
+            content: `__REC__${header}${footer}`,
+            messageType: 'text',
+            read: true,
+            createdAt: new Date().toISOString()
+          };
+          setMessages(prev => [...prev, botReply]);
+        }
+      } catch (err) {
+        setBotState('IDLE');
+        const botReply: MessageType = {
+          id: Date.now() + 2,
+          senderId: selectedChat.user_id,
+          receiverId: user.id,
+          chatId: selectedChat.chat_id,
+          content: "Sorry, I encountered an error while searching. Please try again later.",
+          messageType: 'text',
+          read: true,
+          createdAt: new Date().toISOString()
+        };
+        setMessages(prev => [...prev, botReply]);
+      }
+    })();
+  }, [botState, botData, selectedChat, user, setMessages, setBotState, setBotData, setRecommendationCards, setRecommendationMeta]);
 
   const handleMessageDeleted = useCallback(async (messageId: number, type: 'me' | 'everyone' = 'me') => {
     try {
@@ -2687,6 +2820,10 @@ const ChatPage = () => {
             botData={botData}
             setBotData={setBotData}
             setMessages={setMessages}
+            recommendationCards={recommendationCards}
+            setRecommendationCards={setRecommendationCards}
+            recommendationMeta={recommendationMeta}
+            setRecommendationMeta={setRecommendationMeta}
             selectedCommunity={selectedCommunity}
           />
         ) : (
@@ -2771,6 +2908,10 @@ const ChatPage = () => {
           botData={botData}
           setBotData={setBotData}
           setMessages={setMessages}
+          recommendationCards={recommendationCards}
+          setRecommendationCards={setRecommendationCards}
+          recommendationMeta={recommendationMeta}
+          setRecommendationMeta={setRecommendationMeta}
           selectedCommunity={selectedCommunity}
         />
       </div>

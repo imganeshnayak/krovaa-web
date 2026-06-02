@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, CheckCircle2, FileText, MessageSquare, Paperclip, User, Calendar, MapPin, Briefcase, IndianRupee, Clock, Code2 } from "lucide-react";
-import { getJob, JobDetails, applyJob } from "../lib/api";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { getJob, applyJob, withdrawJobApplication, JobDetails } from "@/lib/api";
 
 const formatPostedAt = (createdAt: string) => {
   return new Date(createdAt).toLocaleDateString(undefined, {
@@ -31,6 +32,7 @@ const JobDetailsPage = () => {
   const [justApplied, setJustApplied] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [userApplication, setUserApplication] = useState<any>(null);
+  const isJobOwner = Boolean(user && job && job.postedBy.id === user.id);
 
   useEffect(() => {
     const loadJob = async () => {
@@ -102,6 +104,34 @@ const JobDetailsPage = () => {
       toast.error(err instanceof Error ? err.message : "Failed to submit application");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const [isWithdrawing, setIsWithdrawing] = useState(false);
+
+  const handleWithdraw = async () => {
+    if (!job) return;
+
+    const confirmWithdraw = window.confirm(
+      "Are you sure you want to withdraw your application and cancel your bid? This action cannot be undone."
+    );
+    if (!confirmWithdraw) return;
+
+    setIsWithdrawing(true);
+    try {
+      await withdrawJobApplication(job.id);
+      setIsApplied(false);
+      setUserApplication(null);
+
+      // Reload job data to refresh public applications list
+      const updatedJobData = await getJob(Number(jobId));
+      setJob(updatedJobData);
+
+      toast.success("Application withdrawn successfully!");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to withdraw application");
+    } finally {
+      setIsWithdrawing(false);
     }
   };
 
@@ -294,53 +324,98 @@ const JobDetailsPage = () => {
                 </section>
               )}
 
-              {/* Recieved Applicants Dashboard Panel */}
-              {job.isOwner && job.applications && (
-                <section className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm">
-                  <div className="mb-6">
-                    <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">Received Applications ({job.applications.length})</h2>
+              {/* Public Bids & Proposals Board */}
+              {job.applications && (
+                <section className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm space-y-6">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                    <div>
+                      <h2 className="text-lg font-bold text-slate-900">Active Bids & Proposals</h2>
+                      <p className="text-xs text-slate-500 mt-0.5">Public offers submitted by creators</p>
+                    </div>
+                    <span className="inline-flex items-center rounded-full bg-indigo-50 px-3 py-1 text-xs font-bold text-indigo-700">
+                      {job.applications.length} {job.applications.length === 1 ? 'Bid' : 'Bids'}
+                    </span>
                   </div>
 
                   {job.applications.length === 0 ? (
                     <div className="text-center py-12 rounded-2xl bg-slate-50/50 border border-dashed border-slate-200">
-                      <p className="text-sm text-slate-400 font-medium">No applications managed yet.</p>
+                      <p className="text-sm text-slate-400 font-medium">No bids have been submitted yet. Be the first to apply!</p>
                     </div>
                   ) : (
-                    <div className="divide-y divide-slate-100">
+                    <div className="space-y-4">
                       {job.applications.map((app: any) => (
                         <div
                           key={app.id}
-                          className="flex flex-col sm:flex-row sm:items-center justify-between py-4 first:pt-0 last:pb-0 gap-4 group"
+                          className="rounded-2xl border border-slate-100 bg-slate-50/30 p-4 sm:p-5 hover:border-slate-200 hover:bg-slate-50/50 transition-all duration-200 space-y-4"
                         >
-                          <div className="flex items-center gap-3">
-                            <a href={`/profile/${app.user.username}`} className="flex items-center gap-3 group">
-                              <div className="h-10 w-10 rounded-full bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center shrink-0">
-                                {app.user.avatarUrl ? (
-                                  <img src={app.user.avatarUrl} alt={app.user.displayName} className="h-full w-full object-cover" />
-                                ) : (
-                                  <User className="h-4 w-4 text-slate-400" />
-                                )}
-                              </div>
-                              <div>
-                                <p className="text-sm font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
-                                  {app.user.displayName || app.user.username}
-                                </p>
-                                <p className="text-xs text-slate-500">@{app.user.username}</p>
-                              </div>
-                            </a>
+                          {/* Top row: Profile & Bid Amount */}
+                          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                              <a href={`/profile/${app.user.username}`} className="flex items-center gap-3 group shrink-0">
+                                <div className="h-11 w-11 rounded-full bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center shrink-0">
+                                  {app.user.avatarUrl ? (
+                                    <img src={app.user.avatarUrl} alt={app.user.displayName || app.user.username} className="h-full w-full object-cover" />
+                                  ) : (
+                                    <User className="h-5 w-5 text-slate-400" />
+                                  )}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="text-sm font-bold text-slate-900 group-hover:text-indigo-600 transition-colors truncate">
+                                    {app.user.displayName || app.user.username}
+                                  </p>
+                                  <p className="text-xs text-slate-500 truncate">
+                                    {app.user.profession ? `${app.user.profession} • ` : ''}@{app.user.username}
+                                  </p>
+                                </div>
+                              </a>
+                            </div>
+
+                            <div className="flex items-center gap-2 self-start sm:self-center">
+                              {app.bidAmount && (
+                                <div className="inline-flex items-center rounded-xl bg-amber-50 border border-amber-100 px-3 py-1.5 text-xs font-bold text-amber-800">
+                                  <span className="text-[10px] text-amber-500 font-semibold mr-0.5">Bid:</span>
+                                  ₹{app.bidAmount}
+                                </div>
+                              )}
+                              {app.createdAt && (
+                                <span className="text-[10px] text-slate-400 font-medium">
+                                  {new Date(app.createdAt).toLocaleDateString()}
+                                </span>
+                              )}
+                            </div>
                           </div>
 
-                          <div className="flex gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="rounded-xl h-9 px-4 border-slate-200 hover:bg-slate-50 text-xs"
-                              onClick={() => navigate(`/chat`)}
-                            >
-                              <MessageSquare className="h-3.5 w-3.5 mr-1.5" />
-                              Message
-                            </Button>
+                          {/* Cover Letter & Terms (Proposals) */}
+                          <div className="space-y-2.5">
+                            {app.coverLetter && (
+                              <div className="bg-white rounded-xl p-3 border border-slate-100/80 text-xs text-slate-600 leading-relaxed whitespace-pre-wrap">
+                                <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1">Proposal / Pitch</span>
+                                {app.coverLetter}
+                              </div>
+                            )}
+
+                            {app.terms && (
+                              <div className="bg-indigo-50/20 rounded-xl p-3 border border-indigo-100/50 text-xs text-slate-600 leading-relaxed whitespace-pre-wrap">
+                                <span className="block text-[9px] font-bold uppercase tracking-wider text-indigo-500 mb-1">Proposed Terms & Conditions</span>
+                                {app.terms}
+                              </div>
+                            )}
                           </div>
+
+                          {/* Action Footer: Message Button */}
+                          {user && app.userId !== user.id && (
+                            <div className="flex justify-end pt-1">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="rounded-xl h-8 px-3 border-slate-200 hover:bg-slate-50 hover:text-indigo-600 hover:border-slate-300 text-[11px] font-semibold transition-all"
+                                onClick={() => navigate(`/chat`)}
+                              >
+                                <MessageSquare className="h-3.5 w-3.5 mr-1.5 text-slate-400 group-hover:text-indigo-500" />
+                                Message Applicant
+                              </Button>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -354,14 +429,36 @@ const JobDetailsPage = () => {
               <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm space-y-5">
                 
                 {/* Meta Configuration Parameters */}
-                <div className="flex items-center gap-3">
-                  <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100">
-                    <Calendar className="h-4 w-4 text-slate-500" />
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100">
+                      <Calendar className="h-4 w-4 text-slate-500" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Date Posted</p>
+                      <p className="text-xs font-medium text-slate-800 mt-0.5">{formatPostedAt(job.createdAt)}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Date Posted</p>
-                    <p className="text-xs font-medium text-slate-800 mt-0.5">{formatPostedAt(job.createdAt)}</p>
-                  </div>
+
+                  {job.deadline && (
+                    <div className="flex items-center gap-3 border-t border-slate-50 pt-3">
+                      <div className="p-2.5 bg-rose-50 rounded-xl border border-rose-100">
+                        <Clock className="h-4 w-4 text-rose-500" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-rose-500 font-semibold">Application Deadline</p>
+                        <p className="text-xs font-bold text-rose-700 mt-0.5">
+                          {new Date(job.deadline).toLocaleString(undefined, {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <hr className="border-slate-100" />
@@ -405,28 +502,33 @@ const JobDetailsPage = () => {
                   </div>
                 </div>
 
-                {/* Apply Now button in sidebar for non-owners who haven't applied */}
-                {!job.isOwner && !isApplied && (
-                  <>
-                    <hr className="border-slate-100" />
-                    <Button
-                      className="w-full rounded-2xl bg-slate-950 h-12 text-sm font-semibold text-white hover:bg-slate-800 shadow-lg shadow-slate-950/10 active:scale-[0.98] transition-all"
-                      onClick={openApplyModal}
-                    >
-                      Apply Now
-                    </Button>
-                  </>
-                )}
-
-                {/* Already applied badge in sidebar */}
-                {!job.isOwner && isApplied && (
-                  <>
-                    <hr className="border-slate-100" />
-                    <div className="flex items-center gap-2 rounded-2xl bg-indigo-50 px-4 py-3 border border-indigo-100">
-                      <CheckCircle2 className="h-4 w-4 text-indigo-600 shrink-0" />
-                      <span className="text-xs font-semibold text-indigo-700">Application Submitted</span>
-                    </div>
-                  </>
+                {/* Apply / Withdraw Actions Sidebar Deck */}
+                {!isJobOwner && (
+                  <div className="hidden lg:block">
+                    <hr className="border-slate-100 mb-6" />
+                    {!isApplied ? (
+                      <Button
+                        className="w-full rounded-2xl bg-slate-950 h-12 text-sm font-semibold text-white hover:bg-slate-800 shadow-lg shadow-slate-950/10 active:scale-[0.98] transition-all"
+                        onClick={openApplyModal}
+                      >
+                        Apply Now
+                      </Button>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2 rounded-2xl bg-indigo-50 px-4 py-3 border border-indigo-100">
+                          <CheckCircle2 className="h-4 w-4 text-indigo-600 shrink-0" />
+                          <span className="text-xs font-semibold text-indigo-700 font-medium">Application Active</span>
+                        </div>
+                        <Button
+                          className="w-full rounded-2xl bg-rose-600 hover:bg-rose-700 h-12 text-sm font-semibold text-white shadow-lg shadow-rose-950/10 active:scale-[0.98] transition-all disabled:opacity-75"
+                          onClick={handleWithdraw}
+                          disabled={isWithdrawing}
+                        >
+                          {isWithdrawing ? "Withdrawing..." : "Withdraw Bid & Cancel"}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 )}
 
               </div>
@@ -480,94 +582,102 @@ const JobDetailsPage = () => {
       </AnimatePresence>
 
       {/* Floating Sticky Footer Actions Deck */}
-      {job && !isLoading && !error && !job.isOwner && !isApplied && (
-        <div className={`fixed bottom-16 left-0 right-0 z-40 px-4 py-4 bg-white/80 backdrop-blur-xl border-t border-slate-200/60 shadow-[0_-10px_40px_rgba(0,0,0,0.04)] sm:px-6 ${!showApplyModal ? 'lg:hidden' : ''}`}>
-          <div className="mx-auto max-w-3xl">
-            <AnimatePresence mode="wait">
-              {!showApplyModal ? (
-                <motion.div
-                  key="actions"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="flex gap-3"
-                >
-                  <Button
-                    className="flex-1 rounded-2xl bg-slate-950 h-12 text-sm font-semibold text-white hover:bg-slate-800 shadow-lg shadow-slate-950/10 active:scale-[0.98] transition-all"
-                    onClick={openApplyModal}
-                  >
-                    Apply Now
-                  </Button>
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="apply"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="flex flex-col gap-4 max-w-xl mx-auto"
-                >
-                  <div className="text-center">
-                    <p className="text-sm font-bold text-slate-900">Apply for this position</p>
-                    <p className="text-xs text-slate-500 mt-0.5">Enter your bid amount and why you're the right fit.</p>
-                  </div>
-                  <div className="space-y-4">
-                    <div className="space-y-1">
-                      <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Bid Amount <span className="text-rose-500">*</span></span>
-                      <div className="relative">
-                        <IndianRupee className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                        <input
-                          type="text"
-                          value={applyBidAmount}
-                          onChange={(e) => setApplyBidAmount(e.target.value)}
-                          placeholder="5,000"
-                          className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Cover Letter <span className="text-rose-500">*</span></span>
-                      <textarea
-                        value={applyCoverLetter}
-                        onChange={(e) => setApplyCoverLetter(e.target.value)}
-                        rows={3}
-                        placeholder="Tell the project owner why you are the right fit..."
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Terms &amp; Conditions (Optional)</span>
-                      <textarea
-                        value={termsAndConditions}
-                        onChange={(e) => setTermsAndConditions(e.target.value)}
-                        rows={2}
-                        placeholder="Any specific terms you'd like to propose..."
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex gap-3">
-                    <Button
-                      variant="outline"
-                      className="flex-1 rounded-xl border-slate-200 h-11 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-all"
-                      onClick={() => setShowApplyModal(false)}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      disabled={isSubmitting}
-                      className="flex-1 rounded-xl bg-indigo-600 h-11 text-xs font-semibold text-white hover:bg-indigo-700 shadow-md transition-all disabled:opacity-70"
-                      onClick={handleApply}
-                    >
-                      {isSubmitting ? "Submitting..." : "Submit Application"}
-                    </Button>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+      <AnimatePresence>
+        {job && !isLoading && !error && !isJobOwner && !showApplyModal && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="fixed bottom-[60px] md:bottom-0 left-0 right-0 z-40 px-4 py-4 bg-white/80 backdrop-blur-xl border-t border-slate-200/60 lg:hidden shadow-[0_-10px_40px_rgba(0,0,0,0.04)]"
+          >
+            {!isApplied ? (
+              <Button
+                className="w-full rounded-2xl bg-slate-950 h-12 text-sm font-semibold text-white hover:bg-slate-800 shadow-lg shadow-slate-950/10 active:scale-[0.98] transition-all"
+                onClick={openApplyModal}
+              >
+                Apply Now
+              </Button>
+            ) : (
+              <Button
+                className="w-full rounded-2xl bg-rose-600 hover:bg-rose-700 h-12 text-sm font-semibold text-white shadow-lg active:scale-[0.98] transition-all"
+                onClick={handleWithdraw}
+                disabled={isWithdrawing}
+              >
+                {isWithdrawing ? "Withdrawing..." : "Withdraw Bid & Cancel"}
+              </Button>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Apply Dialog Modal */}
+      <Dialog open={showApplyModal} onOpenChange={setShowApplyModal}>
+        <DialogContent className="sm:max-w-[500px] p-6 rounded-3xl">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-slate-900">Apply for this position</DialogTitle>
+            <DialogDescription className="text-sm text-slate-500">
+              Enter your bid amount and why you're the right fit.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-5 mt-4">
+            <div className="space-y-1.5">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                Bid Amount <span className="text-rose-500">*</span>
+              </span>
+              <div className="relative">
+                <IndianRupee className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <input
+                  type="text"
+                  value={applyBidAmount}
+                  onChange={(e) => setApplyBidAmount(e.target.value)}
+                  placeholder="5,000"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                Cover Letter <span className="text-rose-500">*</span>
+              </span>
+              <textarea
+                value={applyCoverLetter}
+                onChange={(e) => setApplyCoverLetter(e.target.value)}
+                rows={4}
+                placeholder="Tell the project owner why you are the right fit..."
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100 resize-none"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                Terms &amp; Conditions (Optional)
+              </span>
+              <textarea
+                value={termsAndConditions}
+                onChange={(e) => setTermsAndConditions(e.target.value)}
+                rows={3}
+                placeholder="Any specific terms you'd like to propose..."
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100 resize-none"
+              />
+            </div>
           </div>
-        </div>
-      )}
+          <div className="flex gap-3 mt-6 pt-4 border-t border-slate-100">
+            <Button
+              variant="outline"
+              className="flex-1 rounded-xl border-slate-200 h-11 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-all"
+              onClick={() => setShowApplyModal(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={isSubmitting}
+              className="flex-1 rounded-xl bg-indigo-600 h-11 text-sm font-semibold text-white hover:bg-indigo-700 shadow-md transition-all disabled:opacity-70"
+              onClick={handleApply}
+            >
+              {isSubmitting ? "Submitting..." : "Submit Application"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
