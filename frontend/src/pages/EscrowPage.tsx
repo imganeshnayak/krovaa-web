@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { motion } from "framer-motion";
 import { ArrowLeft, Plus, IndianRupee } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -615,24 +616,38 @@ const EscrowPage = () => {
           </DialogContent>
         </Dialog>
 
-        <div className="flex gap-1 p-1 bg-secondary/50 rounded-lg mb-6">
+        <div className="relative rounded-full bg-secondary/40 p-1.5 flex w-full border border-border/55 shadow-[inset_0_2px_4px_rgba(0,0,0,0.04)] mb-6">
           <button
+            type="button"
             onClick={() => setActiveTab("active")}
-            className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${activeTab === "active"
-              ? "bg-primary text-primary-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground hover:bg-secondary"
-              }`}
+            className="relative z-10 w-1/2 rounded-full py-2 text-sm font-semibold transition-colors duration-200 text-center flex items-center justify-center gap-1.5 focus-visible:outline-none focus:outline-none"
           >
-            Active Deals
+            {activeTab === "active" && (
+              <motion.div
+                layoutId="activeEscrowTab"
+                className="absolute inset-0 bg-card rounded-full shadow-[0_2.5px_6px_rgba(0,0,0,0.08),_0_0.5px_1.5px_rgba(0,0,0,0.04)] border border-border/60"
+                transition={{ type: "spring", stiffness: 350, damping: 28 }}
+              />
+            )}
+            <span className={`relative z-20 transition-all duration-200 ${activeTab === "active" ? "text-foreground font-bold" : "text-muted-foreground hover:text-foreground"}`}>
+              Active Deals
+            </span>
           </button>
           <button
+            type="button"
             onClick={() => setActiveTab("completed")}
-            className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${activeTab === "completed"
-              ? "bg-primary text-primary-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground hover:bg-secondary"
-              }`}
+            className="relative z-10 w-1/2 rounded-full py-2 text-sm font-semibold transition-colors duration-200 text-center flex items-center justify-center gap-1.5 focus-visible:outline-none focus:outline-none"
           >
-            Completed
+            {activeTab === "completed" && (
+              <motion.div
+                layoutId="activeEscrowTab"
+                className="absolute inset-0 bg-card rounded-full shadow-[0_2.5px_6px_rgba(0,0,0,0.08),_0_0.5px_1.5px_rgba(0,0,0,0.04)] border border-border/60"
+                transition={{ type: "spring", stiffness: 350, damping: 28 }}
+              />
+            )}
+            <span className={`relative z-20 transition-all duration-200 ${activeTab === "completed" ? "text-foreground font-bold" : "text-muted-foreground hover:text-foreground"}`}>
+              Completed
+            </span>
           </button>
         </div>
 

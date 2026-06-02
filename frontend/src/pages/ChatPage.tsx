@@ -301,7 +301,7 @@ const ConversationList = ({
                       <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 p-0 overflow-hidden border border-white/5 hover:border-blue-500/30 hover:bg-white/5 transition-all">
 
                         <Avatar className="h-full w-full">
-                          <AvatarImage src={user.avatarUrl} />
+                          <AvatarImage src={user.avatarUrl} loading="lazy" />
                           <AvatarFallback className="bg-primary/5 text-primary text-xs font-bold">{user.displayName?.[0] || '?'}</AvatarFallback>
                         </Avatar>
                       </Button>
@@ -309,7 +309,7 @@ const ConversationList = ({
                     <DropdownMenuContent align="end" className="w-56 bg-card border-border shadow-xl rounded-xl p-1.5">
                       <div className="flex items-center gap-3 p-3 border-b border-border/50 mb-1.5 bg-secondary/30 rounded-lg">
                         <Avatar className="h-10 w-10 border border-primary/10 shadow-sm">
-                          <AvatarImage src={user.avatarUrl} />
+                          <AvatarImage src={user.avatarUrl} loading="lazy" />
                           <AvatarFallback className="bg-primary/5 text-primary font-bold">{user.displayName?.[0] || '?'}</AvatarFallback>
                         </Avatar>
                         <div className="flex-1 min-w-0">
@@ -434,7 +434,7 @@ const ConversationList = ({
               className={`w-full grid grid-cols-[48px_1fr_auto] items-center gap-3 p-4 hover:bg-secondary/60 transition-colors border-b border-border text-left overflow-hidden ${selectedChat?.chat_id === chat.chat_id ? "bg-secondary" : ""}`}
             >
               <Avatar className="h-12 w-12 shrink-0">
-                <AvatarImage src={chat.avatar_url} />
+                <AvatarImage src={chat.avatar_url} loading="lazy" />
                 <AvatarFallback className="bg-muted text-muted-foreground">
                   {chat.display_name[0]}
                 </AvatarFallback>
@@ -779,13 +779,13 @@ const ChatView = ({
                 title={`View ${selectedCommunity.name} Info`}
               >
                 <Avatar className="h-10 w-10">
-                  <AvatarImage src={selectedCommunity.creator?.avatarUrl} />
+                  <AvatarImage src={selectedCommunity.creator?.avatarUrl} loading="lazy" />
                   <AvatarFallback>{selectedCommunity.name?.[0]?.toUpperCase() || selectedChat.display_name[0]}</AvatarFallback>
                 </Avatar>
               </button>
             ) : (
               <Avatar className="h-10 w-10">
-                <AvatarImage src={selectedChat.avatar_url} />
+                <AvatarImage src={selectedChat.avatar_url} loading="lazy" />
                 <AvatarFallback>{selectedChat.display_name[0]}</AvatarFallback>
               </Avatar>
             )}
@@ -827,7 +827,7 @@ const ChatView = ({
                             title={member.user?.displayName || member.user?.username}
                           >
                             <Avatar className="h-12 w-12 ring-2 ring-border/40">
-                              <AvatarImage src={member.user?.avatarUrl} />
+                              <AvatarImage src={member.user?.avatarUrl} loading="lazy" />
                               <AvatarFallback className="text-xs font-bold bg-slate-100 text-slate-600">
                                 {(member.user?.displayName || member.user?.username || "M")[0]}
                               </AvatarFallback>
@@ -1168,7 +1168,7 @@ const ChatView = ({
                                   setPreviewSenderUsername(isMine ? user?.username : selectedChat.username);
                                 }}
                               >
-                                <img src={msg.attachmentUrl} alt="attachment" className="max-w-full rounded h-48 object-cover shadow-sm border border-white/10 select-none pointer-events-none" />
+                                <img src={msg.attachmentUrl} alt="attachment" className="max-w-full rounded h-48 object-cover shadow-sm border border-white/10 select-none pointer-events-none" loading="lazy" />
                                 {msg.isUploading && (
                                   <div className="absolute inset-0 bg-black/40 rounded flex items-center justify-center backdrop-blur-sm">
                                     <Icon name="Loader2" className="h-8 w-8 text-white animate-spin" />
@@ -1609,7 +1609,7 @@ const RecommendationCards = ({ cards, meta, navigate, username }: {
             className="flex items-center gap-2.5 bg-white border border-slate-200 rounded-xl p-2.5 cursor-pointer hover:border-blue-300 hover:shadow-sm transition-all active:scale-[0.97]"
           >
             <Avatar className="h-10 w-10 shrink-0 ring-2 ring-slate-100">
-              <AvatarImage src={user.avatarUrl || undefined} />
+              <AvatarImage src={user.avatarUrl || undefined} loading="lazy" />
               <AvatarFallback className="bg-blue-100 text-blue-700 text-xs font-bold">
                 {(user.displayName || user.username)[0]?.toUpperCase() || '?'}
               </AvatarFallback>
@@ -1811,7 +1811,14 @@ const ChatPage = () => {
   // No longer redirecting admin to dashboard, allowing them to use ChatPage for support
 
 
-  const [chats, setChats] = useState<ChatType[]>([]);
+  const [chats, setChats] = useState<ChatType[]>(() => {
+    try {
+      const cached = localStorage.getItem("cached_chats");
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
   const [messages, setMessages] = useState<MessageType[]>([]);
   const [selectedChat, setSelectedChat] = useState<ChatType | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -1894,7 +1901,8 @@ const ChatPage = () => {
   const loadChats = useCallback(async (showSpinner = true) => {
     // Only show loading spinner if we have no chats yet (first load)
     // On subsequent calls (background refresh), keep showing existing chats
-    if (showSpinner) setIsLoading(true);
+    const cached = localStorage.getItem("cached_chats");
+    if (showSpinner && !cached) setIsLoading(true);
     try {
       // Run all API calls in parallel to massively speed up loading time
       const [chatListResult, groupsResult, communitiesResult, supportChatResult] = await Promise.allSettled([
@@ -1974,14 +1982,32 @@ const ChatPage = () => {
       data.sort((a, b) => new Date(b.last_message_time).getTime() - new Date(a.last_message_time).getTime());
       
       setChats(data);
+      try {
+        localStorage.setItem("cached_chats", JSON.stringify(data));
+      } catch (e) {
+        console.error("Failed to cache chats to localStorage:", e);
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load chats");
+      if (!cached) {
+        setError(err instanceof Error ? err.message : "Failed to load chats");
+      }
     } finally {
       setIsLoading(false);
     }
   }, [user?.id, user?.role]);
 
   const loadMessages = useCallback(async (chatId: string) => {
+    // 1. Instantly load messages from localStorage cache
+    try {
+      const cached = localStorage.getItem(`cached_messages_${chatId}`);
+      if (cached) {
+        setMessages(JSON.parse(cached));
+      }
+    } catch (e) {
+      console.error("Failed to load cached messages:", e);
+    }
+
+    // 2. Fetch latest messages from API silently in background
     try {
       let data;
       if (chatId.startsWith("group_")) {
@@ -1994,8 +2020,16 @@ const ChatPage = () => {
         data = await getMessages(chatId);
       }
       setMessages(data);
+      try {
+        localStorage.setItem(`cached_messages_${chatId}`, JSON.stringify(data));
+      } catch (e) {
+        console.error("Failed to cache messages to localStorage:", e);
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load messages");
+      const cached = localStorage.getItem(`cached_messages_${chatId}`);
+      if (!cached) {
+        setError(err instanceof Error ? err.message : "Failed to load messages");
+      }
     }
   }, []);
 
@@ -2121,7 +2155,13 @@ const ChatPage = () => {
         setMessages((prev) => {
           // Prevent duplicates
           if (prev.find((m) => m.id === msg.id)) return prev;
-          return [...prev, msg];
+          const updated = [...prev, msg];
+          try {
+            localStorage.setItem(`cached_messages_${selectedChat.chat_id}`, JSON.stringify(updated));
+          } catch (e) {
+            console.error("Failed to cache messages to localStorage:", e);
+          }
+          return updated;
         });
         // Mark as read if we are looking at this chat
         if (msg.senderId !== user.id) {
@@ -2181,13 +2221,19 @@ const ChatPage = () => {
     if (!user) return;
     const cleanup = socketService.onMessageDeleted((data) => {
       if (selectedChat && data.chatId === selectedChat.chat_id) {
-        setMessages((prev) =>
-          prev.map((m) =>
+        setMessages((prev) => {
+          const updated = prev.map((m) =>
             m.id === data.messageId
               ? { ...m, isDeleted: true, content: "This message was deleted", attachmentUrl: undefined, attachmentName: undefined }
               : m
-          )
-        );
+          );
+          try {
+            localStorage.setItem(`cached_messages_${selectedChat.chat_id}`, JSON.stringify(updated));
+          } catch (e) {
+            console.error("Failed to cache messages to localStorage:", e);
+          }
+          return updated;
+        });
       }
       loadChats(false); // Update last message in chat list
     });

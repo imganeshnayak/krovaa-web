@@ -9,7 +9,26 @@ import { getProfileFull, ProfileFull } from '@/lib/api';
 export function useProfileById(userId: number | null | undefined) {
   return useQuery<ProfileFull>({
     queryKey: ['profile', userId],
-    queryFn: () => getProfileFull(userId!),
+    queryFn: async () => {
+      try {
+        const data = await getProfileFull(userId!);
+        // Save successfully fetched profile to localStorage cache
+        localStorage.setItem(`profile_cache_${userId}`, JSON.stringify(data));
+        return data;
+      } catch (error) {
+        // Fallback to cache if offline or server is down
+        const cached = localStorage.getItem(`profile_cache_${userId}`);
+        if (cached) {
+          console.warn("[Offline Profile Cache] loading offline fallback profile data for user:", userId);
+          try {
+            return JSON.parse(cached);
+          } catch {
+            // parsing failed, throw original error
+          }
+        }
+        throw error;
+      }
+    },
     enabled: !!userId,
     staleTime: Infinity, // Never auto-stale; only manual invalidation
     gcTime: 24 * 60 * 60 * 1000, // Keep in memory for 24 hours before garbage collection
