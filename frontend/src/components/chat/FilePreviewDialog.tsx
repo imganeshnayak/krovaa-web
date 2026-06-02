@@ -44,7 +44,7 @@ const FilePreviewDialog = ({ file, isOpen, onClose, onSend, isUploading = false 
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden bg-card border-border">
+            <DialogContent hideCloseButton className="sm:max-w-[500px] p-0 overflow-hidden bg-card border-border">
                 <DialogHeader className="p-4 border-b border-border flex flex-row items-center justify-between">
                     <DialogTitle className="text-foreground">{isUploading ? "Uploading..." : "Preview File"}</DialogTitle>
                     <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 rounded-full" disabled={isUploading}>
