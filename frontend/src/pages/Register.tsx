@@ -90,12 +90,30 @@ const Register = () => {
   const [otp, setOtp] = useState("");
   const [error, setError] = useState("");
   const [isSendingOtp, setIsSendingOtp] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
   const [agreeToTerms, setAgreeToTerms] = useState(false);
   const [agreeToPrivacy, setAgreeToPrivacy] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => { setMounted(true); document.title = "Join Krovaa"; }, []);
   useEffect(() => { if (user) navigate("/chat"); }, [user]);
+  useEffect(() => {
+    if (step !== "otp" || resendCooldown <= 0) return;
+
+    const timer = window.setInterval(() => {
+      setResendCooldown((current) => {
+        if (current <= 1) {
+          window.clearInterval(timer);
+          return 0;
+        }
+        return current - 1;
+      });
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [step, resendCooldown]);
+
+  const startResendCooldown = () => setResendCooldown(120);
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -106,6 +124,7 @@ const Register = () => {
     try {
       await apiFetch("/api/auth/send-otp", { method: "POST", body: JSON.stringify({ email, username }) });
       setStep("otp");
+      startResendCooldown();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to send code");
     } finally { setIsSendingOtp(false); }
@@ -126,9 +145,18 @@ const Register = () => {
 
   const handleResendOtp = async () => {
     setError(""); setIsSendingOtp(true);
-    try { await apiFetch("/api/auth/send-otp", { method: "POST", body: JSON.stringify({ email }) }); }
-    catch (err) { setError(err instanceof Error ? err.message : "Failed to resend"); }
-    finally { setIsSendingOtp(false); }
+    try {
+      await apiFetch("/api/auth/send-otp", { method: "POST", body: JSON.stringify({ email, username }) });
+      startResendCooldown();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to resend");
+    } finally { setIsSendingOtp(false); }
+  };
+
+  const formatCooldown = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${String(minutes).padStart(2, "0")}:${String(remainingSeconds).padStart(2, "0")}`;
   };
 
   return (
@@ -440,19 +468,22 @@ const Register = () => {
                     )}
                   </button>
 
-                  <div className="flex items-center justify-center">
-                    <button
-                      type="button"
-                      onClick={handleResendOtp}
-                      disabled={isSendingOtp}
-                      className="text-xs transition-colors flex items-center gap-1.5 disabled:opacity-30"
-                      style={{ color: "#1C1C1C40" }}
-                      onMouseEnter={e => (e.currentTarget.style.color = "#00A4EF")}
-                      onMouseLeave={e => (e.currentTarget.style.color = "#1C1C1C40")}
-                    >
-                      <RotateCcw className="w-3 h-3" />
-                      {isSendingOtp ? "Sending..." : "Resend code"}
-                    </button>
+                  <div className="text-center">
+                    <p className="text-sm mb-2" style={{ color: "#1C1C1C" }}>Didn't receive the code? Request a new one</p>
+
+                    {resendCooldown > 0 ? (
+                      <p className="text-xs" style={{ color: "#6B7280" }}>Resend OTP in {formatCooldown(resendCooldown)}</p>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleResendOtp}
+                        disabled={isSendingOtp}
+                        className="text-xs font-medium"
+                        style={{ color: "#00A4EF", background: "transparent", border: "none", padding: 0, cursor: isSendingOtp ? 'not-allowed' : 'pointer' }}
+                      >
+                        {isSendingOtp ? "Sending..." : "Resend OTP"}
+                      </button>
+                    )}
                   </div>
                 </form>
               </div>

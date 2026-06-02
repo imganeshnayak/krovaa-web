@@ -237,21 +237,26 @@ router.get('/:id/rating-eligibility', auth, async (req, res) => {
                     OR: [
                         { clientId: reviewerId, vendorId: reviewedUserId },
                         { clientId: reviewedUserId, vendorId: reviewerId }
-                    ]
+                    ],
+                    status: { in: ['active', 'completed'] }
                 },
                 select: { id: true }
             })
         ]);
 
-        if (escrowDeal) {
+        const mutualChat = hasSent && hasReceived;
+
+        if (mutualChat && escrowDeal) {
             return res.json({ canRate: true, reason: null });
         }
 
-        if (!hasSent || !hasReceived) {
-            return res.json({ canRate: false, reason: "You can rate only users you have a mutual chat or deal with." });
+        if (!mutualChat && !escrowDeal) {
+            return res.json({ canRate: false, reason: "You must have a mutual chat and at least one completed or active escrow deal to leave a review." });
+        } else if (!mutualChat) {
+            return res.json({ canRate: false, reason: "You must have a mutual chat (both users sent messages) to leave a review." });
+        } else {
+            return res.json({ canRate: false, reason: "You must have at least one completed or active escrow deal to leave a review." });
         }
-
-        return res.json({ canRate: true, reason: null });
     } catch (err) {
         console.error('Rating eligibility error:', err);
         res.status(500).json({ error: 'Server error.' });
@@ -501,7 +506,10 @@ router.get('/:id/profile-full', async (req, res) => {
                 prisma.message.findFirst({ where: { senderId: viewerId, receiverId: userId }, select: { id: true } }),
                 prisma.message.findFirst({ where: { senderId: userId, receiverId: viewerId }, select: { id: true } }),
                 prisma.escrowDeal.findFirst({
-                    where: { OR: [{ clientId: viewerId, vendorId: userId }, { clientId: userId, vendorId: viewerId }] },
+                    where: {
+                        OR: [{ clientId: viewerId, vendorId: userId }, { clientId: userId, vendorId: viewerId }],
+                        status: { in: ['active', 'completed'] }
+                    },
                     select: { id: true }
                 })
             ]) : Promise.resolve(null)
@@ -532,12 +540,15 @@ router.get('/:id/profile-full', async (req, res) => {
         let ratingEligibility = { canRate: false, reason: null };
         if (ratingEligibilityData) {
             const [hasSent, hasReceived, escrowDeal] = ratingEligibilityData;
-            if (escrowDeal) {
+            const mutualChat = hasSent && hasReceived;
+            if (mutualChat && escrowDeal) {
                 ratingEligibility = { canRate: true, reason: null };
-            } else if (hasSent && hasReceived) {
-                ratingEligibility = { canRate: true, reason: null };
+            } else if (!mutualChat && !escrowDeal) {
+                ratingEligibility = { canRate: false, reason: "You must have a mutual chat and at least one completed or active escrow deal to leave a review." };
+            } else if (!mutualChat) {
+                ratingEligibility = { canRate: false, reason: "You must have a mutual chat (both users sent messages) to leave a review." };
             } else {
-                ratingEligibility = { canRate: false, reason: "You can rate only users you have a mutual chat or deal with." };
+                ratingEligibility = { canRate: false, reason: "You must have at least one completed or active escrow deal to leave a review." };
             }
         } else if (viewerId === userId) {
             ratingEligibility = { canRate: false, reason: "You cannot rate yourself." };
@@ -956,14 +967,23 @@ router.post('/rate', auth, async (req, res) => {
                     OR: [
                         { clientId: reviewerId, vendorId: reviewedUserId },
                         { clientId: reviewedUserId, vendorId: reviewerId }
-                    ]
+                    ],
+                    status: { in: ['active', 'completed'] }
                 },
                 select: { id: true }
             })
         ]);
 
-        if (!escrowDeal && (!hasSent || !hasReceived)) {
-            return res.status(403).json({ error: "You can rate only users you have a mutual chat or deal with." });
+        const mutualChat = hasSent && hasReceived;
+
+        if (!mutualChat || !escrowDeal) {
+            let errorMsg = "You must have a mutual chat and at least one completed or active escrow deal to leave a review.";
+            if (mutualChat && !escrowDeal) {
+                errorMsg = "You must have at least one completed or active escrow deal to leave a review.";
+            } else if (!mutualChat && escrowDeal) {
+                errorMsg = "You must have a mutual chat (both users sent messages) to leave a review.";
+            }
+            return res.status(403).json({ error: errorMsg });
         }
 
         const trimmedComment = comment.trim();

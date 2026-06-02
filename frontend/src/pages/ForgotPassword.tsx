@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Send, Mail, KeyRound, CheckCircle2, Loader2, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,8 @@ const ForgotPassword = () => {
     const [otp, setOtp] = useState("");
     const [resetToken, setResetToken] = useState("");
     const [newPassword, setNewPassword] = useState("");
+    const [isSendingOtp, setIsSendingOtp] = useState(false);
+    const [resendCooldown, setResendCooldown] = useState(0);
     const [confirmPassword, setConfirmPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState("");
@@ -33,6 +35,7 @@ const ForgotPassword = () => {
                 body: JSON.stringify({ email }),
             });
             setStep("otp");
+            setResendCooldown(120);
         } catch (err) {
             setError(err instanceof Error ? err.message : "Failed to send reset email");
         } finally {
@@ -58,6 +61,26 @@ const ForgotPassword = () => {
             setIsLoading(false);
         }
     };
+
+    const handleResendOtp = async () => {
+        setError("");
+        setIsSendingOtp(true);
+        try {
+            await apiFetch("/api/auth/forgot-password", { method: "POST", body: JSON.stringify({ email }) });
+            setResendCooldown(120);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Failed to resend");
+        } finally {
+            setIsSendingOtp(false);
+        }
+    };
+
+    // Cooldown timer
+    useEffect(() => {
+        if (resendCooldown <= 0) return;
+        const t = setInterval(() => setResendCooldown((s) => Math.max(0, s - 1)), 1000);
+        return () => clearInterval(t);
+    }, [resendCooldown]);
 
     // Step 3: Set new password
     const handleResetPassword = async (e: React.FormEvent) => {
@@ -90,7 +113,7 @@ const ForgotPassword = () => {
         <div className="min-h-screen bg-background flex items-center justify-center px-4">
             <div className="w-full max-w-sm">
                 <div className="flex items-center justify-center mb-8">
-                    <span style={{ fontFamily: "'Syne', sans-serif" }} className="text-3xl font-bold tracking-tight text-white">Krovaa</span>
+                    <span style={{ fontFamily: "'Syne', sans-serif" }} className="text-3xl font-bold tracking-tight text-black">Krovaa</span>
                 </div>
 
 
@@ -150,6 +173,21 @@ const ForgotPassword = () => {
                             </form>
                             <div className="mt-3 text-center">
                                 <button onClick={() => setStep("email")} className="text-xs text-muted-foreground hover:underline">← Change email</button>
+                            </div>
+                            <div className="text-center mt-4">
+                                <p className="text-sm mb-2" style={{ color: "#1C1C1C" }}>Didn't receive the code? Request a new one</p>
+                                {resendCooldown > 0 ? (
+                                    <p className="text-xs" style={{ color: "#6B7280" }}>Resend OTP in {Math.floor(resendCooldown/60)}:{String(resendCooldown%60).padStart(2,'0')}</p>
+                                ) : (
+                                    <button
+                                        onClick={handleResendOtp}
+                                        disabled={isSendingOtp}
+                                        className="text-xs font-medium"
+                                        style={{ color: "#00A4EF", background: "transparent", border: "none", padding: 0, cursor: isSendingOtp ? 'not-allowed' : 'pointer' }}
+                                    >
+                                        {isSendingOtp ? "Sending..." : "Resend OTP"}
+                                    </button>
+                                )}
                             </div>
                         </>
                     )}

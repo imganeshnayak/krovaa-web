@@ -301,7 +301,7 @@ const ConversationList = ({
                       <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 p-0 overflow-hidden border border-white/5 hover:border-blue-500/30 hover:bg-white/5 transition-all">
 
                         <Avatar className="h-full w-full">
-                          <AvatarImage src={user.avatarUrl} />
+                          <AvatarImage src={user.avatarUrl} loading="lazy" />
                           <AvatarFallback className="bg-primary/5 text-primary text-xs font-bold">{user.displayName?.[0] || '?'}</AvatarFallback>
                         </Avatar>
                       </Button>
@@ -309,7 +309,7 @@ const ConversationList = ({
                     <DropdownMenuContent align="end" className="w-56 bg-card border-border shadow-xl rounded-xl p-1.5">
                       <div className="flex items-center gap-3 p-3 border-b border-border/50 mb-1.5 bg-secondary/30 rounded-lg">
                         <Avatar className="h-10 w-10 border border-primary/10 shadow-sm">
-                          <AvatarImage src={user.avatarUrl} />
+                          <AvatarImage src={user.avatarUrl} loading="lazy" />
                           <AvatarFallback className="bg-primary/5 text-primary font-bold">{user.displayName?.[0] || '?'}</AvatarFallback>
                         </Avatar>
                         <div className="flex-1 min-w-0">
@@ -434,7 +434,7 @@ const ConversationList = ({
               className={`w-full grid grid-cols-[48px_1fr_auto] items-center gap-3 p-4 hover:bg-secondary/60 transition-colors border-b border-border text-left overflow-hidden ${selectedChat?.chat_id === chat.chat_id ? "bg-secondary" : ""}`}
             >
               <Avatar className="h-12 w-12 shrink-0">
-                <AvatarImage src={chat.avatar_url} />
+                <AvatarImage src={chat.avatar_url} loading="lazy" />
                 <AvatarFallback className="bg-muted text-muted-foreground">
                   {chat.display_name[0]}
                 </AvatarFallback>
@@ -510,6 +510,7 @@ const ChatView = ({
   recordingSeconds,
   startVoiceRecording,
   stopVoiceRecording,
+  cancelVoiceRecording,
   isBlurred,
   setIsBlurred,
   isPreviewViewOnce,
@@ -538,7 +539,7 @@ const ChatView = ({
   newMessage: string;
   setNewMessage: (val: string) => void;
   handleSend: () => void;
-  messageInputRef: React.RefObject<HTMLInputElement>;
+  messageInputRef: React.RefObject<HTMLTextAreaElement>;
   fileInputRef: React.RefObject<HTMLInputElement>;
   handleFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onMessageDeleted: (messageId: number, type?: 'me' | 'everyone') => void;
@@ -560,8 +561,9 @@ const ChatView = ({
   isLoading: boolean;
   isRecordingVoice: boolean;
   recordingSeconds: number;
-  startVoiceRecording: () => void;
-  stopVoiceRecording: () => void;
+  startVoiceRecording: (e?: any) => void;
+  stopVoiceRecording: (e?: any) => void;
+  cancelVoiceRecording: (e?: any) => void;
   isBlurred: boolean;
   setIsBlurred: (val: boolean) => void;
   isPreviewViewOnce: boolean;
@@ -578,6 +580,16 @@ const ChatView = ({
   const [activeMessageMenu, setActiveMessageMenu] = useState<MessageType | null>(null);
   const [chatAd, setChatAd] = useState<Ad | null>(null);
   const [adDismissed, setAdDismissed] = useState(false);
+
+  // Auto-resize the textarea based on the content of newMessage state
+  useEffect(() => {
+    if (messageInputRef.current) {
+      messageInputRef.current.style.height = 'auto';
+      if (newMessage) {
+        messageInputRef.current.style.height = Math.min(messageInputRef.current.scrollHeight, 120) + 'px';
+      }
+    }
+  }, [newMessage, messageInputRef]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -811,13 +823,13 @@ const ChatView = ({
                 title={`View ${selectedCommunity.name} Info`}
               >
                 <Avatar className="h-10 w-10">
-                  <AvatarImage src={selectedCommunity.creator?.avatarUrl} />
+                  <AvatarImage src={selectedCommunity.creator?.avatarUrl} loading="lazy" />
                   <AvatarFallback>{selectedCommunity.name?.[0]?.toUpperCase() || selectedChat.display_name[0]}</AvatarFallback>
                 </Avatar>
               </button>
             ) : (
               <Avatar className="h-10 w-10">
-                <AvatarImage src={selectedChat.avatar_url} />
+                <AvatarImage src={selectedChat.avatar_url} loading="lazy" />
                 <AvatarFallback>{selectedChat.display_name[0]}</AvatarFallback>
               </Avatar>
             )}
@@ -859,7 +871,7 @@ const ChatView = ({
                             title={member.user?.displayName || member.user?.username}
                           >
                             <Avatar className="h-12 w-12 ring-2 ring-border/40">
-                              <AvatarImage src={member.user?.avatarUrl} />
+                              <AvatarImage src={member.user?.avatarUrl} loading="lazy" />
                               <AvatarFallback className="text-xs font-bold bg-slate-100 text-slate-600">
                                 {(member.user?.displayName || member.user?.username || "M")[0]}
                               </AvatarFallback>
@@ -949,6 +961,14 @@ const ChatView = ({
                 const currentDate = new Date(msg.createdAt).toDateString();
                 const previousDate = index > 0 ? new Date(messages[index - 1].createdAt).toDateString() : null;
                 const showDateSeparator = currentDate !== previousDate;
+
+                // Sanitize plain text message content to remove stray markdown asterisks and quotes
+                const sanitizedContent = (msg.content || "")
+                  .replace(/\*\*(.*?)\*\*/g, '$1')
+                  .replace(/\*(.*?)\*/g, '$1')
+                  .replace(/[\u201C\u201D\"]/g, '')
+                  .replace(/\s+/g, ' ')
+                  .trim();
 
                 return (
                   <React.Fragment key={msg.id}>
@@ -1144,7 +1164,7 @@ const ChatView = ({
                                 ))
                               ) : (msg.messageType === 'notification' || msg.message_type === 'notification')
                                 ? msg.content.split('\n\n')[1] || msg.content.replace(/🔔 \*\*(.*?)\*\*\n\n/, '')
-                                : msg.content
+                                : sanitizedContent
                               }
                             </div>
 
@@ -1402,103 +1422,131 @@ const ChatView = ({
             )}
           </div>
         )}
-        <div className="flex items-center gap-2">
-          {isRecordingVoice && (
-            <div className="flex items-center gap-2 rounded-full bg-destructive/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-destructive shrink-0">
-              <span className="h-2 w-2 rounded-full bg-destructive animate-pulse" />
-              Recording {formatRecordingDuration(recordingSeconds)}
-            </div>
-          )}
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="ghost" size="icon" className="shrink-0">
-                <Icon name="Smile" className="h-5 w-5 text-muted-foreground" />
-              </Button>
-            </PopoverTrigger>
-            <EmojiPicker onSelect={(emoji) => setNewMessage(newMessage + emoji)} />
-          </Popover>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="shrink-0"
-              >
-                <Icon name="Paperclip" className="h-5 w-5 text-muted-foreground" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-48 bg-card border-border">
-              <DropdownMenuItem
-                onClick={() => {
-                  setCurrentAcceptType("image/*");
-                  setTimeout(() => fileInputRef.current?.click(), 50);
-                }}
-              >
-                <Icon name="Camera" className="h-4 w-4 mr-2" />
-                <span>Camera</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => {
-                  setCurrentAcceptType("image/*");
-                  setTimeout(() => fileInputRef.current?.click(), 50);
-                }}
-              >
-                <Icon name="Image" className="h-4 w-4 mr-2" />
-                <span>Photos</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => {
-                  setCurrentAcceptType("video/*");
-                  setTimeout(() => fileInputRef.current?.click(), 50);
-                }}
-              >
-                <Icon name="Film" className="h-4 w-4 mr-2" />
-                <span>Videos</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => {
-                  setCurrentAcceptType(".pdf,.doc,.docx,.txt,.zip,.rar");
-                  setTimeout(() => fileInputRef.current?.click(), 50);
-                }}
-              >
-                <Icon name="FileText" className="h-4 w-4 mr-2" />
-                <span>Documents</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileSelect}
-            className="hidden"
-            accept={currentAcceptType}
-          />
-          <Input
-            ref={messageInputRef}
-            className="bg-secondary border-border"
-            placeholder="Type a message..."
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSend()}
-            data-nopaste
-            type="text"
-            inputMode="text"
-            autoComplete="off"
-          />
-          {newMessage.trim() ? (
-            <Button size="icon" onClick={handleSend} className="shrink-0">
-              <Icon name="Send" className="h-4 w-4" />
-            </Button>
-          ) : (
-            <Button
-              size="icon"
-              onClick={isRecordingVoice ? stopVoiceRecording : startVoiceRecording}
-              className={`shrink-0 ${isRecordingVoice ? 'bg-destructive hover:bg-destructive/90 text-destructive-foreground animate-pulse' : ''}`}
-              aria-label={isRecordingVoice ? 'Stop voice recording' : 'Start voice recording'}
-            >
-              {isRecordingVoice ? <Icon name="Square" className="h-4 w-4 fill-current" /> : <Icon name="Mic" className="h-4 w-4" />}
-            </Button>
-          )}
+        <div className="flex items-end gap-2 w-full">
+          {/* Main Pill-Shaped Container */}
+          <div className="flex-1 flex items-end bg-white dark:bg-slate-800 rounded-[24px] min-h-[48px] py-1 pl-1 pr-1 gap-1 shadow-[0_1px_1px_rgba(0,0,0,0.1)] relative min-w-0 border border-border/20">
+            
+            {/* Hidden native input */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileSelect}
+              className="hidden"
+              accept={currentAcceptType}
+            />
+
+            {/* Voice recording indicators inside pill */}
+            {isRecordingVoice ? (
+              <div className="flex-1 flex items-center justify-between px-3 h-[40px]">
+                <div className="flex items-center gap-2 text-destructive">
+                  <span className="h-2 w-2 rounded-full bg-destructive animate-pulse shrink-0" />
+                  <span className="text-xs font-bold uppercase tracking-wider">
+                    {formatRecordingDuration(recordingSeconds)}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={cancelVoiceRecording}
+                  className="text-xs font-extrabold text-destructive hover:underline z-10 relative cursor-pointer px-2 py-1"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <>
+                {/* Smiley/Sticker/Emoji button */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={() => messageInputRef.current?.focus()}
+                      className="flex items-center justify-center h-10 w-10 rounded-full text-muted-foreground hover:text-foreground hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors active:scale-95 shrink-0"
+                      title="Emojis"
+                    >
+                      <Icon name="Smile" className="h-[22px] w-[22px]" />
+                    </button>
+                  </PopoverTrigger>
+                  <EmojiPicker onSelect={(emoji) => setNewMessage(newMessage + emoji)} />
+                </Popover>
+
+                {/* Message Input */}
+                <textarea
+                  ref={messageInputRef}
+                  className="flex-1 bg-transparent border-none outline-none focus:outline-none focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 px-1 py-2.5 text-[16px] leading-5 text-[#1C1C1C] dark:text-white placeholder:text-muted-foreground min-w-0 min-h-[40px] max-h-[120px] resize-none overflow-y-auto"
+                  placeholder="Message"
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSend();
+                    }
+                  }}
+                  rows={1}
+                  autoComplete="off"
+                />
+
+                {/* Paperclip attachment icon */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="flex items-center justify-center h-10 w-10 rounded-full text-muted-foreground hover:text-foreground hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors active:scale-95 shrink-0"
+                      title="Attach"
+                    >
+                      <Icon name="Paperclip" className="h-[22px] w-[22px]" style={{ transform: 'rotate(-45deg)' }} />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-52 bg-card border-border shadow-xl rounded-xl p-1 mb-2">
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setCurrentAcceptType("image/*,video/*");
+                        setTimeout(() => fileInputRef.current?.click(), 50);
+                      }}
+                      className="cursor-pointer py-2 rounded-lg"
+                    >
+                      <Icon name="Image" className="h-4 w-4 mr-2" />
+                      <span>Gallery</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setCurrentAcceptType(".pdf,.doc,.docx,.txt,.zip,.rar");
+                        setTimeout(() => fileInputRef.current?.click(), 50);
+                      }}
+                      className="cursor-pointer py-2 rounded-lg"
+                    >
+                      <Icon name="FileText" className="h-4 w-4 mr-2" />
+                      <span>Document</span>
+                    </DropdownMenuItem>
+                    {selectedChat && !selectedChat.isOfficial && (
+                      <DropdownMenuItem
+                        onClick={() => navigate(`/escrow?chatId=${selectedChat.chat_id}&vendorId=${selectedChat.user_id}&vendorUsername=${selectedChat.username}`)}
+                        className="cursor-pointer py-2 rounded-lg text-[#00A4EF] focus:bg-[#00A4EF]/5 focus:text-[#00A4EF]"
+                      >
+                        <Icon name="Wallet" className="h-4 w-4 mr-2" />
+                        <span>Create Escrow Deal</span>
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
+            )}
+          </div>
+
+          {/* Send / Stop Voice Button outside the pill */}
+          <button
+            onClick={newMessage.trim() ? handleSend : (isRecordingVoice ? stopVoiceRecording : startVoiceRecording)}
+            className={`flex items-center justify-center h-[48px] w-[48px] rounded-full bg-[#00A4EF] hover:bg-[#007BB5] text-white transition-transform active:scale-90 shrink-0 shadow-sm ${isRecordingVoice ? "animate-pulse bg-destructive hover:bg-destructive" : ""}`}
+            title={newMessage.trim() ? "Send Message" : (isRecordingVoice ? "Stop Recording" : "Voice Note")}
+          >
+            {newMessage.trim() ? (
+              <Icon name="Send" className="h-5 w-5 text-white ml-1" />
+            ) : isRecordingVoice ? (
+              <Icon name="Square" className="h-5 w-5 fill-white" />
+            ) : (
+              <Icon name="Mic" className="h-[22px] w-[22px] text-white" />
+            )}
+          </button>
         </div>
       </div>
 
@@ -1655,7 +1703,7 @@ const RecommendationCards = ({ cards, meta, navigate, username }: {
             className="flex items-center gap-2.5 bg-white border border-slate-200 rounded-xl p-2.5 cursor-pointer hover:border-blue-300 hover:shadow-sm transition-all active:scale-[0.97]"
           >
             <Avatar className="h-10 w-10 shrink-0 ring-2 ring-slate-100">
-              <AvatarImage src={user.avatarUrl || undefined} />
+              <AvatarImage src={user.avatarUrl || undefined} loading="lazy" />
               <AvatarFallback className="bg-blue-100 text-blue-700 text-xs font-bold">
                 {(user.displayName || user.username)[0]?.toUpperCase() || '?'}
               </AvatarFallback>
@@ -1857,7 +1905,14 @@ const ChatPage = () => {
   // No longer redirecting admin to dashboard, allowing them to use ChatPage for support
 
 
-  const [chats, setChats] = useState<ChatType[]>([]);
+  const [chats, setChats] = useState<ChatType[]>(() => {
+    try {
+      const cached = localStorage.getItem("cached_chats");
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
   const [messages, setMessages] = useState<MessageType[]>([]);
   const [selectedChat, setSelectedChat] = useState<ChatType | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -1870,7 +1925,7 @@ const ChatPage = () => {
   const [recommendationCards, setRecommendationCards] = useState<Record<number, BestProfileUser[]>>({});
   const [recommendationMeta, setRecommendationMeta] = useState<Record<number, { total: number; hasMore: boolean }>>({});
   const [error, setError] = useState("");
-  const messageInputRef = useRef<HTMLInputElement>(null);
+  const messageInputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const voiceStreamRef = useRef<MediaStream | null>(null);
@@ -1939,7 +1994,8 @@ const ChatPage = () => {
   const loadChats = useCallback(async (showSpinner = true) => {
     // Only show loading spinner if we have no chats yet (first load)
     // On subsequent calls (background refresh), keep showing existing chats
-    if (showSpinner) setIsLoading(true);
+    const cached = localStorage.getItem("cached_chats");
+    if (showSpinner && !cached) setIsLoading(true);
     try {
       // Run all API calls in parallel to massively speed up loading time
       const [chatListResult, groupsResult, communitiesResult, supportChatResult] = await Promise.allSettled([
@@ -2019,14 +2075,32 @@ const ChatPage = () => {
       data.sort((a, b) => new Date(b.last_message_time).getTime() - new Date(a.last_message_time).getTime());
       
       setChats(data);
+      try {
+        localStorage.setItem("cached_chats", JSON.stringify(data));
+      } catch (e) {
+        console.error("Failed to cache chats to localStorage:", e);
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load chats");
+      if (!cached) {
+        setError(err instanceof Error ? err.message : "Failed to load chats");
+      }
     } finally {
       setIsLoading(false);
     }
   }, [user?.id, user?.role]);
 
   const loadMessages = useCallback(async (chatId: string) => {
+    // 1. Instantly load messages from localStorage cache
+    try {
+      const cached = localStorage.getItem(`cached_messages_${chatId}`);
+      if (cached) {
+        setMessages(JSON.parse(cached));
+      }
+    } catch (e) {
+      console.error("Failed to load cached messages:", e);
+    }
+
+    // 2. Fetch latest messages from API silently in background
     try {
       let data;
       if (chatId.startsWith("group_")) {
@@ -2039,8 +2113,16 @@ const ChatPage = () => {
         data = await getMessages(chatId);
       }
       setMessages(data);
+      try {
+        localStorage.setItem(`cached_messages_${chatId}`, JSON.stringify(data));
+      } catch (e) {
+        console.error("Failed to cache messages to localStorage:", e);
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load messages");
+      const cached = localStorage.getItem(`cached_messages_${chatId}`);
+      if (!cached) {
+        setError(err instanceof Error ? err.message : "Failed to load messages");
+      }
     }
   }, []);
 
@@ -2166,7 +2248,13 @@ const ChatPage = () => {
         setMessages((prev) => {
           // Prevent duplicates
           if (prev.find((m) => m.id === msg.id)) return prev;
-          return [...prev, msg];
+          const updated = [...prev, msg];
+          try {
+            localStorage.setItem(`cached_messages_${selectedChat.chat_id}`, JSON.stringify(updated));
+          } catch (e) {
+            console.error("Failed to cache messages to localStorage:", e);
+          }
+          return updated;
         });
         // Mark as read if we are looking at this chat
         if (msg.senderId !== user.id) {
@@ -2226,13 +2314,19 @@ const ChatPage = () => {
     if (!user) return;
     const cleanup = socketService.onMessageDeleted((data) => {
       if (selectedChat && data.chatId === selectedChat.chat_id) {
-        setMessages((prev) =>
-          prev.map((m) =>
+        setMessages((prev) => {
+          const updated = prev.map((m) =>
             m.id === data.messageId
               ? { ...m, isDeleted: true, content: "This message was deleted", attachmentUrl: undefined, attachmentName: undefined }
               : m
-          )
-        );
+          );
+          try {
+            localStorage.setItem(`cached_messages_${selectedChat.chat_id}`, JSON.stringify(updated));
+          } catch (e) {
+            console.error("Failed to cache messages to localStorage:", e);
+          }
+          return updated;
+        });
       }
       loadChats(false); // Update last message in chat list
     });
@@ -2273,8 +2367,16 @@ const ChatPage = () => {
 
   const handleSend = useCallback(async () => {
     if (!newMessage.trim() || !selectedChat || !user) return;
+    // Sanitize outgoing message: remove stray asterisks and double quotes to keep messages professional
+    const sanitizeOutgoing = (s: string) => {
+      return s
+        .replace(/[\*]+/g, "")
+        .replace(/[\u201C\u201D\"]/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+    };
 
-    const messageToSend = newMessage;
+    const messageToSend = sanitizeOutgoing(newMessage);
     setNewMessage("");
 
     // Bot Logic
@@ -2669,13 +2771,38 @@ const ChatPage = () => {
     }
   }, [loadChats, loadMessages, selectedChat, user]);
 
-  const stopVoiceRecording = useCallback(() => {
+  const stopVoiceRecording = useCallback((e?: React.MouseEvent | React.TouchEvent | any) => {
+    if (e && e.preventDefault) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     const recorder = mediaRecorderRef.current;
-    if (!recorder || recorder.state !== 'recording') return;
-
+    
     setIsRecordingVoice(false);
     clearVoiceRecordingTimer();
-    recorder.stop();
+    
+    if (recorder && recorder.state !== 'inactive') {
+      try { recorder.stop(); } catch(err) {}
+    }
+  }, [clearVoiceRecordingTimer]);
+
+  const cancelVoiceRecording = useCallback((e?: React.MouseEvent | React.TouchEvent | any) => {
+    if (e && e.preventDefault) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    const recorder = mediaRecorderRef.current;
+    
+    setIsRecordingVoice(false);
+    clearVoiceRecordingTimer();
+    setRecordingSeconds(0);
+
+    if (recorder) {
+      (recorder as any).isCancelled = true;
+      if (recorder.state !== 'inactive') {
+        try { recorder.stop(); } catch(err) {}
+      }
+    }
   }, [clearVoiceRecordingTimer]);
 
   const startVoiceRecording = useCallback(async () => {
@@ -2719,6 +2846,8 @@ const ChatPage = () => {
         const blob = new Blob(chunks, { type: mimeType });
 
         releaseVoiceResources();
+
+        if ((recorder as any).isCancelled) return;
 
         if (blob.size === 0) {
           setError('Voice recording was empty. Please try again.');
@@ -2854,6 +2983,7 @@ const ChatPage = () => {
             recordingSeconds={recordingSeconds}
             startVoiceRecording={startVoiceRecording}
             stopVoiceRecording={stopVoiceRecording}
+            cancelVoiceRecording={cancelVoiceRecording}
             isBlurred={isBlurred}
             setIsBlurred={setIsBlurred}
             isPreviewViewOnce={isPreviewViewOnce}
@@ -2941,6 +3071,7 @@ const ChatPage = () => {
           recordingSeconds={recordingSeconds}
           startVoiceRecording={startVoiceRecording}
           stopVoiceRecording={stopVoiceRecording}
+          cancelVoiceRecording={cancelVoiceRecording}
           currentAcceptType={currentAcceptType}
           setCurrentAcceptType={setCurrentAcceptType}
           isLoading={isLoading}
