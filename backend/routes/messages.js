@@ -70,6 +70,8 @@ router.get('/chats/list', auth, async (req, res) => {
 
         // Group by user ID to prevent duplicate listings for the same account
         const chatMap = new Map();
+        // Track which chatIds have already been counted for each mapKey
+        const countedChatIds = new Map();
         for (const msg of messages) {
             let otherUser;
             const isSupport = msg.chatId.startsWith('support_');
@@ -99,10 +101,19 @@ router.get('/chats/list', auth, async (req, res) => {
                     unread_count: unreadMap.get(msg.chatId) || 0,
                     verified: otherUser.verified || false,
                 });
+                // mark this chatId as counted for this mapKey
+                countedChatIds.set(mapKey, new Set([msg.chatId]));
             } else {
-                // Accumulate unread counts for all conversations with the same user
+                // Accumulate unread counts for all conversations with the same user,
+                // but avoid double-counting the same chatId if multiple messages
+                // from the same chat appear in the 'messages' result set.
                 const existing = chatMap.get(mapKey);
-                existing.unread_count += unreadMap.get(msg.chatId) || 0;
+                const setForKey = countedChatIds.get(mapKey) || new Set();
+                if (!setForKey.has(msg.chatId)) {
+                    existing.unread_count += unreadMap.get(msg.chatId) || 0;
+                    setForKey.add(msg.chatId);
+                    countedChatIds.set(mapKey, setForKey);
+                }
             }
         }
 
