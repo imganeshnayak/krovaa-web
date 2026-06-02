@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bell, X, CheckCheck, Info, AlertTriangle, CheckCircle, AlertCircle, Trash2 } from "lucide-react";
+import Icon from "@/components/ui/icon";
 import { getNotifications, markNotificationRead, markAllNotificationsRead, deleteNotification, Notification } from "@/lib/api";
 import { toast } from "sonner";
 import { io as socketIO } from "socket.io-client";
@@ -15,10 +15,10 @@ import {
 } from "@/components/ui/dialog";
 
 const typeConfig = {
-    info: { icon: Info, color: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/30", label: "Info" },
-    warning: { icon: AlertTriangle, color: "text-yellow-400", bg: "bg-yellow-500/10", border: "border-yellow-500/30", label: "Warning" },
-    success: { icon: CheckCircle, color: "text-green-400", bg: "bg-green-500/10", border: "border-green-500/30", label: "Success" },
-    alert: { icon: AlertCircle, color: "text-red-400", bg: "bg-red-500/10", border: "border-red-500/30", label: "Alert" },
+    info: { icon: "Info" as const, color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-950/40", border: "border-blue-100 dark:border-blue-900/50", label: "Info" },
+    warning: { icon: "AlertTriangle" as const, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-950/40", border: "border-amber-100 dark:border-amber-900/50", label: "Warning" },
+    success: { icon: "CircleCheck" as const, color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-950/40", border: "border-emerald-100 dark:border-emerald-900/50", label: "Success" },
+    alert: { icon: "AlertCircle" as const, color: "text-rose-600 dark:text-rose-400", bg: "bg-rose-50 dark:bg-rose-950/40", border: "border-rose-100 dark:border-rose-900/50", label: "Alert" },
 };
 
 function timeAgo(dateStr: string) {
@@ -39,18 +39,16 @@ export default function NotificationBell() {
 
     const unreadCount = notifications.filter(n => !n.isRead).length;
 
-    // Load notifications on mount
     useEffect(() => {
         if (!token) return;
         getNotifications()
             .then(data => {
-                // Filter out notifications sent by the current user (e.g. self-broadcasts)
                 const filtered = data.filter(n => n.sentById !== user?.id);
                 setNotifications(filtered);
             })
             .catch((err) => console.error("Failed to load notifications:", err));
     }, [token, user]);
-    // Socket.IO: listen for real-time broadcasts
+
     useEffect(() => {
         if (!token || !user) return;
 
@@ -61,13 +59,10 @@ export default function NotificationBell() {
         });
 
         socket.on("admin:notification", (notification: Notification) => {
-            // Ignore if the sender is the current user
             if (notification.sentById === user.id) return;
 
             setNotifications(prev => [notification, ...prev]);
 
-            // Show toast based on type
-            const cfg = typeConfig[notification.type] || typeConfig.info;
             const toastFn = notification.type === "alert" ? toast.error
                 : notification.type === "warning" ? toast.warning
                     : notification.type === "success" ? toast.success
@@ -82,7 +77,8 @@ export default function NotificationBell() {
         return () => { socket.disconnect(); };
     }, [token, user]);
 
-    const handleMarkRead = async (id: number) => {
+    const handleMarkRead = async (id: number, e?: React.MouseEvent) => {
+        if (e) e.stopPropagation();
         try {
             await markNotificationRead(id);
             setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
@@ -96,28 +92,20 @@ export default function NotificationBell() {
             await handleMarkRead(n.id);
         }
 
-        // Handle redirection based on metadata
         if (n.metadata) {
             try {
                 const meta = typeof n.metadata === 'string' ? JSON.parse(n.metadata) : n.metadata;
 
-                if (meta?.redirect) {
-                    navigate(meta.redirect);
-                } else if (meta?.type === 'job' || meta?.jobId) {
-                    navigate(`/jobs/${meta.jobId}`);
-                } else if (meta?.type === 'escrow') {
-                    navigate(`/escrow?id=${meta.dealId}${meta.chatId ? `&chatId=${meta.chatId}` : ''}`);
-                } else if (meta?.type === 'wallet') {
-                    navigate('/wallet');
-                } else if (meta?.type === 'chat' || meta?.chatId) {
-                    navigate(`/chat?id=${meta.chatId}`);
-                }
+                if (meta?.redirect) navigate(meta.redirect);
+                else if (meta?.type === 'job' || meta?.jobId) navigate(`/jobs/${meta.jobId}`);
+                else if (meta?.type === 'escrow') navigate(`/escrow?id=${meta.dealId}${meta.chatId ? `&chatId=${meta.chatId}` : ''}`);
+                else if (meta?.type === 'wallet') navigate('/wallet');
+                else if (meta?.type === 'chat' || meta?.chatId) navigate(`/chat?id=${meta.chatId}`);
             } catch (err) {
                 console.error('Failed to parse notification metadata:', err);
             }
         }
-
-        setOpen(false); // Close dialog
+        setOpen(false);
     };
 
     const handleMarkAllRead = async () => {
@@ -129,24 +117,19 @@ export default function NotificationBell() {
         }
     };
 
-    const handleDelete = async (id: number) => {
-        try {
-            // Optimistic update
-            const originalList = [...notifications];
-            setNotifications(prev => prev.filter(n => n.id !== id));
+    const handleDelete = async (id: number, e: React.MouseEvent) => {
+        e.stopPropagation();
+        const originalList = [...notifications];
+        setNotifications(prev => prev.filter(n => n.id !== id));
 
-            try {
-                await deleteNotification(id);
-            } catch (err: any) {
-                // Revert on error
-                setNotifications(originalList);
-                console.error("Failed to delete notification:", err);
-                toast.error("Could not delete notification", {
-                    description: "System notifications cannot be deleted."
-                });
-            }
+        try {
+            await deleteNotification(id);
         } catch (err) {
-            console.error("Notification delete error:", err);
+            setNotifications(originalList);
+            console.error("Failed to delete notification:", err);
+            toast.error("Action restricted", {
+                description: "System notifications cannot be removed."
+            });
         }
     };
 
@@ -154,124 +137,125 @@ export default function NotificationBell() {
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
                 <button
-                    className="relative p-2 rounded-full hover:bg-white/10 transition-colors"
-                    aria-label="Notifications"
+                    className="relative p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-900 transition-colors focus:outline-none"
+                    aria-label="Open notifications overlay panel"
                 >
-                    <span className="absolute inset-0 rounded-full bg-white/10" />
-                        <Bell className="w-5 h-5 text-gray-800 relative z-10" />
+                    <Icon name="Bell" className="w-5 h-5 text-slate-700 dark:text-slate-300" />
                     {unreadCount > 0 && (
-                        <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 animate-pulse">
-                            {unreadCount > 99 ? "99+" : unreadCount}
-                        </span>
+                        <span className="absolute top-1.5 right-1.5 h-2.5 w-2.5 bg-[#00A4EF] rounded-full ring-2 ring-white dark:ring-slate-950 animate-pulse" />
                     )}
                 </button>
             </DialogTrigger>
 
-            <DialogContent
-                className="w-[calc(100vw-32px)] sm:w-[420px] p-0 gap-0 rounded-xl border border-gray-200 bg-white shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-300"
-            >
-                {/* Header */}
-                <DialogHeader className="px-6 py-4 border-b border-gray-100 text-left bg-gray-50">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                            <div className="bg-blue-100 p-2 rounded-lg">
-                                <Bell className="w-4 h-4 text-blue-500" />
-                            </div>
-                            <DialogTitle className="text-lg font-bold text-gray-900">Notifications</DialogTitle>
-                            {unreadCount > 0 && (
-                                <span className="bg-blue-500 text-white text-[10px] font-black rounded-full px-2 py-0.5 shadow-lg shadow-blue-500/20 animate-pulse">
-                                    {unreadCount} NEW
-                                </span>
-                            )}
-                        </div>
-                        <div className="flex items-center gap-2 mr-6">
-                            {unreadCount > 0 && (
-                                <button
-                                    onClick={handleMarkAllRead}
-                                    className="text-[10px] font-black uppercase tracking-wider text-blue-600 hover:text-blue-700 flex items-center gap-1.5 px-3 py-1.5 rounded-full hover:bg-blue-100 transition-all border border-blue-200"
-                                >
-                                    <CheckCheck className="w-3 h-3" />
-                                    Mark All Read
-                                </button>
-                            )}
-                        </div>
+            {/* ── MOBILE OPTIMIZED DRAWER CONTAINER ── */}
+           {/* ── DESKTOP DROPDOWN & MOBILE BOTTOM-SHEET OVERLAY ── */}
+<DialogContent
+    className="w-[calc(100vw-32px)] sm:w-[420px] p-0 gap-0 rounded-2xl border border-slate-200/80 bg-white shadow-2xl overflow-hidden flex flex-col max-h-[80vh] sm:max-h-[600px] animate-in fade-in zoom-in-95 duration-200 focus:outline-none"
+>
+                {/* Header Container */}
+                <DialogHeader className="px-5 py-4 border-b border-slate-100 flex flex-row items-center justify-between text-left shrink-0 bg-white">
+                    <div className="flex items-center gap-2.5">
+                        <DialogTitle className="text-base font-bold text-slate-900">Notifications</DialogTitle>
+                        {unreadCount > 0 && (
+                            <span className="bg-[#00A4EF]/10 text-[#00A4EF] text-[10px] font-bold rounded-md px-1.5 py-0.5 tracking-wide">
+                                {unreadCount} New
+                            </span>
+                        )}
+                    </div>
+                    <div>
+                        {unreadCount > 0 && (
+                            <button
+                                onClick={handleMarkAllRead}
+                                className="text-xs font-semibold text-[#00A4EF] hover:text-[#0082bd] transition-colors px-2 py-1 rounded-md hover:bg-slate-50 mr-6"
+                            >
+                                Mark all as read
+                            </button>
+                        )}
                     </div>
                 </DialogHeader>
 
-                {/* List */}
-                <div className="max-h-[60dvh] sm:max-h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-200">
+                {/* Main Scroller Notifications View */}
+                <div className="flex-1 overflow-y-auto divide-y divide-slate-100 max-h-full">
                     {notifications.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-20 text-gray-400">
-                            <div className="bg-gray-100 p-6 rounded-full mb-4">
-                                <Bell className="w-12 h-12 text-blue-200" />
+                        <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
+                            <div className="bg-slate-50 p-4 rounded-2xl mb-3 border border-slate-100">
+                                <Icon name="Bell" className="w-8 h-8 text-slate-300" />
                             </div>
-                            <p className="text-sm font-medium">All caught up!</p>
-                            <p className="text-xs opacity-50">No new notifications to show.</p>
+                            <p className="text-sm font-semibold text-slate-800">All caught up!</p>
+                            <p className="text-xs text-slate-400 mt-0.5">No new alerts to review right now.</p>
                         </div>
                     ) : (
-                        <div className="divide-y divide-gray-100">
-                            {notifications.map(n => {
-                                const cfg = typeConfig[n.type] || typeConfig.info;
-                                const Icon = cfg.icon;
-                                return (
-                                    <div
-                                        key={n.id}
-                                        className={`w-full text-left px-6 py-5 hover:bg-blue-50 transition-all flex gap-4 group relative ${!n.isRead ? "bg-blue-50" : ""}`}
-                                    >
-                                        <button
-                                            onClick={() => handleMarkRead(n.id)}
-                                            className="flex-shrink-0"
-                                        >
-                                            <div className={`w-10 h-10 rounded-xl ${cfg.bg.replace('bg-', 'bg-blue-100 ')} border border-blue-200 flex items-center justify-center shadow-inner`}>
-                                                <Icon className={`w-5 h-5 ${cfg.color.replace('text-', 'text-blue-500 ')}`} />
-                                            </div>
-                                        </button>
+                        notifications.map(n => {
+                            const cfg = typeConfig[n.type] || typeConfig.info;
+                            return (
+                                <div
+                                    key={n.id}
+                                    onClick={() => handleNotificationClick(n)}
+                                    className={`w-full text-left px-5 py-4 transition-all flex gap-3.5 group relative cursor-pointer active:bg-slate-50/80 sm:hover:bg-slate-50/60 ${
+                                        !n.isRead ? "bg-slate-50/40 font-medium" : ""
+                                    }`}
+                                >
+                                    {/* Action Status Mark Element indicator bar */}
+                                    {!n.isRead && (
+                                        <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-[#00A4EF]" />
+                                    )}
 
-                                        {/* Content */}
-                                        <div className="flex-1 min-w-0 cursor-pointer" onClick={() => handleNotificationClick(n)}>
-                                            <div className="flex items-start justify-between gap-3">
-                                                <p className={`text-sm font-bold leading-tight ${n.isRead ? "text-gray-400" : "text-gray-900"}`}>
-                                                    {n.title}
-                                                </p>
-                                                {!n.isRead && (
-                                                    <span className="flex-shrink-0 w-2 h-2 bg-blue-400 rounded-full mt-1 shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
-                                                )}
-                                            </div>
-                                            <p className={`text-xs mt-1 leading-relaxed line-clamp-2 ${n.isRead ? "text-gray-400" : "text-gray-700"}`}>
-                                                {n.message}
-                                            </p>
-                                            <p className="text-[10px] font-mono font-medium text-gray-300 mt-2 uppercase tracking-tight">
-                                                {timeAgo(n.createdAt)}
+                                    {/* Icon Column Module */}
+                                    <div className="flex-shrink-0 mt-0.5">
+                                        <div className={`w-9 h-9 rounded-xl ${cfg.bg} ${cfg.border} border flex items-center justify-center shadow-sm`}>
+                                            <Icon name={cfg.icon} className={`w-4 h-4 ${cfg.color}`} />
+                                        </div>
+                                    </div>
+
+                                    {/* Core Text Info Payload Columns */}
+                                    <div className="flex-1 min-w-0 pr-4">
+                                        <div className="flex items-baseline justify-between gap-2">
+                                            <p className={`text-sm tracking-tight leading-snug break-words pr-2 ${
+                                                n.isRead ? "text-slate-500 font-normal" : "text-slate-900 font-semibold"
+                                            }`}>
+                                                {n.title}
                                             </p>
                                         </div>
+                                        <p className={`text-xs mt-1 leading-relaxed break-words ${
+                                            n.isRead ? "text-slate-400" : "text-slate-600"
+                                        }`}>
+                                            {n.message}
+                                        </p>
+                                        <span className="inline-block text-[10px] font-medium text-slate-400 mt-2 tracking-wide">
+                                            {timeAgo(n.createdAt)}
+                                        </span>
+                                    </div>
 
-                                        {/* Delete Action */}
+                                    {/* Individual Floating Row Action Utilities */}
+                                    <div className="flex flex-col gap-1 items-center justify-center opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity self-center shrink-0">
+                                        {!n.isRead && (
+                                            <button
+                                                onClick={(e) => handleMarkRead(n.id, e)}
+                                                className="p-1.5 hover:bg-slate-200/60 rounded-md text-slate-400 hover:text-slate-700 transition-colors"
+                                                title="Mark as read"
+                                            >
+                                                <Icon name="CircleCheck" className="w-3.5 h-3.5" />
+                                            </button>
+                                        )}
                                         <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleDelete(n.id);
-                                            }}
-                                            className="opacity-0 group-hover:opacity-100 p-2 hover:bg-red-100 rounded-xl text-gray-400 hover:text-red-500 transition-all self-center ml-2"
-                                            title="Delete notification"
+                                            onClick={(e) => handleDelete(n.id, e)}
+                                            className="p-1.5 hover:bg-rose-50 rounded-md text-slate-400 hover:text-rose-600 transition-colors"
+                                            title="Delete alert"
                                         >
-                                            <X className="w-4 h-4" />
+                                            <Icon name="X" className="w-3.5 h-3.5" />
                                         </button>
                                     </div>
-                                );
-                            })}
-                        </div>
+                                </div>
+                            );
+                        })
                     )}
                 </div>
 
-                {/* Footer */}
+                {/* Footer Matrix Row */}
                 {notifications.length > 0 && (
-                    <div className="px-6 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
-                        <p className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">
-                            Syncing via Cloud
-                        </p>
-                        <p className="text-[10px] font-bold text-gray-400">
-                            {notifications.length} TOTAL
-                        </p>
+                    <div className="px-5 py-3 bg-slate-50/80 border-t border-slate-100 flex items-center justify-between shrink-0 text-[10px] font-semibold text-slate-400 tracking-wider uppercase">
+                        <span>Realtime Synced</span>
+                        <span>{notifications.length} notifications</span>
                     </div>
                 )}
             </DialogContent>

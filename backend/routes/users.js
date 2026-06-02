@@ -243,12 +243,12 @@ router.get('/:id/rating-eligibility', auth, async (req, res) => {
             })
         ]);
 
-        if (!hasSent || !hasReceived) {
-            return res.json({ canRate: false, reason: "You can rate only users you have a mutual chat with." });
+        if (escrowDeal) {
+            return res.json({ canRate: true, reason: null });
         }
 
-        if (!escrowDeal) {
-            return res.json({ canRate: false, reason: "You can rate only users you have an  deal with." });
+        if (!hasSent || !hasReceived) {
+            return res.json({ canRate: false, reason: "You can rate only users you have a mutual chat or deal with." });
         }
 
         return res.json({ canRate: true, reason: null });
@@ -532,12 +532,12 @@ router.get('/:id/profile-full', async (req, res) => {
         let ratingEligibility = { canRate: false, reason: null };
         if (ratingEligibilityData) {
             const [hasSent, hasReceived, escrowDeal] = ratingEligibilityData;
-            if (hasSent && hasReceived && escrowDeal) {
+            if (escrowDeal) {
                 ratingEligibility = { canRate: true, reason: null };
-            } else if (!hasSent || !hasReceived) {
-                ratingEligibility = { canRate: false, reason: "You can rate only users you have a mutual chat with." };
+            } else if (hasSent && hasReceived) {
+                ratingEligibility = { canRate: true, reason: null };
             } else {
-                ratingEligibility = { canRate: false, reason: "You can rate only users you have a deal with." };
+                ratingEligibility = { canRate: false, reason: "You can rate only users you have a mutual chat or deal with." };
             }
         } else if (viewerId === userId) {
             ratingEligibility = { canRate: false, reason: "You cannot rate yourself." };
@@ -962,12 +962,8 @@ router.post('/rate', auth, async (req, res) => {
             })
         ]);
 
-        if (!hasSent || !hasReceived) {
-            return res.status(403).json({ error: "You can rate only users you have a mutual chat with." });
-        }
-
-        if (!escrowDeal) {
-            return res.status(403).json({ error: "You can rate only users you have an  deal with." });
+        if (!escrowDeal && (!hasSent || !hasReceived)) {
+            return res.status(403).json({ error: "You can rate only users you have a mutual chat or deal with." });
         }
 
         const trimmedComment = comment.trim();

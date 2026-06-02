@@ -6,12 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import {
-  Search, Send, Paperclip, Smile, ArrowLeft, Image, FileText,
-  Mic, MoreVertical, IndianRupee, User as UserIcon, Plus,
-  Trash2, Ban, AlertTriangle, Download, X, CheckCircle2, Loader2, LogOut, Settings, User, HelpCircle, ShieldCheck, EyeOff, Eye, Lock, Shield, Camera, Film, Square,
-  Sparkles, History, MapPin
-} from "lucide-react";
+import Icon from "@/components/ui/icon";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -259,7 +254,7 @@ const ConversationList = ({
           ) : (
 
             <div className="flex-1 relative mr-2 animate-in fade-in slide-in-from-right-4 duration-200">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Icon name="Search" className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 autoFocus
                 className="h-9 pl-9 pr-9 bg-secondary/80 border-none text-sm placeholder:text-muted-foreground/50 w-full rounded-full focus-visible:ring-1 focus-visible:ring-primary/20"
@@ -273,7 +268,7 @@ const ConversationList = ({
                   onClick={() => setSearchQuery("")}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  <X className="h-4 w-4" />
+                  <Icon name="X" className="h-4 w-4" />
                 </button>
               )}
             </div>
@@ -294,7 +289,7 @@ const ConversationList = ({
               }}
               title={isSearchVisible ? "Close search" : "Search"}
             >
-              {isSearchVisible ? <X className="h-5 w-5" /> : <Search className="h-5 w-5" />}
+              {isSearchVisible ? <Icon name="X" className="h-5 w-5" /> : <Icon name="Search" className="h-5 w-5" />}
             </Button>
 
             {!isSearchVisible && (
@@ -323,7 +318,7 @@ const ConversationList = ({
                         </div>
                       </div>
                       <DropdownMenuItem onClick={() => window.location.href = '/profile'} className="rounded-md cursor-pointer">
-                        <User className="mr-2 h-4 w-4 opacity-70" /> Profile
+                        <Icon name="User" className="mr-2 h-4 w-4 opacity-70" /> Profile
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => window.location.href = '/wallet'} className="rounded-md cursor-pointer">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="mr-2 h-4 w-4 opacity-70">
@@ -332,11 +327,11 @@ const ConversationList = ({
                         Wallet
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => window.location.href = '/settings'} className="rounded-md cursor-pointer">
-                        <Settings className="mr-2 h-4 w-4 opacity-70" /> Settings
+                        <Icon name="Settings" className="mr-2 h-4 w-4 opacity-70" /> Settings
                       </DropdownMenuItem>
                       <DropdownMenuSeparator className="bg-border/50" />
                       <DropdownMenuItem onClick={onLogout} className="text-destructive focus:text-destructive focus:bg-destructive/10 rounded-md cursor-pointer">
-                        <LogOut className="mr-2 h-4 w-4" /> Logout
+                        <Icon name="LogOut" className="mr-2 h-4 w-4" /> Logout
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -351,7 +346,7 @@ const ConversationList = ({
       {isMobile && !searchQuery.trim() && filteredChats.length <= 1 && showWelcomeBanner && (
         <div className="mx-4 mt-2 mb-4 p-5 rounded-2xl bg-gradient-to-br from-[#00A4EF]/10 to-[#007BB5]/5 border border-[#00A4EF]/20 relative overflow-hidden group shadow-lg shadow-[#00A4EF]/10 animate-in slide-in-from-top-4 duration-500">
           <div className="absolute top-0 right-0 p-3 opacity-[0.05] group-hover:scale-110 transition-transform duration-500">
-            <Shield className="w-14 h-14 text-[#00A4EF]" />
+            <Icon name="Shield" className="w-14 h-14 text-[#00A4EF]" />
           </div>
           <button
             onClick={() => {
@@ -360,7 +355,7 @@ const ConversationList = ({
             }}
             className="absolute top-2 right-2 p-1.5 rounded-full hover:bg-black/5 text-[#1C1C1C40] hover:text-[#1C1C1C] transition-colors z-20"
           >
-            <X className="h-4 w-4" />
+            <Icon name="X" className="h-4 w-4" />
           </button>
           <div className="relative z-10">
             <h2 style={{ fontFamily: "'Inter', sans-serif" }} className="text-xl font-extrabold text-[#1C1C1C] tracking-tight mb-1.5 flex items-center gap-2">
@@ -406,7 +401,7 @@ const ConversationList = ({
                       <p className="font-medium text-foreground truncate">{foundUser.displayName}</p>
                       <p className="text-xs text-muted-foreground truncate">@{foundUser.username}</p>
                     </div>
-                    <Plus className="h-4 w-4 text-muted-foreground" />
+                    <Icon name="Plus" className="h-4 w-4 text-muted-foreground" />
                   </button>
                 ))
               )}
@@ -451,12 +446,12 @@ const ConversationList = ({
                   <div className="flex items-center gap-1 shrink-0">
                     {chat.isOfficial ? (
                       <Badge variant="secondary" className="bg-primary/10 text-primary text-[9px] h-3.5 px-1 border-none flex items-center gap-0.5">
-                        <ShieldCheck className="h-2.5 w-2.5" />
+                        <Icon name="ShieldCheck" className="h-2.5 w-2.5" />
                         OFFICIAL
                       </Badge>
                     ) : chat.chat_id.startsWith('support_') ? (
                       <Badge variant="secondary" className="bg-indigo-100/80 text-indigo-700 text-[9px] h-3.5 px-1 border-none flex items-center gap-0.5 dark:bg-indigo-900/30 dark:text-indigo-400">
-                        <HelpCircle className="h-2.5 w-2.5" />
+                        <Icon name="HelpCircle" className="h-2.5 w-2.5" />
                         SUPPORT
                       </Badge>
                     ) : chat.verified && (
@@ -684,7 +679,7 @@ const ChatView = ({
 
         <div className="text-center relative z-10 p-8">
           <div className="bg-[#00A4EF]/10 h-24 w-24 rounded-3xl flex items-center justify-center mx-auto mb-8 border border-[#00A4EF]/20 shadow-2xl shadow-[#00A4EF]/10 -rotate-6 animate-float">
-            <Send className="h-10 w-10 text-[#00A4EF] opacity-80" />
+            <Icon name="Send" className="h-10 w-10 text-[#00A4EF] opacity-80" />
           </div>
           <h2 style={{ fontFamily: "'Inter', sans-serif" }} className="text-3xl font-bold text-[#1C1C1C] mb-4 tracking-tight">Welcome to Krovaa</h2>
           <p className="max-w-[280px] mx-auto text-sm text-[#1C1C1C60] leading-relaxed font-light">
@@ -704,7 +699,7 @@ const ChatView = ({
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-xl animate-in fade-in duration-200 pointer-events-auto">
           <div className="text-center p-6 scale-in-95 animate-in duration-300">
             <div className="bg-destructive/10 p-4 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4 border 2px border-destructive/30 shadow-lg">
-              <Shield className="h-10 w-10 text-destructive animate-pulse" />
+              <Icon name="Shield" className="h-10 w-10 text-destructive animate-pulse" />
             </div>
             <h2 className="text-2xl font-bold text-foreground mb-3 tracking-tight">Screenshot Detected</h2>
             <p className="text-sm text-muted-foreground mb-2">Unauthorized screen capture attempt blocked.</p>
@@ -731,7 +726,7 @@ const ChatView = ({
                 onClick={() => setSelectedMessages([])}
                 className="p-1 hover:bg-secondary rounded-full transition-colors"
               >
-                <X className="h-6 w-6 text-foreground" />
+                <Icon name="X" className="h-6 w-6 text-foreground" />
               </button>
               <h3 className="font-semibold text-lg">{selectedMessages.length}</h3>
             </div>
@@ -743,7 +738,7 @@ const ChatView = ({
                     size="icon"
                     className="text-destructive hover:text-destructive hover:bg-destructive/10"
                   >
-                    <Trash2 className="h-5 w-5" />
+                    <Icon name="Trash2" className="h-5 w-5" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56 bg-background border-border">
@@ -751,7 +746,7 @@ const ChatView = ({
                     onClick={() => onDeleteMessagesBatch(selectedMessages, 'me')}
                     className="cursor-pointer gap-2"
                   >
-                    <EyeOff className="h-4 w-4" />
+                    <Icon name="EyeOff" className="h-4 w-4" />
                     <span>Delete for Me</span>
                   </DropdownMenuItem>
                   {(user?.role === 'admin' || user?.role === 'staff' || selectedMessages.every(id => messages.find(m => m.id === id)?.senderId === user?.id)) && (
@@ -759,7 +754,7 @@ const ChatView = ({
                       onClick={() => onDeleteMessagesBatch(selectedMessages, 'everyone')}
                       className="text-destructive focus:text-destructive cursor-pointer gap-2"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Icon name="Trash2" className="h-4 w-4" />
                       <span>Delete for Everyone</span>
                     </DropdownMenuItem>
                   )}
@@ -771,7 +766,7 @@ const ChatView = ({
           <>
             {isMobile && (
               <button onClick={() => setSelectedChat(null)}>
-                <ArrowLeft className="h-5 w-5 text-foreground" />
+                <Icon name="ArrowLeft" className="h-5 w-5 text-foreground" />
               </button>
             )}
             {selectedChat.chat_id.startsWith("community_") && selectedCommunity ? (
@@ -801,7 +796,7 @@ const ChatView = ({
 
                 {selectedChat.isOfficial ? (
                   <Badge variant="secondary" className="bg-primary/10 text-primary text-[10px] px-1.5 border-none flex items-center gap-0.5">
-                    <ShieldCheck className="h-3.5 w-3.5" />
+                    <Icon name="ShieldCheck" className="h-3.5 w-3.5" />
                     OFFICIAL
                   </Badge>
                 ) : selectedChat.verified && (
@@ -817,7 +812,7 @@ const ChatView = ({
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button variant="ghost" size="icon" title="View Members">
-                      <UserIcon className="h-5 w-5" />
+                      <Icon name="User" className="h-5 w-5" />
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-64 p-3" align="end">
@@ -858,7 +853,7 @@ const ChatView = ({
             ) : !(selectedChat.isOfficial && (user?.role !== 'admin' && user?.role !== 'staff')) && (
               <div className="flex gap-1">
                 <Button variant="ghost" size="icon" onClick={() => navigate(`/${selectedChat.username}`)}>
-                  <UserIcon className="h-5 w-5" />
+                  <Icon name="User" className="h-5 w-5" />
                 </Button>
                 <Button
                   variant="ghost"
@@ -950,7 +945,7 @@ const ChatView = ({
                       {isSelectionMode && (
                         <div className={`absolute ${isMine ? "left-2" : "right-2"} z-10`}>
                           <div className={`h-5 w-5 rounded-full border-2 ${selectedMessages.includes(msg.id) ? "bg-primary border-primary flex items-center justify-center" : "border-muted-foreground"}`}>
-                            {selectedMessages.includes(msg.id) && <CheckCircle2 className="h-3 w-3 text-primary-foreground" />}
+                            {selectedMessages.includes(msg.id) && <Icon name="CheckCircle2" className="h-3 w-3 text-primary-foreground" />}
                           </div>
                         </div>
                       )}
@@ -959,7 +954,7 @@ const ChatView = ({
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-secondary">
-                                <MoreVertical className="h-4 w-4 text-muted-foreground" />
+                                <Icon name="MoreVertical" className="h-4 w-4 text-muted-foreground" />
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align={isMine ? "end" : "start"} className="w-56 bg-card border-border">
@@ -970,7 +965,7 @@ const ChatView = ({
                                 }}
                                 className="gap-2 cursor-pointer"
                               >
-                                <EyeOff className="h-4 w-4" /> Delete for Me
+                                <Icon name="EyeOff" className="h-4 w-4" /> Delete for Me
                               </DropdownMenuItem>
 
                               {(isMine || user?.role === 'admin') && (
@@ -981,7 +976,7 @@ const ChatView = ({
                                   }}
                                   className="text-destructive focus:text-destructive gap-2 cursor-pointer"
                                 >
-                                  <Trash2 className="h-4 w-4" /> Delete for Everyone
+                                  <Icon name="Trash2" className="h-4 w-4" /> Delete for Everyone
                                 </DropdownMenuItem>
                               )}
                               <DropdownMenuItem
@@ -990,7 +985,7 @@ const ChatView = ({
                                   toggleMessageSelection(msg.id);
                                 }}
                               >
-                                <CheckCircle2 className="mr-2 h-4 w-4" /> Select
+                                <Icon name="CheckCircle2" className="mr-2 h-4 w-4" /> Select
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -1035,7 +1030,7 @@ const ChatView = ({
                             }}
                           >
                             <div className={`h-8 w-8 rounded-full flex items-center justify-center ${isMine ? 'bg-white/20' : 'bg-[#00A4EF]/10 text-[#00A4EF]'}`}>
-                              {msg.isOpened ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                              {msg.isOpened ? <Icon name="EyeOff" className="h-4 w-4" /> : <Icon name="Eye" className="h-4 w-4" />}
                             </div>
                             <div className="flex flex-col">
                               <span className="text-sm font-bold">
@@ -1055,10 +1050,10 @@ const ChatView = ({
                                   : 'bg-[#00A4EF]/10 border border-[#00A4EF]/20'
                                 }`}>
                                 {msg.messageType === 'escrow_created' || msg.message_type === 'escrow_created'
-                                  ? <Plus className="h-4 w-4 text-[#00A4EF]" />
+                                  ? <Icon name="Plus" className="h-4 w-4 text-[#00A4EF]" />
                                   : (msg.messageType === 'escrow_released' || msg.message_type === 'escrow_released')
-                                    ? <IndianRupee className="h-4 w-4 text-[#0FB881]" />
-                                    : <ShieldCheck className="h-4 w-4 text-[#00A4EF]" />
+                                    ? <Icon name="IndianRupee" className="h-4 w-4 text-[#0FB881]" />
+                                    : <Icon name="ShieldCheck" className="h-4 w-4 text-[#00A4EF]" />
                                 }
                               </div>
                               <div className="flex-1 min-w-0">
@@ -1128,7 +1123,7 @@ const ChatView = ({
                                   : "border-white/10 text-white/70 hover:bg-white/5"
                                   }`}
                               >
-                                View Details <ArrowLeft className="h-3.5 w-3.5 rotate-180" />
+                                View Details <Icon name="ArrowLeft" className="h-3.5 w-3.5 rotate-180" />
                               </button>
                             )}
                           </div>
@@ -1145,11 +1140,11 @@ const ChatView = ({
                                   setActiveMessageMenu(msg);
                                 }}
                               >
-                                <MoreVertical className="h-3.5 w-3.5" />
+                                <Icon name="MoreVertical" className="h-3.5 w-3.5" />
                               </button>
                             )}
                             <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.2em] opacity-70">
-                              <Mic className="h-3.5 w-3.5" />
+                              <Icon name="Mic" className="h-3.5 w-3.5" />
                               Voice message
                             </div>
                             <audio
@@ -1176,13 +1171,13 @@ const ChatView = ({
                                 <img src={msg.attachmentUrl} alt="attachment" className="max-w-full rounded h-48 object-cover shadow-sm border border-white/10 select-none pointer-events-none" />
                                 {msg.isUploading && (
                                   <div className="absolute inset-0 bg-black/40 rounded flex items-center justify-center backdrop-blur-sm">
-                                    <Loader2 className="h-8 w-8 text-white animate-spin" />
+                                    <Icon name="Loader2" className="h-8 w-8 text-white animate-spin" />
                                   </div>
                                 )}
                               </div>
                             ) : (
                               <div className="flex items-center gap-2 overflow-hidden">
-                                <FileText className="h-5 w-5 shrink-0" />
+                                <Icon name="FileText" className="h-5 w-5 shrink-0" />
                                 <button
                                   onClick={(e) => {
                                     e.preventDefault();
@@ -1191,7 +1186,7 @@ const ChatView = ({
                                   className="text-xs underline truncate hover:text-primary transition-colors flex items-center gap-1"
                                 >
                                   {msg.attachmentName || 'Download File'}
-                                  <Download className="h-3 w-3" />
+                                  <Icon name="Download" className="h-3 w-3" />
                                 </button>
                               </div>
                             )}
@@ -1321,7 +1316,7 @@ const ChatView = ({
                 }}
                 className="text-[10px] text-primary font-semibold hover:underline flex items-center gap-1 self-start"
               >
-                <MapPin className="w-3 h-3" /> Use my location{user?.city ? ` (${user.city}${user?.pincode ? `, ${user.pincode}` : ''})` : ''}
+                <Icon name="MapPin" className="w-3 h-3" /> Use my location{user?.city ? ` (${user.city}${user?.pincode ? `, ${user.pincode}` : ''})` : ''}
               </button>
             )}
           </div>
@@ -1352,7 +1347,7 @@ const ChatView = ({
                 onClick={() => navigate('/image-generator/pricing')}
                 className="mt-2 flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-[#D946EF] to-[#F97316] text-white text-sm font-semibold hover:opacity-90 transition-opacity w-full justify-center"
               >
-                <Sparkles className="h-4 w-4" />
+                <Icon name="Sparkles" className="h-4 w-4" />
                 Upgrade Now
               </button>
             )}
@@ -1368,7 +1363,7 @@ const ChatView = ({
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="ghost" size="icon" className="shrink-0">
-                <Smile className="h-5 w-5 text-muted-foreground" />
+                <Icon name="Smile" className="h-5 w-5 text-muted-foreground" />
               </Button>
             </PopoverTrigger>
             <EmojiPicker onSelect={(emoji) => setNewMessage(newMessage + emoji)} />
@@ -1380,7 +1375,7 @@ const ChatView = ({
                 size="icon"
                 className="shrink-0"
               >
-                <Paperclip className="h-5 w-5 text-muted-foreground" />
+                <Icon name="Paperclip" className="h-5 w-5 text-muted-foreground" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-48 bg-card border-border">
@@ -1390,7 +1385,7 @@ const ChatView = ({
                   setTimeout(() => fileInputRef.current?.click(), 50);
                 }}
               >
-                <Camera className="h-4 w-4 mr-2" />
+                <Icon name="Camera" className="h-4 w-4 mr-2" />
                 <span>Camera</span>
               </DropdownMenuItem>
               <DropdownMenuItem
@@ -1399,7 +1394,7 @@ const ChatView = ({
                   setTimeout(() => fileInputRef.current?.click(), 50);
                 }}
               >
-                <Image className="h-4 w-4 mr-2" />
+                <Icon name="Image" className="h-4 w-4 mr-2" />
                 <span>Photos</span>
               </DropdownMenuItem>
               <DropdownMenuItem
@@ -1408,7 +1403,7 @@ const ChatView = ({
                   setTimeout(() => fileInputRef.current?.click(), 50);
                 }}
               >
-                <Film className="h-4 w-4 mr-2" />
+                <Icon name="Film" className="h-4 w-4 mr-2" />
                 <span>Videos</span>
               </DropdownMenuItem>
               <DropdownMenuItem
@@ -1417,7 +1412,7 @@ const ChatView = ({
                   setTimeout(() => fileInputRef.current?.click(), 50);
                 }}
               >
-                <FileText className="h-4 w-4 mr-2" />
+                <Icon name="FileText" className="h-4 w-4 mr-2" />
                 <span>Documents</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -1443,7 +1438,7 @@ const ChatView = ({
           />
           {newMessage.trim() ? (
             <Button size="icon" onClick={handleSend} className="shrink-0">
-              <Send className="h-4 w-4" />
+              <Icon name="Send" className="h-4 w-4" />
             </Button>
           ) : (
             <Button
@@ -1452,7 +1447,7 @@ const ChatView = ({
               className={`shrink-0 ${isRecordingVoice ? 'bg-destructive hover:bg-destructive/90 text-destructive-foreground animate-pulse' : ''}`}
               aria-label={isRecordingVoice ? 'Stop voice recording' : 'Start voice recording'}
             >
-              {isRecordingVoice ? <Square className="h-4 w-4 fill-current" /> : <Mic className="h-4 w-4" />}
+              {isRecordingVoice ? <Icon name="Square" className="h-4 w-4 fill-current" /> : <Icon name="Mic" className="h-4 w-4" />}
             </Button>
           )}
         </div>
@@ -1494,7 +1489,7 @@ const ChatView = ({
               <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm rounded-lg pointer-events-none">
                 <div className="text-center p-6 text-white">
                   <div className="bg-white/20 p-4 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4 border border-white/30 backdrop-blur-md">
-                    <Eye className="h-8 w-8 text-white" />
+                    <Icon name="Eye" className="h-8 w-8 text-white" />
                   </div>
                   <p className="text-lg font-bold">Press and hold to view</p>
                   <p className="text-xs opacity-70 mt-1">Screen capture is blocked</p>
@@ -1508,7 +1503,7 @@ const ChatView = ({
                 className="rounded-full bg-black/50 hover:bg-black/70 border-none text-white h-10 w-10 shadow-lg backdrop-blur-sm"
                 onClick={() => setPreviewImage(null)}
               >
-                <ArrowLeft className="h-5 w-5 rotate-180" />
+                <Icon name="ArrowLeft" className="h-5 w-5 rotate-180" />
               </Button>
               {!isPreviewViewOnce && (
                 <button
@@ -1518,7 +1513,7 @@ const ChatView = ({
                   }}
                   className="flex items-center justify-center h-10 w-10 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg transition-transform active:scale-95"
                 >
-                  <Download className="h-5 w-5" />
+                  <Icon name="Download" className="h-5 w-5" />
                 </button>
               )}
             </div>
@@ -1551,7 +1546,7 @@ const ChatView = ({
                     setActiveMessageMenu(null);
                   }}
                 >
-                  <EyeOff className="mr-4 h-6 w-6" /> Delete for Me
+                  <Icon name="EyeOff" className="mr-4 h-6 w-6" /> Delete for Me
                 </Button>
 
                 {(activeMessageMenu?.senderId === user?.id || user?.role === 'admin') && (
@@ -1563,7 +1558,7 @@ const ChatView = ({
                       setActiveMessageMenu(null);
                     }}
                   >
-                    <Trash2 className="mr-4 h-6 w-6" /> Delete for Everyone
+                    <Icon name="Trash2" className="mr-4 h-6 w-6" /> Delete for Everyone
                   </Button>
                 )}
               </>
@@ -1576,14 +1571,14 @@ const ChatView = ({
                 setActiveMessageMenu(null);
               }}
             >
-              <CheckCircle2 className="mr-4 h-6 w-6" /> Select More
+              <Icon name="CheckCircle2" className="mr-4 h-6 w-6" /> Select More
             </Button>
             <DrawerClose asChild>
               <Button
                 variant="secondary"
                 className="w-full h-14 text-lg font-semibold rounded-2xl px-6 bg-secondary text-secondary-foreground"
               >
-                <X className="mr-4 h-6 w-6" /> Cancel
+                <Icon name="X" className="mr-4 h-6 w-6" /> Cancel
               </Button>
             </DrawerClose>
           </div>
@@ -1714,19 +1709,19 @@ const ChatMoreMenu = ({
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="icon">
-            <MoreVertical className="h-5 w-5" />
+            <Icon name="MoreVertical" className="h-5 w-5" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48 bg-card border-border">
           <DropdownMenuItem onClick={() => setIsClearDialogOpen(true)} className="text-foreground">
-            <Trash2 className="mr-2 h-4 w-4" /> Clear History
+            <Icon name="Trash2" className="mr-2 h-4 w-4" /> Clear History
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => setIsBlockDialogOpen(true)} className="text-destructive focus:text-destructive">
-            <Ban className="mr-2 h-4 w-4" /> Block User
+            <Icon name="Ban" className="mr-2 h-4 w-4" /> Block User
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => setIsReportDialogOpen(true)} className="text-foreground">
-            <AlertTriangle className="mr-2 h-4 w-4" /> Report User
+            <Icon name="AlertTriangle" className="mr-2 h-4 w-4" /> Report User
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

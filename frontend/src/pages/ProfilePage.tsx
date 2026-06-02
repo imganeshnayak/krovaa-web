@@ -690,13 +690,19 @@ const ProfilePage = () => {
                       <MessageSquare className="h-4 w-4" /> Message
                     </button>
                   </Link>
-                  {canRateUser && (
+                  {canRateUser ? (
                     <button
                       onClick={() => setIsRatingDialogOpen(true)}
                       className="w-full h-11 bg-white border border-yellow-400 text-yellow-600 hover:bg-yellow-400/5 text-xs font-bold uppercase tracking-wider rounded-lg transition-all flex items-center justify-center gap-2"
                     >
                       <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" /> Write a Review
                     </button>
+                  ) : (
+                    ratingEligibilityReason && (
+                      <div className="w-full text-center text-[10px] text-[#1C1C1C]/40 font-semibold uppercase tracking-wider bg-white border border-[#E0E0E0] rounded-lg py-3 px-4 shadow-sm">
+                        {ratingEligibilityReason}
+                      </div>
+                    )
                   )}
                 </>
               ) : (
