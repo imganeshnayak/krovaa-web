@@ -17,6 +17,28 @@ const cookieOptions = {
     maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
 };
 
+const prismaConnectionErrorCodes = new Set(['P1000', 'P1001', 'P1002', 'P1003', 'P1010']);
+const prismaSchemaErrorCodes = new Set(['P2021', 'P2022']);
+const smtpTransportErrorCodes = new Set(['EAUTH', 'ECONNECTION', 'ETIMEDOUT', 'ESOCKET']);
+
+function classifyAuthError(err) {
+    const code = err?.code;
+
+    if (prismaConnectionErrorCodes.has(code)) {
+        return { status: 503, error: 'Database is unavailable. Verify DATABASE_URL and that PostgreSQL is running.' };
+    }
+
+    if (prismaSchemaErrorCodes.has(code)) {
+        return { status: 500, error: 'Database schema is not ready. Run Prisma migrations/db push.' };
+    }
+
+    if (smtpTransportErrorCodes.has(code)) {
+        return { status: 502, error: 'Email service is unavailable. Check SMTP configuration.' };
+    }
+
+    return null;
+}
+
 // ─────────────────────────────────────────────────────────────────
 // STEP 1: Send OTP to email before registration
 // POST /api/auth/send-otp
@@ -61,6 +83,10 @@ router.post('/send-otp', async (req, res) => {
         res.json({ success: true, message: 'OTP sent to your email.' });
     } catch (err) {
         console.error('Send OTP error:', err);
+        const classified = classifyAuthError(err);
+        if (classified) {
+            return res.status(classified.status).json({ error: classified.error });
+        }
         res.status(500).json({ error: 'Failed to send OTP. Please check your email address.' });
     }
 });
@@ -228,6 +254,10 @@ router.post('/login', async (req, res) => {
         res.json({ user: userWithoutPassword, token });
     } catch (err) {
         console.error('Login error:', err.message, err.stack);
+        const classified = classifyAuthError(err);
+        if (classified) {
+            return res.status(classified.status).json({ error: classified.error });
+        }
         res.status(500).json({ error: 'Server error.' });
     }
 });

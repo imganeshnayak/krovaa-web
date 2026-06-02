@@ -83,6 +83,18 @@ app.use(cors({
         // Allow requests with no origin (like mobile apps/curl)
         if (!origin) return callback(null, true);
 
+        // In development, allow any localhost/127.0.0.1 origin (different dev ports)
+        if (process.env.NODE_ENV !== 'production') {
+            try {
+                const low = origin.toLowerCase();
+                if (low.startsWith('http://localhost') || low.startsWith('http://127.0.0.1') || low.startsWith('http://[::1]')) {
+                    return callback(null, true);
+                }
+            } catch (e) {
+                // fallthrough to allowedOrigins check
+            }
+        }
+
         if (allowedOrigins.includes(origin)) {
             callback(null, true);
         } else {

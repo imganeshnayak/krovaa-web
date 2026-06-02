@@ -926,6 +926,14 @@ const ChatView = ({
                 const previousDate = index > 0 ? new Date(messages[index - 1].createdAt).toDateString() : null;
                 const showDateSeparator = currentDate !== previousDate;
 
+                // Sanitize plain text message content to remove stray markdown asterisks and quotes
+                const sanitizedContent = (msg.content || "")
+                  .replace(/\*\*(.*?)\*\*/g, '$1')
+                  .replace(/\*(.*?)\*/g, '$1')
+                  .replace(/[\u201C\u201D\"]/g, '')
+                  .replace(/\s+/g, ' ')
+                  .trim();
+
                 return (
                   <React.Fragment key={msg.id}>
                     {showDateSeparator && (
@@ -1119,7 +1127,7 @@ const ChatView = ({
                                 ))
                               ) : (msg.messageType === 'notification' || msg.message_type === 'notification')
                                 ? msg.content.split('\n\n')[1] || msg.content.replace(/🔔 \*\*(.*?)\*\*\n\n/, '')
-                                : msg.content
+                                : sanitizedContent
                               }
                             </div>
 
@@ -2314,8 +2322,16 @@ const ChatPage = () => {
 
   const handleSend = useCallback(async () => {
     if (!newMessage.trim() || !selectedChat || !user) return;
+    // Sanitize outgoing message: remove stray asterisks and double quotes to keep messages professional
+    const sanitizeOutgoing = (s: string) => {
+      return s
+        .replace(/[\*]+/g, "")
+        .replace(/[\u201C\u201D\"]/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+    };
 
-    const messageToSend = newMessage;
+    const messageToSend = sanitizeOutgoing(newMessage);
     setNewMessage("");
 
     // Bot Logic

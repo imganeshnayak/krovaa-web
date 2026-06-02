@@ -508,7 +508,7 @@ const JobDetailsPage = () => {
                     <hr className="border-slate-100 mb-6" />
                     {!isApplied ? (
                       <Button
-                        className="w-full rounded-2xl bg-slate-950 h-12 text-sm font-semibold text-white hover:bg-slate-800 shadow-lg shadow-slate-950/10 active:scale-[0.98] transition-all"
+                        className="w-full rounded-2xl bg-primary h-12 text-sm font-semibold text-primary-foreground hover:bg-primary/90 shadow-lg active:scale-[0.98] transition-all"
                         onClick={openApplyModal}
                       >
                         Apply Now
@@ -592,7 +592,7 @@ const JobDetailsPage = () => {
           >
             {!isApplied ? (
               <Button
-                className="w-full rounded-2xl bg-slate-950 h-12 text-sm font-semibold text-white hover:bg-slate-800 shadow-lg shadow-slate-950/10 active:scale-[0.98] transition-all"
+                className="w-full rounded-2xl bg-primary h-12 text-sm font-semibold text-primary-foreground hover:bg-primary/90 shadow-lg active:scale-[0.98] transition-all"
                 onClick={openApplyModal}
               >
                 Apply Now
