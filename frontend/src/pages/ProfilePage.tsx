@@ -13,7 +13,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfileById, useInvalidateProfile } from "@/hooks/useProfileCache";
 import {
-  getUser, getUserByUsername, getUserByShareId, updateUserProfile, uploadAvatar,
+  getUser, getUserByUsername, getUserByShareId, getProfileFull, updateUserProfile, uploadAvatar,
   rateUser, AuthUser, getVerificationStatus, getVerificationFee, 
   VerificationRequest, getRatingEligibility, uploadCoverPhoto,
   deleteAvatar, deleteCoverPhoto, Post
