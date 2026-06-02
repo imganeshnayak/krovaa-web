@@ -510,6 +510,7 @@ const ChatView = ({
   recordingSeconds,
   startVoiceRecording,
   stopVoiceRecording,
+  cancelVoiceRecording,
   isBlurred,
   setIsBlurred,
   isPreviewViewOnce,
@@ -538,7 +539,7 @@ const ChatView = ({
   newMessage: string;
   setNewMessage: (val: string) => void;
   handleSend: () => void;
-  messageInputRef: React.RefObject<HTMLInputElement>;
+  messageInputRef: React.RefObject<HTMLTextAreaElement>;
   fileInputRef: React.RefObject<HTMLInputElement>;
   handleFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onMessageDeleted: (messageId: number, type?: 'me' | 'everyone') => void;
@@ -560,8 +561,9 @@ const ChatView = ({
   isLoading: boolean;
   isRecordingVoice: boolean;
   recordingSeconds: number;
-  startVoiceRecording: () => void;
-  stopVoiceRecording: () => void;
+  startVoiceRecording: (e?: any) => void;
+  stopVoiceRecording: (e?: any) => void;
+  cancelVoiceRecording: (e?: any) => void;
   isBlurred: boolean;
   setIsBlurred: (val: boolean) => void;
   isPreviewViewOnce: boolean;
@@ -578,6 +580,16 @@ const ChatView = ({
   const [activeMessageMenu, setActiveMessageMenu] = useState<MessageType | null>(null);
   const [chatAd, setChatAd] = useState<Ad | null>(null);
   const [adDismissed, setAdDismissed] = useState(false);
+
+  // Auto-resize the textarea based on the content of newMessage state
+  useEffect(() => {
+    if (messageInputRef.current) {
+      messageInputRef.current.style.height = 'auto';
+      if (newMessage) {
+        messageInputRef.current.style.height = Math.min(messageInputRef.current.scrollHeight, 120) + 'px';
+      }
+    }
+  }, [newMessage, messageInputRef]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -992,7 +1004,7 @@ const ChatView = ({
                         </div>
                       )}
                       <div
-                        className={`max-w-[85%] rounded-2xl px-4 py-3 relative privacy-protected ${isMine
+                        className={`max-w-[85%] rounded-2xl px-4 py-3 relative privacy-protected overflow-hidden break-words ${isMine
                           ? (isEscrowOrNotify ? "" : "bg-[#00A4EF] text-white rounded-br-md")
                           : (isEscrowOrNotify ? "" : "bg-[#F5F5F5] text-[#1C1C1C] rounded-bl-md")
                           } ${msg.isDeleted ? "opacity-60 italic" : ""} ${isEscrowOrNotify ? (
@@ -1154,7 +1166,7 @@ const ChatView = ({
                             />
                           </div>
                         ) : (
-                          <p className="text-sm">{msg.content}</p>
+                          <p className="text-sm whitespace-pre-wrap break-words" style={{ overflowWrap: 'anywhere' }}>{msg.content}</p>
                         )}
                         {msg.attachmentUrl && !msg.isDeleted && !msg.isViewOnce && msg.messageType !== 'voice' && (
                           <div className="mt-2 p-2 bg-black/10 rounded-lg flex items-center gap-2">
@@ -1353,103 +1365,131 @@ const ChatView = ({
             )}
           </div>
         )}
-        <div className="flex items-center gap-2">
-          {isRecordingVoice && (
-            <div className="flex items-center gap-2 rounded-full bg-destructive/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-destructive shrink-0">
-              <span className="h-2 w-2 rounded-full bg-destructive animate-pulse" />
-              Recording {formatRecordingDuration(recordingSeconds)}
-            </div>
-          )}
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="ghost" size="icon" className="shrink-0">
-                <Icon name="Smile" className="h-5 w-5 text-muted-foreground" />
-              </Button>
-            </PopoverTrigger>
-            <EmojiPicker onSelect={(emoji) => setNewMessage(newMessage + emoji)} />
-          </Popover>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="shrink-0"
-              >
-                <Icon name="Paperclip" className="h-5 w-5 text-muted-foreground" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-48 bg-card border-border">
-              <DropdownMenuItem
-                onClick={() => {
-                  setCurrentAcceptType("image/*");
-                  setTimeout(() => fileInputRef.current?.click(), 50);
-                }}
-              >
-                <Icon name="Camera" className="h-4 w-4 mr-2" />
-                <span>Camera</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => {
-                  setCurrentAcceptType("image/*");
-                  setTimeout(() => fileInputRef.current?.click(), 50);
-                }}
-              >
-                <Icon name="Image" className="h-4 w-4 mr-2" />
-                <span>Photos</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => {
-                  setCurrentAcceptType("video/*");
-                  setTimeout(() => fileInputRef.current?.click(), 50);
-                }}
-              >
-                <Icon name="Film" className="h-4 w-4 mr-2" />
-                <span>Videos</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => {
-                  setCurrentAcceptType(".pdf,.doc,.docx,.txt,.zip,.rar");
-                  setTimeout(() => fileInputRef.current?.click(), 50);
-                }}
-              >
-                <Icon name="FileText" className="h-4 w-4 mr-2" />
-                <span>Documents</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileSelect}
-            className="hidden"
-            accept={currentAcceptType}
-          />
-          <Input
-            ref={messageInputRef}
-            className="bg-secondary border-border"
-            placeholder="Type a message..."
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSend()}
-            data-nopaste
-            type="text"
-            inputMode="text"
-            autoComplete="off"
-          />
-          {newMessage.trim() ? (
-            <Button size="icon" onClick={handleSend} className="shrink-0">
-              <Icon name="Send" className="h-4 w-4" />
-            </Button>
-          ) : (
-            <Button
-              size="icon"
-              onClick={isRecordingVoice ? stopVoiceRecording : startVoiceRecording}
-              className={`shrink-0 ${isRecordingVoice ? 'bg-destructive hover:bg-destructive/90 text-destructive-foreground animate-pulse' : ''}`}
-              aria-label={isRecordingVoice ? 'Stop voice recording' : 'Start voice recording'}
-            >
-              {isRecordingVoice ? <Icon name="Square" className="h-4 w-4 fill-current" /> : <Icon name="Mic" className="h-4 w-4" />}
-            </Button>
-          )}
+        <div className="flex items-end gap-2 w-full">
+          {/* Main Pill-Shaped Container */}
+          <div className="flex-1 flex items-end bg-white dark:bg-slate-800 rounded-[24px] min-h-[48px] py-1 pl-1 pr-1 gap-1 shadow-[0_1px_1px_rgba(0,0,0,0.1)] relative min-w-0 border border-border/20">
+            
+            {/* Hidden native input */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileSelect}
+              className="hidden"
+              accept={currentAcceptType}
+            />
+
+            {/* Voice recording indicators inside pill */}
+            {isRecordingVoice ? (
+              <div className="flex-1 flex items-center justify-between px-3 h-[40px]">
+                <div className="flex items-center gap-2 text-destructive">
+                  <span className="h-2 w-2 rounded-full bg-destructive animate-pulse shrink-0" />
+                  <span className="text-xs font-bold uppercase tracking-wider">
+                    {formatRecordingDuration(recordingSeconds)}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={cancelVoiceRecording}
+                  className="text-xs font-extrabold text-destructive hover:underline z-10 relative cursor-pointer px-2 py-1"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <>
+                {/* Smiley/Sticker/Emoji button */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={() => messageInputRef.current?.focus()}
+                      className="flex items-center justify-center h-10 w-10 rounded-full text-muted-foreground hover:text-foreground hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors active:scale-95 shrink-0"
+                      title="Emojis"
+                    >
+                      <Icon name="Smile" className="h-[22px] w-[22px]" />
+                    </button>
+                  </PopoverTrigger>
+                  <EmojiPicker onSelect={(emoji) => setNewMessage(newMessage + emoji)} />
+                </Popover>
+
+                {/* Message Input */}
+                <textarea
+                  ref={messageInputRef}
+                  className="flex-1 bg-transparent border-none outline-none focus:outline-none focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 px-1 py-2.5 text-[16px] leading-5 text-[#1C1C1C] dark:text-white placeholder:text-muted-foreground min-w-0 min-h-[40px] max-h-[120px] resize-none overflow-y-auto"
+                  placeholder="Message"
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSend();
+                    }
+                  }}
+                  rows={1}
+                  autoComplete="off"
+                />
+
+                {/* Paperclip attachment icon */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="flex items-center justify-center h-10 w-10 rounded-full text-muted-foreground hover:text-foreground hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors active:scale-95 shrink-0"
+                      title="Attach"
+                    >
+                      <Icon name="Paperclip" className="h-[22px] w-[22px]" style={{ transform: 'rotate(-45deg)' }} />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-52 bg-card border-border shadow-xl rounded-xl p-1 mb-2">
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setCurrentAcceptType("image/*,video/*");
+                        setTimeout(() => fileInputRef.current?.click(), 50);
+                      }}
+                      className="cursor-pointer py-2 rounded-lg"
+                    >
+                      <Icon name="Image" className="h-4 w-4 mr-2" />
+                      <span>Gallery</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setCurrentAcceptType(".pdf,.doc,.docx,.txt,.zip,.rar");
+                        setTimeout(() => fileInputRef.current?.click(), 50);
+                      }}
+                      className="cursor-pointer py-2 rounded-lg"
+                    >
+                      <Icon name="FileText" className="h-4 w-4 mr-2" />
+                      <span>Document</span>
+                    </DropdownMenuItem>
+                    {selectedChat && !selectedChat.isOfficial && (
+                      <DropdownMenuItem
+                        onClick={() => navigate(`/escrow?chatId=${selectedChat.chat_id}&vendorId=${selectedChat.user_id}&vendorUsername=${selectedChat.username}`)}
+                        className="cursor-pointer py-2 rounded-lg text-[#00A4EF] focus:bg-[#00A4EF]/5 focus:text-[#00A4EF]"
+                      >
+                        <Icon name="Wallet" className="h-4 w-4 mr-2" />
+                        <span>Create Escrow Deal</span>
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
+            )}
+          </div>
+
+          {/* Send / Stop Voice Button outside the pill */}
+          <button
+            onClick={newMessage.trim() ? handleSend : (isRecordingVoice ? stopVoiceRecording : startVoiceRecording)}
+            className={`flex items-center justify-center h-[48px] w-[48px] rounded-full bg-[#00A4EF] hover:bg-[#007BB5] text-white transition-transform active:scale-90 shrink-0 shadow-sm ${isRecordingVoice ? "animate-pulse bg-destructive hover:bg-destructive" : ""}`}
+            title={newMessage.trim() ? "Send Message" : (isRecordingVoice ? "Stop Recording" : "Voice Note")}
+          >
+            {newMessage.trim() ? (
+              <Icon name="Send" className="h-5 w-5 text-white ml-1" />
+            ) : isRecordingVoice ? (
+              <Icon name="Square" className="h-5 w-5 fill-white" />
+            ) : (
+              <Icon name="Mic" className="h-[22px] w-[22px] text-white" />
+            )}
+          </button>
         </div>
       </div>
 
@@ -1831,7 +1871,7 @@ const ChatPage = () => {
   const [recommendationCards, setRecommendationCards] = useState<Record<number, BestProfileUser[]>>({});
   const [recommendationMeta, setRecommendationMeta] = useState<Record<number, { total: number; hasMore: boolean }>>({});
   const [error, setError] = useState("");
-  const messageInputRef = useRef<HTMLInputElement>(null);
+  const messageInputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const voiceStreamRef = useRef<MediaStream | null>(null);
@@ -2670,13 +2710,38 @@ const ChatPage = () => {
     }
   }, [loadChats, loadMessages, selectedChat, user]);
 
-  const stopVoiceRecording = useCallback(() => {
+  const stopVoiceRecording = useCallback((e?: React.MouseEvent | React.TouchEvent | any) => {
+    if (e && e.preventDefault) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     const recorder = mediaRecorderRef.current;
-    if (!recorder || recorder.state !== 'recording') return;
-
+    
     setIsRecordingVoice(false);
     clearVoiceRecordingTimer();
-    recorder.stop();
+    
+    if (recorder && recorder.state !== 'inactive') {
+      try { recorder.stop(); } catch(err) {}
+    }
+  }, [clearVoiceRecordingTimer]);
+
+  const cancelVoiceRecording = useCallback((e?: React.MouseEvent | React.TouchEvent | any) => {
+    if (e && e.preventDefault) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    const recorder = mediaRecorderRef.current;
+    
+    setIsRecordingVoice(false);
+    clearVoiceRecordingTimer();
+    setRecordingSeconds(0);
+
+    if (recorder) {
+      (recorder as any).isCancelled = true;
+      if (recorder.state !== 'inactive') {
+        try { recorder.stop(); } catch(err) {}
+      }
+    }
   }, [clearVoiceRecordingTimer]);
 
   const startVoiceRecording = useCallback(async () => {
@@ -2720,6 +2785,8 @@ const ChatPage = () => {
         const blob = new Blob(chunks, { type: mimeType });
 
         releaseVoiceResources();
+
+        if ((recorder as any).isCancelled) return;
 
         if (blob.size === 0) {
           setError('Voice recording was empty. Please try again.');
@@ -2855,6 +2922,7 @@ const ChatPage = () => {
             recordingSeconds={recordingSeconds}
             startVoiceRecording={startVoiceRecording}
             stopVoiceRecording={stopVoiceRecording}
+            cancelVoiceRecording={cancelVoiceRecording}
             isBlurred={isBlurred}
             setIsBlurred={setIsBlurred}
             isPreviewViewOnce={isPreviewViewOnce}
@@ -2942,6 +3010,7 @@ const ChatPage = () => {
           recordingSeconds={recordingSeconds}
           startVoiceRecording={startVoiceRecording}
           stopVoiceRecording={stopVoiceRecording}
+          cancelVoiceRecording={cancelVoiceRecording}
           currentAcceptType={currentAcceptType}
           setCurrentAcceptType={setCurrentAcceptType}
           isLoading={isLoading}
