@@ -132,7 +132,9 @@ const ProfilePage = () => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  const [isViewingCached, setIsViewingCached] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string>( "");
   const [customProfession, setCustomProfession] = useState<string>("");
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -163,6 +165,17 @@ const ProfilePage = () => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [isLoadingPosts, setIsLoadingPosts] = useState(false);
 
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
+
   const getImageUrl = (url?: string, type: 'avatar' | 'cover' = 'avatar') => {
     const effectiveUrl = (type === 'avatar' ? localAvatarOverride : localCoverOverride) || url;
     if (!effectiveUrl) return "";
@@ -181,35 +194,66 @@ const ProfilePage = () => {
     setIsLoading(true);
     setError("");
     try {
+      let userData;
       if (shareId) {
-        const userData = await getUserByShareId(shareId);
-        setUser(userData);
-        if (userData.avatarUrl) setLocalAvatarOverride(null);
-        if (userData.coverPhotoUrl) setLocalCoverOverride(null);
-        if (currentUser?.id && userData.id !== currentUser.id) {
-          try {
-            const eligibility = await getRatingEligibility(userData.id);
-            setCanRateUser(eligibility.canRate);
-            setRatingEligibilityReason(eligibility.reason || "");
-          } catch { setCanRateUser(false); }
-        }
+        userData = await getUserByShareId(shareId);
       } else if (username) {
-        const userData = await getUserByUsername(username);
-        setUser(userData);
-        if (userData.avatarUrl) setLocalAvatarOverride(null);
-        if (userData.coverPhotoUrl) setLocalCoverOverride(null);
-        if (currentUser?.id && userData.id !== currentUser.id) {
-          try {
-            const eligibility = await getRatingEligibility(userData.id);
-            setCanRateUser(eligibility.canRate);
-            setRatingEligibilityReason(eligibility.reason || "");
-          } catch { setCanRateUser(false); }
-        }
+        userData = await getUserByUsername(username);
       } else {
         setError("Please log in to view your profile.");
+        setIsLoading(false);
+        return;
       }
+
+      // Fetch full profile (includes posts!)
+      const fullProfile = await getProfileFull(userData.id);
+      
+      setUser(fullProfile.user);
+      setPosts(fullProfile.posts);
+      setCanRateUser(fullProfile.ratingEligibility.canRate);
+      setRatingEligibilityReason(fullProfile.ratingEligibility.reason || "");
+      
+      setIsViewingCached(false);
+
+      // Save complete profile details in cache
+      try {
+        if (shareId) {
+          localStorage.setItem(`user_share_${shareId}`, JSON.stringify(fullProfile));
+        } else if (username) {
+          localStorage.setItem(`user_username_${username}`, JSON.stringify(fullProfile));
+        }
+      } catch (e) {
+        console.error("Failed to cache profile to localStorage:", e);
+      }
+
+      if (fullProfile.user.avatarUrl) setLocalAvatarOverride(null);
+      if (fullProfile.user.coverPhotoUrl) setLocalCoverOverride(null);
       setIsLoading(false);
     } catch (err) {
+      // Fallback to cache
+      let cached = null;
+      if (shareId) {
+        cached = localStorage.getItem(`user_share_${shareId}`);
+      } else if (username) {
+        cached = localStorage.getItem(`user_username_${username}`);
+      }
+
+      if (cached) {
+        try {
+          const fullProfile = JSON.parse(cached);
+          setUser(fullProfile.user);
+          setPosts(fullProfile.posts);
+          setCanRateUser(fullProfile.ratingEligibility?.canRate || false);
+          setRatingEligibilityReason(fullProfile.ratingEligibility?.reason || "");
+          setIsViewingCached(true);
+          setIsLoading(false);
+          setError("");
+          return;
+        } catch (parseErr) {
+          // Fall through
+        }
+      }
+
       setError(err instanceof Error ? err.message : "Failed to load user");
       setIsLoading(false);
     }
@@ -475,7 +519,6 @@ const ProfilePage = () => {
   const initials = user.displayName ? user.displayName.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2) : "?";
   const currentAvatarUrl = localAvatarOverride || user.avatarUrl;
   const currentCoverUrl = localCoverOverride || user.coverPhotoUrl;
-
   return (
     <div className="min-h-screen bg-[#F5F5F5] text-[#1C1C1C] selection:bg-[#00A4EF] selection:text-white antialiased font-sans relative">
       
@@ -513,6 +556,14 @@ const ProfilePage = () => {
 
       <div className="max-w-xl mx-auto px-5 pb-20 pt-4 relative z-10">
         
+        {/* Offline Cache Indicator Banner */}
+        {isViewingCached && (
+          <div className="mb-4 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs font-bold text-amber-600 uppercase tracking-widest text-center flex items-center justify-center gap-2 shadow-sm animate-pulse">
+            <span className="w-2 h-2 rounded-full bg-amber-500" />
+            Viewing Cached Profile (Offline)
+          </div>
+        )}
+
         {/* ── High Contrast Canvas Cover Photo ── */}
         <div className="relative h-48 rounded-xl overflow-hidden border border-[#E0E0E0] bg-[#1C1C1C] group/cover">
           {currentCoverUrl ? (
@@ -521,6 +572,7 @@ const ProfilePage = () => {
               src={getImageUrl(user.coverPhotoUrl, 'cover')} 
               alt="Cover Canvas" 
               className="w-full h-full object-cover grayscale-[20%] contrast-[105%]" 
+              loading="lazy"
             />
           ) : (
             <div className="w-full h-full" style={{ background: `linear-gradient(to bottom right, #00A4EF, #005580)` }}>
@@ -578,6 +630,7 @@ const ProfilePage = () => {
                   src={getImageUrl(user.avatarUrl, 'avatar')} 
                   alt={user.displayName} 
                   className="w-full h-full object-cover rounded-lg" 
+                  loading="lazy"
                 />
               ) : (
                 <div className="w-full h-full bg-[#00A4EF]/10 flex items-center justify-center rounded-lg">
