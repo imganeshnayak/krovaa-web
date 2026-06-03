@@ -431,7 +431,7 @@ const ConversationList = ({
               onClick={() => {
                 setSelectedChat(chat);
               }}
-              className={`w-full grid grid-cols-[48px_1fr_auto] items-center gap-3 p-4 hover:bg-secondary/60 transition-colors border-b border-border text-left overflow-hidden ${selectedChat?.chat_id === chat.chat_id ? "bg-secondary" : ""}`}
+              className={`w-full grid grid-cols-[48px_1fr_auto] items-center gap-3 p-4 transition-colors text-left overflow-hidden bg-white`}
             >
               <Avatar className="h-12 w-12 shrink-0">
                 <AvatarImage src={chat.avatar_url} loading="lazy" />
