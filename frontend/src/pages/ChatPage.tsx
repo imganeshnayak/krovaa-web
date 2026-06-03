@@ -737,7 +737,7 @@ const ChatView = ({
   }
 
   return (
-    <div className={`flex flex-col h-full min-h-0 bg-white relative overflow-hidden ${isBlurred ? 'blur-privacy' : ''}`} data-nocontext>
+    <div className={`flex flex-col h-full min-h-0 bg-whatsapp-chat relative overflow-hidden ${isBlurred ? 'blur-privacy' : ''}`} data-nocontext>
       {/* Privacy Screen Overlay - Only show when blurred and selected chat exists */}
       {isBlurred && selectedChat && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-xl animate-in fade-in duration-200 pointer-events-auto">
@@ -919,7 +919,7 @@ const ChatView = ({
       </div>
 
       {/* Messages */}
-      <div className="flex-1 relative overflow-hidden min-h-0 bg-[#050810]/30" data-nocontext>
+      <div className="flex-1 relative overflow-hidden min-h-0 bg-transparent" data-nocontext>
 
         {/* Persistent Ad Banner below header (Floating to prevent Layout Shift) */}
         {!adDismissed && chatAd && selectedChat && !selectedChat.isOfficial && (
@@ -1282,7 +1282,7 @@ const ChatView = ({
       {/* Input */}
       <div
         ref={inputBarRef}
-        className="p-3 border-t border-border bg-background flex-shrink-0"
+        className="p-3 bg-transparent flex-shrink-0"
       >
         {selectedChat?.isOfficial && botState === 'IDLE' && (
           <div className="flex flex-wrap gap-2 mb-3">
