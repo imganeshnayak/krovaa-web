@@ -559,7 +559,7 @@ router.post('/:id/apply', auth, async (req, res) => {
                 sender_username: message.sender.username,
             };
             io.to(chatId).emit('newMessage', socketMessage);
-            io.to(`user_${job.postedById}`).emit('newMessage', socketMessage);
+            io.to(`user_${job.postedById}`).emit('chatListUpdate');
             
             // Also send a system notification (bell icon)
             const applicant = await prisma.user.findUnique({ where: { id: userId }, select: { displayName: true, username: true } });

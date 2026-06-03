@@ -322,10 +322,9 @@ router.post('/', auth, async (req, res) => {
                 sender_avatar: result.systemMsg.sender.avatarUrl,
                 sender_username: result.systemMsg.sender.username,
             };
-            io.to(chatId).emit('newMessage', socketResult);
             io.to(`user_${requestedVendorId}`).emit('newMessage', socketResult);
 
-            // Also emit escrowUpdate
+            // Also emit escrow update for the vendor
             io.to(chatId).emit('escrowUpdate', result.newDeal);
             io.to(`user_${requestedVendorId}`).emit('escrowUpdate', result.newDeal);
         }
@@ -547,7 +546,6 @@ router.post('/:id/release', auth, async (req, res) => {
                         sender_avatar: systemMessage.sender.avatarUrl,
                         sender_username: systemMessage.sender.username,
                     };
-                    io.to(deal.chatId).emit('newMessage', socketResult);
                     io.to(`user_${deal.vendorId}`).emit('newMessage', socketResult);
                 }
 
@@ -776,7 +774,6 @@ router.delete('/:id', auth, async (req, res) => {
                     sender_avatar: systemMessage.sender.avatarUrl,
                     sender_username: systemMessage.sender.username,
                 };
-                io.to(deal.chatId).emit('newMessage', socketResult);
                 io.to(`user_${deal.vendorId}`).emit('newMessage', socketResult);
                 io.to(`user_${deal.clientId}`).emit('newMessage', socketResult);
             }

@@ -266,8 +266,6 @@ router.post('/broadcast', auth, adminOnly, checkPermission('broadcast'), async (
                         sender_avatar: null // Use default system avatar
                     };
 
-                    io.to(chatId).emit('newMessage', socketMsg);
-                    // Also notify user's personal room to refresh their chat list/unread count
                     io.to(`user_${user.id}`).emit('newMessage', socketMsg);
                 }
             }
@@ -355,7 +353,6 @@ export async function sendUserNotification(io, targetUserId, title, message, typ
                     sender_avatar: null // Use default system avatar
                 };
 
-                io.to(chatId).emit('newMessage', socketPayload);
                 io.to(`user_${targetUserId}`).emit('newMessage', socketPayload);
             }
         } catch (msgErr) {

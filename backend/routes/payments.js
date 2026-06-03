@@ -493,7 +493,6 @@ router.post('/verify', auth, async (req, res) => {
                             sender_avatar: systemMessage.sender.avatarUrl,
                             sender_username: systemMessage.sender.username,
                         };
-                        io.to(deal.chatId).emit('newMessage', socketResult);
                         io.to(`user_${deal.vendorId}`).emit('newMessage', socketResult);
                     }
 
