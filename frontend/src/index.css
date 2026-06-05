@@ -318,6 +318,16 @@
   }
 }
 
+@keyframes messageHighlight {
+  0% { background-color: rgba(0, 164, 239, 0.35); }
+  50% { background-color: rgba(0, 164, 239, 0.15); }
+  100% { background-color: transparent; }
+}
+
+.animate-message-highlight {
+  animation: messageHighlight 2s ease-out forwards;
+}
+
 .animate-fade-in-up {
   animation: fadeInUp 0.8s ease-out both;
 }

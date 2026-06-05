@@ -30,7 +30,7 @@ Create a `.env` file in the `backend/` directory and populate it with your local
 ### Database Initialization
 If using Docker, start the Postgres container:
 ```bash
-docker-compose up -d postgres
+docker-compose up -d database
 ```
 
 Generate Prisma client and push the schema to your database:

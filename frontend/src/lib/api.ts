@@ -293,6 +293,9 @@ export interface Message {
   sender_name?: string;
   sender_avatar?: string;
   sender_username?: string;
+  parentMessageId?: number;
+  replyToText?: string;
+  replyToUser?: string;
 }
 
 export interface Chat {
@@ -354,6 +357,9 @@ export function sendMessage(data: {
   content: string;
   message_type?: string;
   is_view_once?: boolean;
+  parent_message_id?: number;
+  reply_to_text?: string;
+  reply_to_user?: string;
 }): Promise<Message> {
   return apiFetch<Message>("/api/messages", {
     method: "POST",
@@ -556,6 +562,9 @@ export async function uploadFile(data: {
   file: File;
   content?: string;
   is_view_once?: boolean;
+  parent_message_id?: number;
+  reply_to_text?: string;
+  reply_to_user?: string;
 }): Promise<Message> {
   const formData = new FormData();
   formData.append("receiver_id", data.receiver_id.toString());
@@ -563,6 +572,9 @@ export async function uploadFile(data: {
   formData.append("file", data.file);
   if (data.content) formData.append("content", data.content);
   if (data.is_view_once) formData.append("is_view_once", "true");
+  if (data.parent_message_id) formData.append("parent_message_id", data.parent_message_id.toString());
+  if (data.reply_to_text) formData.append("reply_to_text", data.reply_to_text);
+  if (data.reply_to_user) formData.append("reply_to_user", data.reply_to_user);
 
   const res = await fetch(apiUrl("/api/messages/upload"), {
     method: "POST",
