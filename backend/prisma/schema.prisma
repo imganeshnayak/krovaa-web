@@ -177,6 +177,9 @@ model Message {
   isOpened          Boolean  @default(false) @map("is_opened")
   isViewOnce        Boolean  @default(false) @map("is_view_once")
   color             String?
+  parentMessageId   Int?     @map("parent_message_id")
+  replyToText       String?  @map("reply_to_text")
+  replyToUser       String?  @map("reply_to_user")
   deletedBySender   Boolean  @default(false) @map("deleted_by_sender")
   deletedByReceiver Boolean  @default(false) @map("deleted_by_receiver")
 
@@ -219,7 +222,6 @@ model BlockedUser {
   blockedId Int      @map("blocked_id")
   blocker   User     @relation("Blocker", fields: [blockerId], references: [id])
   blocked   User     @relation("Blocked", fields: [blockedId], references: [id])
-  createdAt DateTime @default(now()) @map("created_at")
 
   @@unique([blockerId, blockedId])
   @@map("blocked_users")
