@@ -1,9 +1,24 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Edit3, Trash2, Eye, Users, IndianRupee, Briefcase, MapPin, Clock, AlertTriangle, X } from "lucide-react";
-import { getMyJobs, deleteJob, MyJob, updateJob } from "../lib/api";
+import { ArrowLeft, Edit3, Trash2, Eye, Users, IndianRupee, Briefcase, MapPin, Clock, AlertTriangle, X, LayoutGrid, Layers, Loader2, History, Bookmark, MoreVertical, Plus } from "lucide-react";
+import { getMyJobs, deleteJob, MyJob, updateJob, getMyCollabProjects, ProjectListing, deleteCollabProject, updateCollabProject } from "../lib/api";
+import ProjectAuctionCard from "@/components/collab/ProjectAuctionCard";
+import ShareJobDialog from "@/components/ShareJobDialog";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const formatPostedAgo = (createdAt: string) => {
   const diffMinutes = Math.round((Date.now() - new Date(createdAt).getTime()) / 60000);
@@ -15,386 +30,565 @@ const formatPostedAgo = (createdAt: string) => {
   return new Date(createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 };
 
-const MyListingsPage = () => {
+export default function MyListingsPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [showHistory, setShowHistory] = useState(false);
+  
+  // Data State Line
   const [myJobs, setMyJobs] = useState<MyJob[]>([]);
+  const [myCollabProjects, setMyCollabProjects] = useState<ProjectListing[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isCollabLoading, setIsCollabLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Operational Action Guard states
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [editingJob, setEditingJob] = useState<MyJob | null>(null);
-  const [editForm, setEditForm] = useState({
-    title: "",
-    company: "",
-    location: "",
-    budget: "",
-    mode: "",
-    description: "",
-  });
+  const [deleteConfirmCollabId, setDeleteConfirmCollabId] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Form Struct Sync Targets
+  const [editingJob, setEditingJob] = useState<MyJob | null>(null);
+  const [editForm, setEditForm] = useState({ title: "", company: "", location: "", budget: "", mode: "", description: "" });
+
+  const [editingCollabProject, setEditingCollabProject] = useState<ProjectListing | null>(null);
+  const [editCollabForm, setEditCollabForm] = useState({ title: "", description: "", company: "", location: "", workMode: "", duration: "", deadline: "", skills: "", terms: "" });
+
+  // Drawer Context Anchors
+  const [sharingCollab, setSharingCollab] = useState<ProjectListing | null>(null);
+
+  // Core API Fetch Routines
+  const loadMyJobs = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const data = await getMyJobs();
+      setMyJobs(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load your listings.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadMyCollabProjects = async () => {
+    setIsCollabLoading(true);
+    try {
+      const data = await getMyCollabProjects();
+      setMyCollabProjects(data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsCollabLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const loadMyJobs = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const data = await getMyJobs();
-        setMyJobs(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load your listings.");
-      } finally {
-        setIsLoading(false);
-      }
-    };
     loadMyJobs();
+    loadMyCollabProjects();
   }, []);
 
-  const totalApplications = myJobs.reduce((sum, j) => sum + j.applicationCount, 0);
+  const displayedJobs = myJobs.filter(j => {
+    if (j.postedById !== user?.id) return false;
+    const isCompleted = j.applications?.some(a => a.status === "accepted");
+    return showHistory ? isCompleted : !isCompleted;
+  });
+
+  const displayedCollabProjects = myCollabProjects.filter(p => {
+    if (p.creatorId !== user?.id) return false;
+    const isCompleted = p.status === 'COMPLETED';
+    return showHistory ? isCompleted : !isCompleted;
+  });
+
+  // Aggregation Metrics Computations
+  const totalApplications = myJobs.reduce((sum, j) => sum + (j.applicationCount || 0), 0);
   const totalBids = myJobs.reduce((sum, j) => {
     if (!j.applications) return sum;
     return sum + j.applications.filter(a => a.bidAmount).length;
   }, 0);
 
-  const handleDelete = async (jobId: number) => {
+  // Core Execution Mutations
+  const handleDeleteJob = async (jobId: number) => {
     setIsDeleting(true);
     try {
       await deleteJob(jobId);
       setMyJobs(prev => prev.filter(j => j.id !== jobId));
-      toast.success("Job listing deleted.");
+      toast.success("Job listing successfully removed.");
+      setDeleteConfirmId(null);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to delete job.");
+      toast.error(err instanceof Error ? err.message : "Failed to remove execution entry.");
     } finally {
       setIsDeleting(false);
-      setDeleteConfirmId(null);
     }
   };
 
-  const openEdit = (job: MyJob) => {
-    setEditingJob(job);
-    setEditForm({
-      title: job.title,
-      company: job.company,
-      location: job.location,
-      budget: job.budget,
-      mode: job.mode,
-      description: job.description,
-    });
-  };
-
-  const handleEditSave = async () => {
+  const handleEditJobSave = async () => {
     if (!editingJob) return;
-    if (!editForm.title.trim() || !editForm.company.trim() || !editForm.location.trim() || !editForm.budget.trim() || !editForm.description.trim()) {
-      toast.error("All fields are required.");
+    const { title, company, location, budget, description } = editForm;
+    if (!title.trim() || !company.trim() || !location.trim() || !budget.trim() || !description.trim()) {
+      toast.error("Please fill down all structural criteria requirements.");
       return;
     }
     setIsSaving(true);
     try {
       const updated = await updateJob(editingJob.id, editForm);
       setMyJobs(prev => prev.map(j => j.id === editingJob.id ? { ...j, ...updated } : j));
-      toast.success("Job updated.");
+      toast.success("Job profile criteria updated smoothly.");
       setEditingJob(null);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to update job.");
+      toast.error(err instanceof Error ? err.message : "Update mutation crash.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteCollab = async (projectId: number) => {
+    setIsDeleting(true);
+    try {
+      await deleteCollabProject(projectId);
+      setMyCollabProjects(prev => prev.filter(p => p.id !== projectId));
+      toast.success("Collaboration workspace blueprint detached.");
+      setDeleteConfirmCollabId(null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Blueprint removal breakdown.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleEditCollabSave = async () => {
+    if (!editingCollabProject) return;
+    if (!editCollabForm.title.trim() || !editCollabForm.description.trim()) {
+      toast.error("Functional workspace configurations must specify titles and descriptions.");
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const updated = await updateCollabProject(editingCollabProject.id, editCollabForm);
+      setMyCollabProjects(prev => prev.map(p => p.id === editingCollabProject.id ? { ...p, ...updated } : p));
+      toast.success("Collaboration pipeline parameters successfully updated.");
+      setEditingCollabProject(null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to synchronize operational criteria changes.");
     } finally {
       setIsSaving(false);
     }
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 pb-28 pt-6 sm:px-6">
-      <div className="mb-8 border-b border-slate-100 pb-6">
-        <div className="flex items-center gap-2 mb-4">
-          <button
-            type="button"
-            onClick={() => navigate("/explore")}
-            className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors group"
-          >
-            <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
-            Back to listings
-          </button>
-        </div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">My Listings</h1>
-        <p className="text-sm text-slate-500 mt-1">Manage your posted jobs, view applications, and track engagement.</p>
-      </div>
-
-      {isLoading ? (
-        <div className="rounded-3xl border border-slate-200 bg-slate-50/50 p-12 text-center text-sm text-slate-500 animate-pulse">
-          Loading your listings...
-        </div>
-      ) : error ? (
-        <div className="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-center text-sm text-rose-700">
-          {error}
-        </div>
-      ) : myJobs.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50/30 p-12 text-center text-sm text-slate-500">
-          <div className="mb-4 text-slate-300">
-            <Briefcase className="h-12 w-12 mx-auto" />
-          </div>
-          <p className="text-base font-semibold text-slate-600 mb-1">No job listings yet</p>
-          <p className="text-sm text-slate-400 mb-6">Post your first job to start receiving applications.</p>
+    <div className="max-w-6xl mx-auto px-4 pb-24 pt-4 sm:px-6">
+      
+      {/* Top Breadcrumb Header Context Row */}
+      <div className="mb-6 border-b border-slate-100 pb-5">
+        <div className="flex items-center gap-2 mb-3">
           <Button
-            onClick={() => navigate("/post-job")}
-            className="rounded-2xl bg-[#00A4EF] hover:bg-[#0087d1]"
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate("/explore")}
+            className="text-slate-500 hover:text-slate-900 h-8 gap-1.5 px-2 text-xs font-semibold group"
           >
-            Post a Job
+            <ArrowLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-0.5" />
+            Back to Hub Explorer
           </Button>
         </div>
-      ) : (
-        <>
-          <div className="grid gap-4 sm:grid-cols-3 mb-8">
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Jobs</p>
-              <p className="mt-1 text-3xl font-bold text-slate-900">{myJobs.length}</p>
-            </div>
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Applications</p>
-              <p className="mt-1 text-3xl font-bold text-[#00A4EF]">{totalApplications}</p>
-            </div>
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Bids Received</p>
-              <p className="mt-1 text-3xl font-bold text-amber-600">{totalBids}</p>
-            </div>
+        
+        {/* Top Control Grid Action Row */}
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">My Operations Console</h1>
           </div>
-
-          <div className="space-y-4">
-            {myJobs.map((job) => {
-              const pendingApps = job.applications?.filter(a => a.status === "pending").length || 0;
-              const hasBids = job.applications?.some(a => a.bidAmount) || false;
-
-              return (
-                <div
-                  key={job.id}
-                  className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition-all hover:border-slate-300 hover:shadow-md"
+          
+          {/* Compact Utility Row Wrapper */}
+          <div className="flex items-center gap-2 shrink-0">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-10 w-10 p-0 rounded-lg bg-white border-slate-200 hover:bg-slate-50 text-slate-600 shadow-2xs shrink-0"
+                  title="More actions"
                 >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 truncate">{job.company}</span>
-                        {pendingApps > 0 && (
-                          <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
-                            {pendingApps} pending
-                          </span>
-                        )}
-                      </div>
-                      <h2 className="mt-1 text-base font-bold text-slate-950 tracking-tight">{job.title}</h2>
-
-                      <div className="flex flex-wrap items-center gap-y-2 gap-x-3 text-[11px] font-medium text-slate-500 mt-2">
-                        <div className="flex items-center gap-1">
-                          <MapPin className="h-3.5 w-3.5 text-slate-400" />
-                          <span>{job.location}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Briefcase className="h-3.5 w-3.5 text-slate-400" />
-                          <span>{job.mode}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <IndianRupee className="h-3.5 w-3.5 text-slate-400" />
-                          <span>{job.budget}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Clock className="h-3.5 w-3.5 text-slate-400" />
-                          <span>{formatPostedAgo(job.createdAt)}</span>
-                        </div>
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-3 mt-3">
-                        <div className="flex items-center gap-1 text-xs font-semibold text-[#00A4EF] bg-[#E8F4FF] px-2.5 py-1 rounded-lg">
-                          <Users className="h-3.5 w-3.5" />
-                          <span>{job.applicationCount} applicant{job.applicationCount === 1 ? "" : "s"}</span>
-                        </div>
-                        {hasBids && (
-                          <div className="flex items-center gap-1 text-xs font-semibold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-lg">
-                            <IndianRupee className="h-3.5 w-3.5" />
-                            <span>Bids available</span>
-                          </div>
-                        )}
-                      </div>
-
-                      {job.applications && job.applications.length > 0 && (
-                        <div className="mt-3 pt-3 border-t border-slate-100">
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Recent Applicants</p>
-                          <div className="flex flex-wrap gap-2">
-                            {job.applications.slice(0, 5).map((app) => (
-                              <div
-                                key={app.id}
-                                className="flex items-center gap-1.5 text-xs bg-slate-50 border border-slate-100 px-2 py-1 rounded-lg"
-                              >
-                                <span className="font-medium text-slate-700">{app.user.displayName || app.user.username}</span>
-                                {app.bidAmount && (
-                                  <span className="text-amber-600 font-semibold">₹{app.bidAmount}</span>
-                                )}
-                                <span className={`text-[10px] font-semibold uppercase ${
-                                  app.status === "pending" ? "text-amber-500" :
-                                  app.status === "accepted" ? "text-green-600" :
-                                  app.status === "rejected" ? "text-red-500" : "text-slate-400"
-                                }`}>
-                                  {app.status}
-                                </span>
-                              </div>
-                            ))}
-                            {job.applications.length > 5 && (
-                              <span className="text-xs text-slate-400">+{job.applications.length - 5} more</span>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex flex-col gap-2 shrink-0">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="rounded-xl border-slate-200 text-xs h-9 px-3"
-                        onClick={() => navigate(`/jobs/${job.id}`)}
-                      >
-                        <Eye className="h-3.5 w-3.5 mr-1.5" />
-                        View
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="rounded-xl border-slate-200 text-xs h-9 px-3"
-                        onClick={() => openEdit(job)}
-                      >
-                        <Edit3 className="h-3.5 w-3.5 mr-1.5" />
-                        Edit
-                      </Button>
-                      {deleteConfirmId === job.id ? (
-                        <div className="flex gap-1">
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            className="rounded-xl text-xs h-9 px-3"
-                            disabled={isDeleting}
-                            onClick={() => handleDelete(job.id)}
-                          >
-                            {isDeleting ? "..." : "Confirm"}
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="rounded-xl border-slate-200 text-xs h-9 px-3"
-                            onClick={() => setDeleteConfirmId(null)}
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="rounded-xl border-rose-200 text-rose-600 hover:bg-rose-50 text-xs h-9 px-3"
-                          onClick={() => setDeleteConfirmId(job.id)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-                          Delete
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </>
-      )}
-
-      {editingJob && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-[2rem] p-6 sm:p-8 max-w-lg w-full shadow-2xl relative max-h-[90vh] overflow-y-auto">
-            <button
-              type="button"
-              onClick={() => setEditingJob(null)}
-              className="absolute top-4 right-4 p-1 rounded-full hover:bg-slate-100"
-            >
-              <X className="h-5 w-5 text-slate-400" />
-            </button>
-
-            <h2 className="text-xl font-bold text-slate-900 mb-6">Edit Job Listing</h2>
-
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1 block">Title</label>
-                <input
-                  type="text"
-                  value={editForm.title}
-                  onChange={e => setEditForm(p => ({ ...p, title: e.target.value }))}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1 block">Company</label>
-                <input
-                  type="text"
-                  value={editForm.company}
-                  onChange={e => setEditForm(p => ({ ...p, company: e.target.value }))}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1 block">Location</label>
-                  <input
-                    type="text"
-                    value={editForm.location}
-                    onChange={e => setEditForm(p => ({ ...p, location: e.target.value }))}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1 block">Budget</label>
-                  <input
-                    type="text"
-                    value={editForm.budget}
-                    onChange={e => setEditForm(p => ({ ...p, budget: e.target.value }))}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1 block">Mode</label>
-                <select
-                  value={editForm.mode}
-                  onChange={e => setEditForm(p => ({ ...p, mode: e.target.value }))}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                  <LayoutGrid className="w-4 h-4 text-slate-500" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="bg-white border-slate-200 shadow-lg rounded-xl min-w-[200px] p-1">
+                <DropdownMenuItem
+                  onClick={() => navigate("/saved-jobs")}
+                  className="cursor-pointer text-xs font-semibold py-2 px-3 text-slate-700 hover:text-slate-900 flex items-center gap-2 rounded-lg"
                 >
-                  <option value="Remote">Remote</option>
-                  <option value="Hybrid">Hybrid</option>
-                  <option value="Onsite">Onsite</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1 block">Description</label>
-                <textarea
-                  value={editForm.description}
-                  onChange={e => setEditForm(p => ({ ...p, description: e.target.value }))}
-                  rows={4}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
-                />
-              </div>
-            </div>
+                  <Bookmark className="w-3.5 h-3.5 text-slate-400" />
+                  Saved Blueprints
+                </DropdownMenuItem>
+           
+                <DropdownMenuItem
+                  onClick={() => setShowHistory(!showHistory)}
+                  className="cursor-pointer text-xs font-semibold py-2 px-3 text-slate-700 hover:text-slate-900 flex items-center gap-2 rounded-lg"
+                >
+                  <History className="w-3.5 h-3.5 text-slate-400" />
+                  {showHistory ? "Hide History" : "View History"}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
-            <div className="flex gap-3 mt-6">
-              <Button
-                variant="outline"
-                className="flex-1 rounded-2xl border-slate-200 h-12 font-semibold"
-                onClick={() => setEditingJob(null)}
-              >
-                Cancel
-              </Button>
-              <Button
-                disabled={isSaving}
-                className="flex-1 rounded-2xl bg-[#00A4EF] h-12 font-semibold text-white hover:bg-[#0087d1] disabled:opacity-70"
-                onClick={handleEditSave}
-              >
-                {isSaving ? "Saving..." : "Save Changes"}
-              </Button>
-            </div>
+            {showHistory && (
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
+                Viewing History
+              </span>
+            )}
           </div>
         </div>
+      </div>
+
+      <div className="space-y-12">
+        {/* Section 1: Standard Roles */}
+        <section className="space-y-6">
+          <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+            <LayoutGrid className="w-4.5 h-4.5 text-[#00A4EF]" />
+            <h2 className="text-lg font-bold text-slate-900">Standard Roles</h2>
+          </div>
+
+          {isLoading ? (
+            <div className="grid gap-4 sm:grid-cols-3">
+              {[1, 2, 3].map((n) => <Skeleton key={n} className="h-20 rounded-xl bg-slate-200/60" />)}
+            </div>
+          ) : error ? (
+            <div className="rounded-xl border border-rose-100 bg-rose-50/50 p-4 text-center text-xs font-medium text-rose-600 flex items-center justify-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-rose-500" /> {error}
+            </div>
+          ) : displayedJobs.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/40 p-10 text-center flex flex-col items-center justify-center max-w-md mx-auto">
+              <Briefcase className="h-8 w-8 text-slate-300 mb-3" />
+              <h3 className="text-sm font-bold text-slate-800">Operational Vacancy</h3>
+              <p className="text-xs text-slate-400 mt-1 mb-5">
+                {showHistory ? "You haven't completed any standard corporate position outline workspaces yet." : "You haven't initiated a standard corporate position outline workspace yet."}
+              </p>
+              {!showHistory && (
+                <Button size="sm" onClick={() => navigate("/post-job")} className="bg-slate-900 text-white hover:bg-slate-800 font-bold px-4 h-9 rounded-xl shadow-xs">
+                  Draft Role Posting
+                </Button>
+              )}
+            </div>
+          ) : (
+            <>
+              {/* Aggregation Metric Row Panel Cards */}
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
+                <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-2xs">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total  Posts</span>
+                  <p className="mt-0.5 text-2xl font-extrabold text-slate-900 tracking-tight">{displayedJobs.length}</p>
+                </div>
+                <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-2xs">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400"> Applications</span>
+                  <p className="mt-0.5 text-2xl font-extrabold text-sky-600 tracking-tight">{totalApplications}</p>
+                </div>
+                <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-2xs">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Active Bids</span>
+                  <p className="mt-0.5 text-2xl font-extrabold text-amber-600 tracking-tight">{totalBids}</p>
+                </div>
+              </div>
+
+              {/* Jobs Array Mapping Engine */}
+              <div className="space-y-4">
+                {displayedJobs.map((job) => {
+                  const pendingApps = job.applications?.filter(a => a.status === "pending").length || 0;
+                  const hasBids = job.applications?.some(a => a.bidAmount) || false;
+
+                  return (
+                    <div key={job.id} className="rounded-xl border border-slate-200 bg-white p-5 shadow-2xs hover:border-slate-300 transition-colors">
+                      <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
+                        <div className="min-w-0 flex-1 space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 truncate max-w-[140px]">{job.company}</span>
+                            {pendingApps > 0 && (
+                              <span className="text-[9px] font-bold text-amber-700 bg-amber-50 border border-amber-200/60 px-2 py-0.5 rounded-md uppercase tracking-wide">
+                                {pendingApps} Evaluation Action Required
+                              </span>
+                            )}
+                          </div>
+                          <h2 className="text-base font-bold text-slate-900 tracking-tight">{job.title}</h2>
+
+                          {/* Logistics Meta Tags List */}
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px] font-medium text-slate-500 pt-1">
+                            <div className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5 text-slate-400 shrink-0" /><span>{job.location}</span></div>
+                            <div className="flex items-center gap-1"><Briefcase className="h-3.5 w-3.5 text-slate-400 shrink-0" /><span>{job.mode}</span></div>
+                            <div className="flex items-center gap-1">
+                              <IndianRupee className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                              <span>{isNaN(Number(job.budget)) ? job.budget : Number(job.budget).toLocaleString('en-IN')}</span>
+                            </div>
+                            <div className="flex items-center gap-1"><Clock className="h-3.5 w-3.5 text-slate-400 shrink-0" /><span>{formatPostedAgo(job.createdAt)}</span></div>
+                          </div>
+
+                          {/* Aggregated Applicant Profile Badges */}
+                          <div className="flex flex-wrap items-center gap-2 pt-2">
+                            <div className="flex items-center gap-1.5 text-[10px] font-bold text-sky-700 bg-sky-50 border border-sky-100 px-2 py-0.5 rounded-md uppercase">
+                              <Users className="h-3 w-3" />
+                              <span>{job.applicationCount} submissions</span>
+                            </div>
+                            {hasBids && (
+                              <div className="flex items-center gap-1.5 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-100 px-2 py-0.5 rounded-md uppercase">
+                                <IndianRupee className="h-3 w-3" /> <span>Premium Financial Bids Out</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Horizontal Mini App Track Segment */}
+                          {job.applications && job.applications.length > 0 && (
+                            <div className="mt-3 pt-3 border-t border-slate-100 space-y-1.5">
+                              <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 block">Candidate Tracking Roster (Recent)</span>
+                              <div className="flex flex-wrap gap-1.5">
+                                {job.applications.slice(0, 4).map((app) => (
+                                  <div key={app.id} className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-md px-2 py-0.5 text-[11px] text-slate-700 font-medium">
+                                    <span>{app.user.displayName || app.user.username}</span>
+                                    {app.bidAmount && <span className="text-amber-600 font-bold">₹{Number(app.bidAmount).toLocaleString('en-IN')}</span>}
+                                    <span className={`text-[9px] font-bold uppercase border-l border-slate-200 pl-1.5 ${
+                                      app.status === "pending" ? "text-amber-500" : app.status === "accepted" ? "text-emerald-600" : "text-rose-500"
+                                    }`}>{app.status}</span>
+                                  </div>
+                                ))}
+                                {job.applications.length > 4 && (
+                                  <span className="text-[10px] text-slate-400 self-center font-medium pl-1">+{job.applications.length - 4} more profiles</span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Inline Utility CTA Clusters */}
+                        <div className="flex sm:flex-col items-center gap-1.5 w-full sm:w-auto shrink-0 pt-2 sm:pt-0 border-t sm:border-0 border-slate-50">
+                          <Button variant="outline" size="sm" className="h-8 text-xs font-semibold rounded-lg flex-1 sm:flex-initial w-full bg-white border-slate-200" onClick={() => navigate(`/jobs/${job.id}`)}>
+                            <Eye className="h-3.5 w-3.5 mr-1" /> View
+                          </Button>
+                          <Button variant="outline" size="sm" className="h-8 text-xs font-semibold rounded-lg flex-1 sm:flex-initial w-full bg-white border-slate-200" onClick={() => { setEditingJob(job); setEditForm({ title: job.title, company: job.company, location: job.location, budget: job.budget, mode: job.mode, description: job.description }); }}>
+                            <Edit3 className="h-3.5 w-3.5 mr-1" /> Edit
+                          </Button>
+                          
+                          {deleteConfirmId === job.id ? (
+                            <div className="flex gap-1 w-full shrink-0">
+                              <Button variant="destructive" size="sm" className="h-8 text-xs font-bold rounded-lg flex-1" disabled={isDeleting} onClick={() => handleDeleteJob(job.id)}>
+                                {isDeleting ? "..." : "Confirm Delete"}
+                              </Button>
+                              <Button variant="outline" size="sm" className="h-8 px-2 rounded-lg bg-white border-slate-200" onClick={() => setDeleteConfirmId(null)}>
+                                <X className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button variant="outline" size="sm" className="h-8 text-xs font-semibold rounded-lg text-rose-600 border-rose-200 hover:bg-rose-50 flex-1 sm:flex-initial w-full" onClick={() => setDeleteConfirmId(job.id)}>
+                              <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </section>
+
+        {/* Section 2: Squad Ecosystems */}
+        <section className="space-y-6">
+          <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+            <Layers className="w-4.5 h-4.5 text-[#00A4EF]" />
+            <h2 className="text-lg font-bold text-slate-900">Group Ecosystems</h2>
+          </div>
+
+          {isCollabLoading ? (
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+              {[1, 2, 3].map((n) => <Skeleton key={n} className="h-44 rounded-xl bg-slate-200/60" />)}
+            </div>
+          ) : displayedCollabProjects.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/40 p-10 text-center flex flex-col items-center justify-center max-w-md mx-auto">
+              <Layers className="h-8 w-8 text-slate-300 mb-3" />
+              <h3 className="text-sm font-bold text-slate-800">Ecosystem Framework Intact</h3>
+              <p className="text-xs text-slate-400 mt-1 mb-5">
+                {showHistory ? "No collaborative high-end squad structures have been completed on this account yet." : "No collaborative high-end squad structures have been deployed on this account yet."}
+              </p>
+              {!showHistory && (
+                <Button size="sm" onClick={() => navigate("/collab/create")} className="bg-slate-900 text-white hover:bg-slate-800 font-bold px-4 h-9 rounded-xl shadow-xs">
+                  Launch Blueprint Designer
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+              {displayedCollabProjects.map((project) => (
+                <ProjectAuctionCard
+                  key={project.id}
+                  project={project}
+                  onApplyClick={() => navigate(`/blueprint/${project.id}`)}
+                  onReviewClick={(p) => navigate(`/collab/${p.id}/review`)}
+                  onFundClick={() => navigate(`/collab/${project.id}`)}
+                  onEditClick={(p) => {
+                    setEditingCollabProject(p);
+                    setEditCollabForm({
+                      title: p.title,
+                      description: p.description,
+                      company: p.company || "",
+                      location: p.location === "Remote" ? "" : (p.location || ""),
+                      workMode: p.location === "Remote" ? "Remote" : (p.location ? "Onsite" : "Remote"),
+                      duration: p.duration || "",
+                      deadline: p.deadline ? p.deadline.split('T')[0] : "",
+                      skills: p.tags ? p.tags.join(', ') : "",
+                      terms: p.terms ? p.terms.join('\n') : ""
+                    });
+                  }}
+                  onDeleteClick={(p) => setDeleteConfirmCollabId(p.id)}
+                  onShareClick={setSharingCollab}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
+
+      {/* ========================================== */}
+      {/* DIALOG PRIMITIVES REPLACEMENT CORE ENGINE  */}
+      {/* ========================================== */}
+
+      {/* Overlay Context: Job Configuration Editor */}
+      <Dialog open={!!editingJob} onOpenChange={(open) => !open && setEditingJob(null)}>
+        <DialogContent className="max-w-md bg-white border-slate-200 p-5 rounded-2xl shadow-xl">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold tracking-tight text-slate-900">Adjust Role Framework</DialogTitle>
+            <DialogDescription className="text-xs text-slate-400">Modify market requirements parameters below for live synchronization.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3.5 py-2">
+            <div className="grid gap-1">
+              <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Position Title</Label>
+              <Input className="h-9 text-xs" value={editForm.title} onChange={e => setEditForm(p => ({ ...p, title: e.target.value }))} />
+            </div>
+            <div className="grid gap-1">
+              <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Corporate Hub / Entity</Label>
+              <Input className="h-9 text-xs" value={editForm.company} onChange={e => setEditForm(p => ({ ...p, company: e.target.value }))} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-1">
+                <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Location Scope</Label>
+                <Input className="h-9 text-xs" value={editForm.location} onChange={e => setEditForm(p => ({ ...p, location: e.target.value }))} />
+              </div>
+              <div className="grid gap-1">
+                <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Capital Budget Pool</Label>
+                <Input className="h-9 text-xs font-mono" value={editForm.budget} onChange={e => setEditForm(p => ({ ...p, budget: e.target.value }))} />
+              </div>
+            </div>
+            <div className="grid gap-1">
+              <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Work Execution Mode</Label>
+              <select value={editForm.mode} onChange={e => setEditForm(p => ({ ...p, mode: e.target.value }))} className="w-full flex h-9 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs outline-hidden focus:ring-1 focus:ring-slate-950 font-medium text-slate-800">
+                <option value="Remote">Remote Operations</option>
+                <option value="Hybrid">Hybrid Split Grid</option>
+                <option value="Onsite">Onsite Localization</option>
+              </select>
+            </div>
+            <div className="grid gap-1">
+              <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Functional Role Description</Label>
+              <Textarea rows={3} className="text-xs leading-relaxed" value={editForm.description} onChange={e => setEditForm(p => ({ ...p, description: e.target.value }))} />
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0 mt-2">
+            <Button variant="ghost" size="sm" className="h-9 text-xs font-bold text-slate-500" disabled={isSaving} onClick={() => setEditingJob(null)}>Cancel</Button>
+            <Button size="sm" className="h-9 text-xs font-bold bg-slate-900 text-white hover:bg-slate-800" disabled={isSaving} onClick={handleEditJobSave}>
+              {isSaving && <Loader2 className="w-3 h-3 animate-spin mr-1.5" />} Save Operational Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Overlay Context: Collaborative Blueprint Parameter Editor */}
+      <Dialog open={!!editingCollabProject} onOpenChange={(open) => !open && setEditingCollabProject(null)}>
+        <DialogContent className="max-w-xl bg-white border-slate-200 p-5 rounded-2xl shadow-xl">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold tracking-tight text-slate-900">Modify Collaboration Workspace Blueprint</DialogTitle>
+            <DialogDescription className="text-xs text-slate-400">Update underlying squad distribution thresholds and delivery matrices dynamically.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3.5 py-1 max-h-[60vh] overflow-y-auto pr-1">
+            <div className="grid gap-1">
+              <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Workspace Title</Label>
+              <Input className="h-9 text-xs" value={editCollabForm.title} onChange={e => setEditCollabForm(p => ({ ...p, title: e.target.value }))} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-1">
+                <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Entity Organization</Label>
+                <Input className="h-9 text-xs" value={editCollabForm.company} onChange={e => setEditCollabForm(p => ({ ...p, company: e.target.value }))} />
+              </div>
+              <div className="grid gap-1">
+                <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Execution Interface Mode</Label>
+                <select value={editCollabForm.workMode} onChange={e => setEditCollabForm(p => ({ ...p, workMode: e.target.value }))} className="w-full flex h-9 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs outline-hidden text-slate-800 font-medium">
+                  <option value="Remote">🌐 Remote Ecosystem</option>
+                  <option value="Hybrid">🤝 Hybrid Alignment</option>
+                  <option value="Onsite">🏢 Onsite Localization</option>
+                </select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-1">
+                <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Physical Workspace Location</Label>
+                <Input className="h-9 text-xs" value={editCollabForm.location} disabled={editCollabForm.workMode === "Remote"} placeholder={editCollabForm.workMode === "Remote" ? "N/A (Global Remote)" : "e.g. Bangalore"} onChange={e => setEditCollabForm(p => ({ ...p, location: e.target.value }))} />
+              </div>
+              <div className="grid gap-1">
+                <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Roster Active Lifecycle Duration</Label>
+                <Input className="h-9 text-xs" value={editCollabForm.duration} placeholder="e.g. 3 Months" onChange={e => setEditCollabForm(p => ({ ...p, duration: e.target.value }))} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-1">
+                <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Application Cutoff Boundary</Label>
+                <Input type="date" className="h-9 text-xs" value={editCollabForm.deadline} onChange={e => setEditCollabForm(p => ({ ...p, deadline: e.target.value }))} />
+              </div>
+              <div className="grid gap-1">
+                <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Core Competencies Stack Tags</Label>
+                <Input className="h-9 text-xs" value={editCollabForm.skills} placeholder="Comma-separated tokens" onChange={e => setEditCollabForm(p => ({ ...p, skills: e.target.value }))} />
+              </div>
+            </div>
+            <div className="grid gap-1">
+              <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Ecosystem Scope Description</Label>
+              <Textarea rows={3} className="text-xs leading-relaxed" value={editCollabForm.description} onChange={e => setEditCollabForm(p => ({ ...p, description: e.target.value }))} />
+            </div>
+            <div className="grid gap-1">
+              <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">SLA Clauses & Project Terms</Label>
+              <Textarea rows={2} className="text-xs leading-relaxed" value={editCollabForm.terms} placeholder="New line divided criteria lists" onChange={e => setEditCollabForm(p => ({ ...p, terms: e.target.value }))} />
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0 mt-3">
+            <Button variant="ghost" size="sm" className="h-9 text-xs font-bold text-slate-500" disabled={isSaving} onClick={() => setEditingCollabProject(null)}>Cancel</Button>
+            <Button size="sm" className="h-9 text-xs font-bold bg-slate-900 text-white hover:bg-slate-800" disabled={isSaving} onClick={handleEditCollabSave}>
+              {isSaving && <Loader2 className="w-3 h-3 animate-spin mr-1.5" />} Synchronize Blueprint
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Overlay Context: Irreversible Framework Deletion Warning Anchor */}
+      <Dialog open={!!deleteConfirmCollabId} onOpenChange={(open) => !open && setDeleteConfirmCollabId(null)}>
+        <DialogContent className="max-w-xs bg-white border-slate-200 p-5 rounded-2xl text-center shadow-xl">
+          <div className="mx-auto w-10 h-10 bg-rose-50 border border-rose-100 text-rose-600 rounded-full flex items-center justify-center mb-3">
+            <AlertTriangle className="h-5 w-5" />
+          </div>
+          <DialogHeader>
+            <DialogTitle className="text-sm font-bold tracking-tight text-slate-900 text-center">Teardown Project Configuration?</DialogTitle>
+            <DialogDescription className="text-xs text-slate-400 text-center mt-1">
+              This completely disassembles the collaboration hub parameters safely. Outgoing candidate links will be severed permanently.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="grid grid-cols-2 gap-2 mt-4 sm:justify-center">
+            <Button variant="outline" size="sm" className="h-9 text-xs font-semibold rounded-xl" disabled={isDeleting} onClick={() => setDeleteConfirmCollabId(null)}>Cancel</Button>
+            <Button variant="destructive" size="sm" className="h-9 text-xs font-bold rounded-xl" disabled={isDeleting} onClick={() => deleteConfirmCollabId && handleDeleteCollab(deleteConfirmCollabId)}>
+              {isDeleting ? "Dropping..." : "Confirm Dropping"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {sharingCollab && (
+        <ShareJobDialog
+          isOpen={!!sharingCollab}
+          onClose={() => setSharingCollab(null)}
+          jobId={sharingCollab.id}
+          jobTitle={sharingCollab.title}
+          companyName={sharingCollab.company || sharingCollab.creator.displayName}
+          type="collab"
+        />
       )}
     </div>
   );
-};
-
-export default MyListingsPage;
+}

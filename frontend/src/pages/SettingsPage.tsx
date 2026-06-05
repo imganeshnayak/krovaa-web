@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { ArrowLeft, CheckCircle2, Clock, LogOut, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getVerificationStatus, getVerificationFee, applyForVerification, VerificationRequest, initiateVerificationPayment, verifyPayment } from "@/lib/api";
+import { getUserPreferences, updateUserPreferences, JobPreferences } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { useRazorpay } from "@/hooks/useRazorpay";
 import {
@@ -19,6 +20,7 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
+import { JobPreferencesForm } from "@/components/JobPreferencesForm";
 
 const SettingsPage = () => {
     const { user, logout } = useAuth();
@@ -282,6 +284,13 @@ const SettingsPage = () => {
                                         </div>
                                         <Switch id="email-notifications" />
                                     </div>
+                                </AccordionContent>
+                            </AccordionItem>
+
+                            <AccordionItem value="job-preferences">
+                                <AccordionTrigger>Job Preferences</AccordionTrigger>
+                                <AccordionContent className="space-y-4">
+                                    <JobPreferencesForm />
                                 </AccordionContent>
                             </AccordionItem>
 

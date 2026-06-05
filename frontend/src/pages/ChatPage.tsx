@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import EmojiPickerReact from 'emoji-picker-react';
 import { themeColors } from "@/lib/themeColors";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
@@ -70,7 +71,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import FloatingCommunityButton from "@/components/FloatingCommunityButton";
 
 type LocalMessage = MessageType & { message_type?: string; isUploading?: boolean; sender?: { role?: string; avatarUrl?: string; displayName?: string } };
 
@@ -181,23 +181,7 @@ function formatRecordingDuration(seconds: number) {
   return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
 }
 
-const EMOJIS = ["😀", "😂", "🥰", "😍", "😊", "😎", "🤔", "😅", "🔥", "👍", "❤️", "🙌", "✨", "🎉", "💯", "🙏"];
 
-const EmojiPicker = ({ onSelect }: { onSelect: (emoji: string) => void }) => (
-  <PopoverContent className="w-64 p-2 bg-card border-border shadow-xl">
-    <div className="grid grid-cols-4 gap-1">
-      {EMOJIS.map((emoji) => (
-        <button
-          key={emoji}
-          onClick={() => onSelect(emoji)}
-          className="h-10 text-xl hover:bg-secondary rounded-lg transition-colors flex items-center justify-center"
-        >
-          {emoji}
-        </button>
-      ))}
-    </div>
-  </PopoverContent>
-);
 
 // Conversation list component moved outside to prevent remounting on state changes
 // Conversation list component moved outside to prevent remounting on state changes
@@ -423,7 +407,7 @@ const ConversationList = ({
             </div>
 
 
-        </div>
+          </div>
         ) : (
           filteredChats.map((chat) => (
             <button
@@ -677,7 +661,7 @@ const ChatView = ({
 
   const handleOpenViewOnce = async (msg: MessageType) => {
     if (msg.senderId === user?.id) return; // Don't handle opening for sender (local only)
-    
+
     // Store original values for potential rollback
     const originalAttachmentUrl = msg.attachmentUrl;
     const originalContent = msg.content;
@@ -687,11 +671,11 @@ const ChatView = ({
       prev.map((m) =>
         m.id === msg.id
           ? {
-              ...m,
-              isOpened: true,
-              attachmentUrl: undefined,
-              content: "View Once message opened",
-            }
+            ...m,
+            isOpened: true,
+            attachmentUrl: undefined,
+            content: "View Once message opened",
+          }
           : m
       )
     );
@@ -705,11 +689,11 @@ const ChatView = ({
         prev.map((m) =>
           m.id === msg.id
             ? {
-                ...m,
-                isOpened: false,
-                attachmentUrl: originalAttachmentUrl,
-                content: originalContent,
-              }
+              ...m,
+              isOpened: false,
+              attachmentUrl: originalAttachmentUrl,
+              content: originalContent,
+            }
             : m
         )
       );
@@ -967,7 +951,6 @@ const ChatView = ({
                   .replace(/\*\*(.*?)\*\*/g, '$1')
                   .replace(/\*(.*?)\*/g, '$1')
                   .replace(/[\u201C\u201D\"]/g, '')
-                  .replace(/\s+/g, ' ')
                   .trim();
 
                 return (
@@ -1142,7 +1125,7 @@ const ChatView = ({
                             <div className="h-px bg-[#E0E0E0]" />
 
                             {/* Message body */}
-                            <div className={`text-[13px] leading-relaxed font-normal ${(msg.messageType === 'escrow_released' || msg.message_type === 'escrow_released') ? 'text-[#0B8C62]/80' : 'text-[#1C1C1C]'}`}>
+                            <div className={`text-[13px] leading-relaxed font-normal whitespace-pre-wrap break-words ${(msg.messageType === 'escrow_released' || msg.message_type === 'escrow_released') ? 'text-[#0B8C62]/80' : 'text-[#1C1C1C]'}`}>
                               {isAdminMsg && msg.content.startsWith('__REC__') ? (
                                 <RecommendationCards
                                   cards={recommendationCards[msg.id] || []}
@@ -1177,7 +1160,7 @@ const ChatView = ({
                                 }}
                                 className={`w-full py-2 rounded-lg text-[12px] font-semibold tracking-wide border transition-all flex items-center justify-center gap-1.5 active:scale-[0.98] ${(msg.messageType === 'escrow_released' || msg.message_type === 'escrow_released')
                                   ? "border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10"
-                                  : "border-white/10 text-white/70 hover:bg-white/5"
+                                  : "border-white/10 text-black/70 hover:bg-black/5"
                                   }`}
                               >
                                 View Details <Icon name="ArrowLeft" className="h-3.5 w-3.5 rotate-180" />
@@ -1250,7 +1233,7 @@ const ChatView = ({
                               </div>
                             )}
                             {!isCleanImageBubble && msg.content && (
-                              <p className="text-sm mt-2">{msg.content}</p>
+                              <p className="text-sm mt-2 whitespace-pre-wrap break-words">{msg.content}</p>
                             )}
                           </>
                         )}
@@ -1308,7 +1291,7 @@ const ChatView = ({
             <button
               onClick={() => {
                 const botReply: MessageType = {
-                  id: Date.now(),
+                  id: Date.now() + 1,
                   senderId: selectedChat.user_id,
                   receiverId: user?.id || 0,
                   chatId: selectedChat.chat_id,
@@ -1346,7 +1329,7 @@ const ChatView = ({
                   <SelectItem value="Other">Other</SelectItem>
                 </SelectContent>
               </Select>
-              <Button 
+              <Button
                 onClick={handleSend}
                 size="sm"
                 className="bg-primary hover:bg-primary/90 rounded-xl"
@@ -1425,7 +1408,7 @@ const ChatView = ({
         <div className="flex items-end gap-2 w-full">
           {/* Main Pill-Shaped Container */}
           <div className="flex-1 flex items-end bg-white dark:bg-slate-800 rounded-[24px] min-h-[48px] py-1 pl-1 pr-1 gap-1 shadow-[0_1px_1px_rgba(0,0,0,0.1)] relative min-w-0 border border-border/20">
-            
+
             {/* Hidden native input */}
             <input
               type="file"
@@ -1459,14 +1442,17 @@ const ChatView = ({
                   <PopoverTrigger asChild>
                     <button
                       type="button"
-                      onClick={() => messageInputRef.current?.focus()}
                       className="flex items-center justify-center h-10 w-10 rounded-full text-muted-foreground hover:text-foreground hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors active:scale-95 shrink-0"
                       title="Emojis"
                     >
                       <Icon name="Smile" className="h-[22px] w-[22px]" />
                     </button>
                   </PopoverTrigger>
-                  <EmojiPicker onSelect={(emoji) => setNewMessage(newMessage + emoji)} />
+                  <PopoverContent side="top" align="start" sideOffset={10} className="p-0 border-none bg-transparent shadow-none w-auto">
+                    <EmojiPickerReact
+                      onEmojiClick={(emojiData) => setNewMessage(newMessage + emojiData.emoji)}
+                    />
+                  </PopoverContent>
                 </Popover>
 
                 {/* Message Input */}
@@ -2008,7 +1994,7 @@ const ChatPage = () => {
       if (chatListResult.status === 'rejected') {
         throw chatListResult.reason;
       }
-      
+
       const data = chatListResult.value;
 
       // Handle Group Chats
@@ -2073,7 +2059,7 @@ const ChatPage = () => {
 
       // Final Sort
       data.sort((a, b) => new Date(b.last_message_time).getTime() - new Date(a.last_message_time).getTime());
-      
+
       setChats(data);
       try {
         localStorage.setItem("cached_chats", JSON.stringify(data));
@@ -2372,7 +2358,6 @@ const ChatPage = () => {
       return s
         .replace(/[\*]+/g, "")
         .replace(/[\u201C\u201D\"]/g, "")
-        .replace(/\s+/g, " ")
         .trim();
     };
 
@@ -2777,12 +2762,12 @@ const ChatPage = () => {
       e.stopPropagation();
     }
     const recorder = mediaRecorderRef.current;
-    
+
     setIsRecordingVoice(false);
     clearVoiceRecordingTimer();
-    
+
     if (recorder && recorder.state !== 'inactive') {
-      try { recorder.stop(); } catch(err) {}
+      try { recorder.stop(); } catch (err) { }
     }
   }, [clearVoiceRecordingTimer]);
 
@@ -2792,7 +2777,7 @@ const ChatPage = () => {
       e.stopPropagation();
     }
     const recorder = mediaRecorderRef.current;
-    
+
     setIsRecordingVoice(false);
     clearVoiceRecordingTimer();
     setRecordingSeconds(0);
@@ -2800,7 +2785,7 @@ const ChatPage = () => {
     if (recorder) {
       (recorder as any).isCancelled = true;
       if (recorder.state !== 'inactive') {
-        try { recorder.stop(); } catch(err) {}
+        try { recorder.stop(); } catch (err) { }
       }
     }
   }, [clearVoiceRecordingTimer]);
@@ -3018,11 +3003,10 @@ const ChatPage = () => {
             isMobile={isMobile}
           />
         )}
-      <ProfileCompletionModal />
-      <FloatingCommunityButton />
-    </div>
-  );
-}
+        <ProfileCompletionModal />
+      </div>
+    );
+  }
 
   // Desktop: side-by-side
   return (
@@ -3092,7 +3076,6 @@ const ChatPage = () => {
         />
       </div>
       <ProfileCompletionModal />
-      <FloatingCommunityButton />
     </div>
   );
 };
