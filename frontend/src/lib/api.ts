@@ -12,6 +12,12 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
     headers['Content-Type'] = 'application/json';
   }
 
+  // Fallback to Bearer token for environments (like Capacitor/mobile) where cookies are restricted
+  const storedToken = typeof window !== "undefined" ? localStorage.getItem("authToken") : null;
+  if (storedToken && !headers['Authorization']) {
+    headers['Authorization'] = `Bearer ${storedToken}`;
+  }
+
   const fullUrl = apiUrl(path);
   console.log(`[API Request] ${options?.method || 'GET'} ${fullUrl}`);
   
@@ -199,6 +205,10 @@ export function rateUser(data: {
 
 export function getRatingEligibility(userId: number): Promise<{ canRate: boolean; reason?: string | null }> {
   return apiFetch(`/api/users/${userId}/rating-eligibility`);
+}
+
+export function getUserRatings(userId: number): Promise<{ ratings: any[] }> {
+  return apiFetch<{ ratings: any[] }>(`/api/users/${userId}/ratings`);
 }
 
 export function getAllUsers(): Promise<AuthUser[]> {
@@ -576,18 +586,10 @@ export async function uploadFile(data: {
   if (data.reply_to_text) formData.append("reply_to_text", data.reply_to_text);
   if (data.reply_to_user) formData.append("reply_to_user", data.reply_to_user);
 
-  const res = await fetch(apiUrl("/api/messages/upload"), {
+  return apiFetch<Message>("/api/messages/upload", {
     method: "POST",
     body: formData,
-    credentials: "include",
   });
-
-  if (!res.ok) {
-    const error = await res.text();
-    throw new Error(error);
-  }
-
-  return res.json();
 }
 
 export function notifyScreenshotAttempt(data: {
@@ -1551,30 +1553,16 @@ export function deleteAd(id: number): Promise<{ success: boolean }> {
 }
 
 export function createAd(formData: FormData): Promise<Ad> {
-  return fetch(apiUrl("/api/ads"), {
+  return apiFetch<Ad>("/api/ads", {
     method: "POST",
     body: formData,
-    credentials: "include",
-  }).then(async (res) => {
-    if (!res.ok) {
-      const e = await res.json().catch(() => ({ error: "Failed" }));
-      throw new Error(e.error || "Failed to create ad");
-    }
-    return res.json();
   });
 }
 
 export function updateAd(id: number, formData: FormData): Promise<Ad> {
-  return fetch(apiUrl(`/api/ads/${id}`), {
+  return apiFetch<Ad>(`/api/ads/${id}`, {
     method: "PUT",
     body: formData,
-    credentials: "include",
-  }).then(async (res) => {
-    if (!res.ok) {
-      const e = await res.json().catch(() => ({ error: "Failed" }));
-      throw new Error(e.error || "Failed to update ad");
-    }
-    return res.json();
   });
 }
 
@@ -1617,16 +1605,9 @@ export function createPost(text: string, files: File[]): Promise<Post> {
   if (text) formData.append("text", text);
   files.forEach((file) => formData.append("files", file));
 
-  return fetch(apiUrl("/api/posts"), {
+  return apiFetch<Post>("/api/posts", {
     method: "POST",
     body: formData,
-    credentials: "include",
-  }).then(async (res) => {
-    if (!res.ok) {
-      const e = await res.json().catch(() => ({ error: "Failed" }));
-      throw new Error(e.error || "Failed to create post");
-    }
-    return res.json();
   });
 }
 

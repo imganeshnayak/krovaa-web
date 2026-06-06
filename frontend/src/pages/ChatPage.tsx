@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useLayoutEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import EmojiPickerReact from 'emoji-picker-react';
 import { themeColors } from "@/lib/themeColors";
@@ -56,7 +56,7 @@ import {
   searchUsers, blockUser, reportUser, clearChatHistory, getUser,
   deleteMessage, deleteMessagesBatch, getSupportChat, openViewOnceMessage,
   getBestProfiles, getGroupChats, getGroupMessages, sendGroupMessage,
-  listCommunities, getCommunity, getCommunityMessages, sendCommunityMessage,
+  getCommunityMessages, sendCommunityMessage,
   Chat as ChatType, Message as MessageType, AuthUser,
   BestProfileUser
 } from "@/lib/api";
@@ -94,77 +94,7 @@ type CommunityDetailView = {
   }>;
 };
 
-// Communities modal used by the chat page
-const CommunitiesModal = ({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) => {
-  const [loading, setLoading] = useState(false);
-  const [communities, setCommunities] = useState<any[]>([]);
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const toast = useToast();
 
-  const load = async () => {
-    setLoading(true);
-    try {
-      const data = await listCommunities();
-      setCommunities(data || []);
-    } catch (err) {
-      console.error(err);
-      toast({ title: 'Failed to load communities', description: err instanceof Error ? err.message : String(err), variant: 'destructive' });
-    } finally { setLoading(false); }
-  };
-
-  useEffect(() => { if (open) load(); }, [open]);
-
-  const handleCreate = async () => {
-    if (!name.trim()) return toast({ title: 'Name required' });
-    try {
-      const c = await createCommunity({ name: name.trim(), description });
-      toast({ title: 'Created', description: `Community ${c.name} created.` });
-      setName(''); setDescription('');
-      load();
-    } catch (err) {
-      console.error(err);
-      toast({ title: 'Error', description: err instanceof Error ? err.message : 'Failed to create', variant: 'destructive' });
-    }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Communities</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div>
-            <h4 className="text-sm font-medium mb-2">Create community</h4>
-            <Input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} className="mb-2" />
-            <Input placeholder="Description" value={description} onChange={(e) => setDescription(e.target.value)} className="mb-2" />
-            <div className="flex justify-end"><Button onClick={handleCreate}>Create</Button></div>
-          </div>
-
-          <div>
-            <h4 className="text-sm font-medium mb-2">Your communities</h4>
-            {loading ? <div>Loading...</div> : (
-              <div className="grid gap-2">
-                {communities.length === 0 ? <div className="text-sm text-muted-foreground">No communities yet</div> : communities.map(c => (
-                  <div key={c.id} className="p-3 border rounded-lg flex items-center justify-between">
-                    <div>
-                      <div className="font-semibold">{c.name}</div>
-                      <div className="text-xs text-muted-foreground">{c.description}</div>
-                    </div>
-                    <div>
-                      <Link to={`/communities/${c.id}`} className="text-sm text-blue-500">Open</Link>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-};
 
 function formatTime(ts: string) {
   if (!ts) return "";
@@ -799,24 +729,108 @@ const ChatView = ({
 
   // ── End Swipe-to-Reply ─────────────────────────────────────
 
-  const scrollingRef = useRef(false);
-  const prevChatIdRef = useRef<string | null>(null);
+  const [isChatReady, setIsChatReady] = useState(false);
+  const activeChatIdRef = useRef<string | null>(null);
+  const initialLoadDoneRef = useRef(false);
 
-  useEffect(() => {
-    if (messages.length > 0 && selectedChat) {
-      if (prevChatIdRef.current !== selectedChat.chat_id) {
-        scrollingRef.current = false;
-        prevChatIdRef.current = selectedChat.chat_id;
-      }
-      // Use auto for chat switch, smooth for new messages
-      const behavior = scrollingRef.current ? "smooth" : "auto";
-      messagesEndRef.current?.scrollIntoView({ behavior });
-      scrollingRef.current = true;
-    } else {
-      scrollingRef.current = false;
-      if (!selectedChat) prevChatIdRef.current = null;
+  // Synchronously reset ready state on chat switch to prevent paint before scroll
+  if (selectedChat && selectedChat.chat_id !== activeChatIdRef.current) {
+    activeChatIdRef.current = selectedChat.chat_id;
+    if (isChatReady) {
+      setIsChatReady(false);
     }
-  }, [messages.length, selectedChat?.chat_id]);
+    initialLoadDoneRef.current = false;
+  }
+
+  const isNearBottomRef = useRef(true);
+  const prevMessagesRef = useRef<MessageType[]>([]);
+  const prevScrollHeightRef = useRef<number>(0);
+  const prevScrollTopRef = useRef<number>(0);
+
+  const handleScroll = useCallback(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    const { scrollTop, scrollHeight, clientHeight } = container;
+    prevScrollTopRef.current = scrollTop;
+    prevScrollHeightRef.current = scrollHeight;
+    isNearBottomRef.current = scrollHeight - scrollTop - clientHeight < 150;
+  }, []);
+
+  useLayoutEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    if (!initialLoadDoneRef.current) {
+      if (messages.length > 0) {
+        container.scrollTop = container.scrollHeight;
+        initialLoadDoneRef.current = true;
+        setIsChatReady(true);
+      } else {
+        setIsChatReady(true);
+      }
+      prevMessagesRef.current = messages;
+      prevScrollHeightRef.current = container.scrollHeight;
+      prevScrollTopRef.current = container.scrollTop;
+      isNearBottomRef.current = true;
+      return;
+    }
+
+    const prevMsgs = prevMessagesRef.current;
+    prevMessagesRef.current = messages;
+
+    if (messages.length === 0) {
+      prevScrollHeightRef.current = container.scrollHeight;
+      prevScrollTopRef.current = container.scrollTop;
+      return;
+    }
+
+    const oldFirstMsgId = prevMsgs[0]?.id;
+    const newFirstMsgId = messages[0]?.id;
+    const isPrepended = oldFirstMsgId !== newFirstMsgId && messages.some(m => m.id === oldFirstMsgId);
+
+    if (isPrepended) {
+      const oldHeight = prevScrollHeightRef.current;
+      const newHeight = container.scrollHeight;
+      const heightDiff = newHeight - oldHeight;
+      if (heightDiff > 0) {
+        container.scrollTop = prevScrollTopRef.current + heightDiff;
+      }
+    } else if (messages.length > prevMsgs.length) {
+      if (isNearBottomRef.current) {
+        const isSingleNewMessage = messages.length === prevMsgs.length + 1;
+        if (isSingleNewMessage) {
+          container.scrollTo({
+            top: container.scrollHeight,
+            behavior: "smooth"
+          });
+        } else {
+          container.scrollTop = container.scrollHeight;
+        }
+      }
+    }
+
+    prevScrollHeightRef.current = container.scrollHeight;
+    prevScrollTopRef.current = container.scrollTop;
+  }, [messages, selectedChat?.chat_id, isChatReady]);
+
+  // Listen to media/image loads to correct scroll positioning without layout jumps
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    const handleMediaLoad = (e: Event) => {
+      if (e.target instanceof HTMLImageElement || e.target instanceof HTMLVideoElement) {
+        if (isNearBottomRef.current) {
+          container.scrollTop = container.scrollHeight;
+        }
+      }
+    };
+
+    container.addEventListener("load", handleMediaLoad, true);
+    return () => {
+      container.removeEventListener("load", handleMediaLoad, true);
+    };
+  }, []);
 
   // Cleanup swipe refs when chat changes
   useEffect(() => {
@@ -842,8 +856,13 @@ const ChatView = ({
     const measure = () => {
       const h = inputBarRef.current ? inputBarRef.current.getBoundingClientRect().height : 0;
       setInputBarHeight(h || 0);
-      // after resizing, keep view attached to bottom
-      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'auto' }), 50);
+      // after resizing, keep view attached to bottom if near bottom
+      setTimeout(() => {
+        const container = messagesContainerRef.current;
+        if (container && isNearBottomRef.current) {
+          container.scrollTop = container.scrollHeight;
+        }
+      }, 50);
     };
 
     measure();
@@ -1110,7 +1129,9 @@ const ChatView = ({
 
         <div
           ref={messagesContainerRef}
-          className="h-full overflow-y-auto scrollbar-thin scrollbar-thumb-primary/20 scroll-smooth relative z-10"
+          onScroll={handleScroll}
+          className="h-full overflow-y-auto scrollbar-thin scrollbar-thumb-primary/20 relative z-10"
+          style={{ opacity: isChatReady ? 1 : 0 }}
           data-nocontext
         >
           <div
@@ -1507,7 +1528,7 @@ const ChatView = ({
                                         setPreviewCaption(msg.content && msg.content !== "Sent a photo" && msg.content !== "File shared" ? msg.content : null);
                                       }}
                                     >
-                                      <img src={msg.attachmentUrl} alt="attachment" className={`max-w-full rounded-[13px] h-48 object-cover shadow-sm select-none pointer-events-none ${isCleanImageBubble ? 'w-full h-auto max-h-[384px]' : 'border border-white/10'}`} />
+                                      <img src={msg.attachmentUrl} alt="attachment" className={`max-w-full rounded-[13px] h-48 object-cover shadow-sm select-none pointer-events-none ${isCleanImageBubble ? 'w-full h-auto max-h-[384px] min-h-[120px] bg-neutral-200/20' : 'border border-white/10'}`} />
                                       {msg.isUploading && (
                                         <div className="absolute inset-0 bg-black/40 rounded-[13px] flex items-center justify-center backdrop-blur-sm">
                                           <Icon name="Loader2" className="h-8 w-8 text-white animate-spin" />
@@ -2474,10 +2495,9 @@ const ChatPage = () => {
     if (showSpinner && !cached) setIsLoading(true);
     try {
       // Run all API calls in parallel to massively speed up loading time
-      const [chatListResult, groupsResult, communitiesResult, supportChatResult] = await Promise.allSettled([
+      const [chatListResult, groupsResult, supportChatResult] = await Promise.allSettled([
         getChatList(),
         getGroupChats(),
-        listCommunities(),
         user?.role !== 'admin' && user?.role !== 'staff' && user?.id ? getSupportChat() : Promise.resolve(null)
       ]);
 
@@ -2504,26 +2524,6 @@ const ChatPage = () => {
         data.push(...mappedGroups);
       } else {
         console.error("Failed to load group chats", groupsResult.reason);
-      }
-
-      // Handle Community Chats
-      if (communitiesResult.status === 'fulfilled') {
-        const joinedCommunities = communitiesResult.value.filter(c => c.members?.some((m: any) => m.userId === user?.id));
-        const mappedCommunities: ChatType[] = joinedCommunities.map(c => ({
-          chat_id: `community_${c.id}`,
-          last_message: "Community Chat",
-          last_message_time: c.createdAt || new Date().toISOString(),
-          user_id: 0,
-          display_name: c.name,
-          avatar_url: "", // Can use a default community icon if needed
-          username: "community",
-          unread_count: 0,
-          verified: false,
-          isOfficial: false,
-        }));
-        data.push(...mappedCommunities);
-      } else {
-        console.error("Failed to load communities", communitiesResult.reason);
       }
 
       // Handle Support Chat

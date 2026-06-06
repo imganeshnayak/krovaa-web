@@ -10,7 +10,6 @@ import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/reac
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import CookieConsent from "./components/CookieConsent";
-import { ENABLE_COMMUNITIES } from "./lib/features";
 
 // Lazy-load page components
 const Landing = lazy(() => import("./pages/Landing"));
