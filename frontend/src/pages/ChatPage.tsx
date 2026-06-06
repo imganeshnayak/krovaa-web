@@ -993,19 +993,14 @@ const ChatView = ({
               </button>
             )}
             {selectedChat.chat_id.startsWith("community_") && selectedCommunity ? (
-              <button
-                type="button"
-                onClick={() => {
-                  navigate(`/communities/${selectedCommunity.id}`);
-                }}
-                className="shrink-0 rounded-full ring-2 ring-[#00A4EF]/10 hover:ring-[#00A4EF]/30 transition-all"
-                title={`View ${selectedCommunity.name} Info`}
+              <div
+                className="shrink-0 rounded-full ring-2 ring-[#00A4EF]/10 transition-all"
               >
                 <Avatar className="h-10 w-10">
                   <AvatarImage src={selectedCommunity.creator?.avatarUrl} loading="lazy" />
                   <AvatarFallback>{selectedCommunity.name?.[0]?.toUpperCase() || selectedChat.display_name[0]}</AvatarFallback>
                 </Avatar>
-              </button>
+              </div>
             ) : (
               <Avatar className="h-10 w-10">
                 <AvatarImage src={selectedChat.avatar_url} loading="lazy" />
