@@ -1096,7 +1096,7 @@ const ChatView = ({
       )}
 
       {/* Chat header */}
-      <div className="flex items-center gap-3 p-4 border-b border-white/5 z-20 min-h-[73px] flex-shrink-0 bg-background/40 backdrop-blur-xl">
+      <div className="flex items-center gap-3 p-4 border-b border-[#E0E0E0] z-20 min-h-[73px] flex-shrink-0 bg-white">
 
         {isSelectionMode ? (
           <div className="flex items-center justify-between w-full">
