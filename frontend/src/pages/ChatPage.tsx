@@ -78,7 +78,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import FloatingCommunityButton from "@/components/FloatingCommunityButton";
+// import FloatingCommunityButton from "@/components/FloatingCommunityButton";
 import ChatOptionsBottomSheet from "@/components/chat/ChatOptionsBottomSheet";
 import { MuteDurationOption } from "@/lib/chatMute";
 import { useChatActions } from "@/hooks/useChatActions";
@@ -173,7 +173,7 @@ const ConversationList = ({
   onDeleteChat: (chatId: string) => Promise<void>;
 }) => {
   const navigate = useNavigate();
-  const toast = useToast();
+  const { toast } = useToast();
   const [isSearchVisible, setIsSearchVisible] = useState(false);
   const [showWelcomeBanner, setShowWelcomeBanner] = useState(() => localStorage.getItem("show_welcome_banner") === "true");
   const [activeChatOptions, setActiveChatOptions] = useState<ChatType | null>(null);
@@ -663,6 +663,7 @@ const ChatView = ({
   filteredChats: ChatType[];
 }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [previewSenderUsername, setPreviewSenderUsername] = useState<string | null>(null);
   const [previewCaption, setPreviewCaption] = useState<string | null>(null);
@@ -2033,7 +2034,7 @@ const ChatView = ({
                       className="flex items-center justify-center h-10 w-10 rounded-full text-muted-foreground hover:text-foreground hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors active:scale-95 shrink-0"
                       title="Attach"
                     >
-                      <Icon name="Paperclip" className="h-[22px] w-[22px]" style={{ transform: 'rotate(-45deg)' }} />
+                      <Icon name="Paperclip" className="h-[22px] w-[22px] -rotate-45" />
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-52 bg-card border-border shadow-xl rounded-xl p-1 mb-2">
