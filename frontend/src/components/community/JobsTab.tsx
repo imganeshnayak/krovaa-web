@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { JobSaveButton } from '@/components/JobSaveButton';
 import { useToast } from '@/hooks/use-toast';
 import { Briefcase, Clock, IndianRupee, Users, Plus, CheckCircle, XCircle, Star } from 'lucide-react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -192,7 +193,10 @@ export function JobsTab({ communityId, isMember }: JobsTabProps) {
                     <Avatar className="w-6 h-6"><AvatarImage src={job.client?.avatarUrl} /><AvatarFallback>{job.client?.displayName?.[0]}</AvatarFallback></Avatar>
                     <span className="text-xs font-medium text-slate-700">{job.client?.displayName}</span>
                   </div>
-                  <span className="text-xs font-bold text-[#00A4EF]">{job._count?.bids || 0} proposals</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-[#00A4EF]">{job._count?.bids || 0} proposals</span>
+                    <JobSaveButton jobId={job.id} />
+                  </div>
                 </div>
               </div>
             ))}

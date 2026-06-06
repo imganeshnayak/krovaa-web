@@ -1,0 +1,72 @@
+You are an elite Lead Full-Stack Software Architect and Systems Engineer. Your task is to completely build and deploy a dual-engine project management and escrow system named "Collab Engine". 
+
+This system moves away from flat community structures and implements a "Squad Auction" model. Clients post a project blueprint with predefined roles and milestone splits, freelancers bid competitively on individual seats within that blueprint, and upon team selection and escrow funding, an isolated "Collab Space" group workspace is automatically deployed.
+
+Implement this entire system across the following 5 development phases. Ensure code safety, strong TypeScript typing, and defensive database transaction handling.
+
+---
+
+### PHASE 1: COMPREHENSIVE DATABASE STORAGE SCHEMA
+Goal: Design the core data layer to handle single-contract workflows, multi-seat project frameworks, and role-based applicant bidding records.
+
+1. Write a database schema definition using Prisma ORM or standard PostgreSQL SQL.
+2. Define these core Enums:
+   - 'ProjectMode': [SINGLE, GROUP]
+   - 'ProjectStatus': [AUCTION_ACTIVE, FUNDING_PENDING, ACTIVE_WORKSPACE, COMPLETED, DISPUTED]
+   - 'SeatStatus': [VACANT, APPLIED, OCCUPIED]
+   - 'BidStatus': [PENDING, ACCEPTED, REJECTED]
+3. Create the 'ProjectListing' model storing: id, title, description, baseBudgetTarget, mode, status, creatorId (Client), and timestamps.
+4. For 'SINGLE' mode: Add a nullable 'singleVendorId' and a nullable 'chatId' directly on the project model mapping to a direct 1-1 chat string.
+5. For 'GROUP' mode: Establish 1-to-many cascading relationships to 'GroupSeat' and 'GroupMilestone' models.
+6. Design the 'GroupSeat' model to track: id, roleName (e.g., "UI Designer"), splitPercentage (Float), status ('SeatStatus'), userId (nullable link to chosen worker), and a 1-to-many relation to a 'SeatBid' table.
+7. Design the 'SeatBid' model to track: id, userId (the applicant), bidAmount (Float), proposalPitch (String), userRatingAtTime (Float), status ('BidStatus'), and its parent groupSeatId.
+8. Design the 'GroupMilestone' model to track: id, title, amount (Float), and an isReleased (Boolean) toggle.
+
+---
+
+### PHASE 2: UNIFIED REGISTRATION & BLUEPRINT MODAL
+Goal: Build the creator layout allowing clients to configure either a flat 1-1 contract or a detailed multi-seat role matrix.
+
+1. Write a premium, high-contrast monochrome React component named 'UnifiedProjectModal' using Tailwind CSS and Lucide icons.
+2. Place a high-signal segmented selector tab at the top to toggle between "Single Contractor" and "Group Collab Space".
+3. Render universal inputs for Project Title, Scope Description, and Target Financial Budget (in Indian Rupees).
+4. Implement dynamic form state rendering:
+   - If 'SINGLE': Show a text field to input or auto-populate the target freelancer's platform username handle.
+   - If 'GROUP': Hide the vendor input and render two dynamic array sub-sections. Sub-section A allows adding/removing custom worker roles with their associated milestone split percentage metrics. Sub-section B allows adding/removing vertical milestone payout stages with assigned currency values.
+5. Apply mathematical client-side validation logic: Keep the final "Deploy Blueprint" button disabled unless:
+   - Group Seat split percentages total up to exactly 100%.
+   - Group Milestone monetary values equal exactly the overall Target Budget.
+
+---
+
+### PHASE 3: SQUAD AUCTION DASHBOARD (THE WORKSPACES PAGE)
+Goal: Replace the old community listing layout with a dynamic workspace manager tracking the auction lifecycle phases.
+
+1. Build a dashboard layout view component named 'WorkspaceAuctionHub' utilizing clean Tailwind grid structures.
+2. The view must parse a list of project records and dynamically render one of three layout card states based on 'ProjectStatus':
+   - AUCTION_ACTIVE CARD STATE: Displays a pulsing amber 'Bidding Live' badge. It lists the required seats horizontally as status pills showing applicant counts (e.g., "iOS Developer - 4 Bids"). It renders a prominent "Review Team Applications" button that launches a comparison board.
+   - FUNDING_PENDING CARD STATE: Triggers once a client has selected a winning bidder for all vacant nodes. Displays a blue "Squad Assembled" badge, showing user profile chips next to their hardcoded roles. It displays the final compiled contract price dynamically and exposes a "Fund Escrow & Launch Workspace" primary call-to-action button.
+   - ACTIVE_WORKSPACE CARD STATE: Triggers once successful escrow funding resolves. Displays an emerald green "Securely Funded & Live" badge, tracks active sprint phases (e.g., "Milestone 1 Delivery Tracker"), and presents an "Enter Workspace Room" action anchor link.
+
+---
+
+### PHASE 4: VIEWPORT-CONTEXTUAL INTERCEPTOR NAVIGATION
+Goal: Route project control tools and communication paths efficiently based on contract architecture.
+
+1. Configure the interaction routing logic for the application's central blue Floating Action Button (FAB).
+2. Code a conditional evaluation rule that assesses the user's active viewport state:
+   - Inside the Chat View (/chat): This space belongs to 1-1 flat contracts. Clicking the FAB must slide open a clean, 1-on-1 payment contract ledger overlay showing a flat balance panel and a direct "Release Funds" trigger button for the client.
+   - Inside the Workspace Environment (/collabs or /communities): This space handles team collab builds. Clicking the FAB inside an active group project room must slide open the Advanced Workspace Drawer displaying the hardcoded multi-seat split percentage breakdown and a vertical multi-stage milestone tracker.
+
+---
+
+### PHASE 5: SECURE AUTOMATED TRANSACTION PAYOUT ENGINE
+Goal: Write the critical backend business transaction code that safely executes multi-split milestone releases.
+
+1. Write a secure backend controller function named 'releaseMilestoneEscrow' in Node.js/TypeScript.
+2. The function must capture 'projectId' and 'milestoneId' parameters, executing database session validation to ensure the calling entity is the authorized client owner.
+3. Fetch the data records and verify that the target milestone phase is completely unreleased (`isReleased: false`).
+4. Establish an isolated transaction block (`prisma.$transaction` or equivalent SQL transaction layer) to guarantee absolute mathematical atomicity.
+5. If the project mode is 'SINGLE': Transfer the milestone amount directly to the individual freelancer's wallet index model.
+6. If the project mode is 'GROUP': Read the assigned 'GroupSeat' user links. Iterate through the occupied seats, compute individual revenue portions concurrently using the precise matrix formula: [Payout = MilestoneAmount * (SeatSplitPercentage / 100)], and increment each worker's platform wallet balance.
+7. Switch the tracking milestone's 'isReleased' flag to true, append an automated system completion card log into the team's chat timeline stream, and cleanly close out the database transaction block.

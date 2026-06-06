@@ -96,7 +96,13 @@ const Register = () => {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => { setMounted(true); document.title = "Join Krovaa"; }, []);
-  useEffect(() => { if (user) navigate("/chat"); }, [user]);
+  useEffect(() => {
+    if (user) {
+      const searchParams = new URLSearchParams(window.location.search);
+      const redirectUrl = searchParams.get("redirect") || "/chat";
+      navigate(redirectUrl, { replace: true });
+    }
+  }, [user, navigate]);
   useEffect(() => {
     if (step !== "otp" || resendCooldown <= 0) return;
 
@@ -137,7 +143,9 @@ const Register = () => {
       await register(username.trim(), email.trim().toLowerCase(), password, displayName.trim(), otp);
       localStorage.setItem('show_welcome_banner', 'true');
       toast.success(`Welcome to Krovaa, ${displayName || username}!`);
-      navigate("/chat", { replace: true });
+      const searchParams = new URLSearchParams(window.location.search);
+      const redirectUrl = searchParams.get("redirect") || "/chat";
+      navigate(redirectUrl, { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed");
     }

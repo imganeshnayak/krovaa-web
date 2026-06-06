@@ -19,7 +19,7 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Info, Plus, Share2 } from "lucide-react";
+import { Info, Plus, Share2, Send } from "lucide-react";
 import { initiateWalletTopup, verifyPayment } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -343,6 +343,8 @@ const WalletPage = () => {
                     </div>
                 </DialogContent>
             </Dialog>
+
+
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                 <div className="relative rounded-full bg-slate-200/50 p-1.5 flex w-full border border-slate-200/50 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),_inset_0_-1px_1px_rgba(0,0,0,0.02)]">

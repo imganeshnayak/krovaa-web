@@ -2,6 +2,7 @@ import express from 'express';
 import { PrismaClient } from '@prisma/client';
 import { auth } from '../middleware/auth.js';
 import { sendUserNotification } from './notifications.js';
+import { buildEscrowInvoicePdf, uploadPdfToCloudinary } from '../services/invoiceService.js';
 
 const prisma = new PrismaClient();
 const router = express.Router();
@@ -330,6 +331,58 @@ router.post('/', auth, async (req, res) => {
             io.to(`user_${requestedVendorId}`).emit('escrowUpdate', result.newDeal);
         }
 
+        // Asynchronously generate and send invoice
+        (async () => {
+            try {
+                const pdfBuffer = await buildEscrowInvoicePdf(result.newDeal, result.newDeal.client, result.newDeal.vendor, feeAmount);
+                const uploadRes = await uploadPdfToCloudinary(pdfBuffer, `invoice_${result.newDeal.id}_${Date.now()}`);
+                
+                let invoiceMsg;
+                if (isCommunity) {
+                    invoiceMsg = await prisma.communityMessage.create({
+                        data: {
+                            senderId: req.user.id,
+                            communityId: parseInt(chatId.split('_')[1]),
+                            content: `Tax Invoice for Deal: ${title}`,
+                            messageType: 'file',
+                            attachmentUrl: uploadRes.secure_url,
+                            attachmentName: `Invoice_DL_${result.newDeal.id}.pdf`
+                        },
+                        include: { sender: { select: { displayName: true, avatarUrl: true, username: true } } }
+                    });
+                } else {
+                    invoiceMsg = await prisma.message.create({
+                        data: {
+                            senderId: req.user.id,
+                            receiverId: requestedVendorId,
+                            chatId,
+                            content: `Tax Invoice for Deal: ${title}`,
+                            messageType: 'file',
+                            attachmentUrl: uploadRes.secure_url,
+                            attachmentName: `Invoice_DL_${result.newDeal.id}.pdf`,
+                            isViewOnce: false
+                        },
+                        include: { sender: { select: { displayName: true, avatarUrl: true, username: true } } }
+                    });
+                }
+
+                if (io) {
+                    const maskedMsg = {
+                        ...invoiceMsg,
+                        sender_name: invoiceMsg.sender.displayName,
+                        sender_avatar: invoiceMsg.sender.avatarUrl,
+                        sender_username: invoiceMsg.sender.username,
+                    };
+                    io.to(chatId).emit('newMessage', maskedMsg);
+                    if (!isCommunity) {
+                        io.to(`user_${requestedVendorId}`).emit('newMessage', maskedMsg);
+                    }
+                }
+            } catch (invErr) {
+                console.error('Failed to generate escrow invoice:', invErr);
+            }
+        })();
+
         res.status(201).json(result.newDeal);
     } catch (err) {
         console.error('Create escrow deal error:', err);
@@ -586,6 +639,59 @@ router.post('/:id/release', auth, async (req, res) => {
                 'success',
                 { type: 'escrow', dealId, chatId: deal.chatId }
             );
+
+            // Asynchronously generate and send Settlement Invoice
+            (async () => {
+                try {
+                    const { buildEscrowInvoicePdf, uploadPdfToCloudinary } = await import('../services/invoiceService.js');
+                    const pdfBuffer = await buildEscrowInvoicePdf(updatedDeal, deal.client, deal.vendor, 0); // No fee for release
+                    const uploadRes = await uploadPdfToCloudinary(pdfBuffer, `invoice_settlement_${updatedDeal.id}_${Date.now()}`);
+                    
+                    let invoiceMsg;
+                    if (deal.chatId.startsWith('community_')) {
+                        invoiceMsg = await prisma.communityMessage.create({
+                            data: {
+                                senderId: req.user.id,
+                                communityId: parseInt(deal.chatId.split('_')[1]),
+                                content: `Settlement Invoice for Completed Deal: ${deal.title}`,
+                                messageType: 'file',
+                                attachmentUrl: uploadRes.secure_url,
+                                attachmentName: `Settlement_DL_${updatedDeal.id}.pdf`
+                            },
+                            include: { sender: { select: { displayName: true, avatarUrl: true, username: true } } }
+                        });
+                    } else {
+                        invoiceMsg = await prisma.message.create({
+                            data: {
+                                senderId: req.user.id,
+                                receiverId: deal.vendorId,
+                                chatId: deal.chatId,
+                                content: `Settlement Invoice for Completed Deal: ${deal.title}`,
+                                messageType: 'file',
+                                attachmentUrl: uploadRes.secure_url,
+                                attachmentName: `Settlement_DL_${updatedDeal.id}.pdf`,
+                                isViewOnce: false
+                            },
+                            include: { sender: { select: { displayName: true, avatarUrl: true, username: true } } }
+                        });
+                    }
+
+                    if (io) {
+                        const maskedMsg = {
+                            ...invoiceMsg,
+                            sender_name: invoiceMsg.sender.displayName,
+                            sender_avatar: invoiceMsg.sender.avatarUrl,
+                            sender_username: invoiceMsg.sender.username,
+                        };
+                        io.to(deal.chatId).emit('newMessage', maskedMsg);
+                        if (!deal.chatId.startsWith('community_')) {
+                            io.to(`user_${deal.vendorId}`).emit('newMessage', maskedMsg);
+                        }
+                    }
+                } catch (invErr) {
+                    console.error('Failed to generate settlement invoice:', invErr);
+                }
+            })();
             sendUserNotification(
                 io,
                 deal.vendorId,
