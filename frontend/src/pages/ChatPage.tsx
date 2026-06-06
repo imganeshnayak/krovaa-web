@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { themeColors } from "@/lib/themeColors";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
@@ -55,7 +55,7 @@ import {
   searchUsers, blockUser, reportUser, clearChatHistory, getUser,
   deleteMessage, deleteMessagesBatch, getSupportChat, openViewOnceMessage,
   getBestProfiles, getGroupChats, getGroupMessages, sendGroupMessage,
-  listCommunities, getCommunity, getCommunityMessages, sendCommunityMessage,
+  listCommunities, createCommunity, getCommunity, getCommunityMessages, sendCommunityMessage,
   Chat as ChatType, Message as MessageType, AuthUser,
   BestProfileUser
 } from "@/lib/api";
@@ -78,6 +78,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import FloatingCommunityButton from "@/components/FloatingCommunityButton";
+import ChatOptionsBottomSheet from "@/components/chat/ChatOptionsBottomSheet";
+import { MuteDurationOption } from "@/lib/chatMute";
+import { useChatActions } from "@/hooks/useChatActions";
 
 type LocalMessage = MessageType & { message_type?: string; isUploading?: boolean; sender?: { role?: string; avatarUrl?: string; displayName?: string } };
 
@@ -215,6 +218,8 @@ const EmojiPicker = ({ onSelect }: { onSelect: (emoji: string) => void }) => (
   </PopoverContent>
 );
 
+const CHAT_LIST_LONG_PRESS_MS = 600;
+
 // Conversation list component moved outside to prevent remounting on state changes
 // Conversation list component moved outside to prevent remounting on state changes
 const ConversationList = ({
@@ -230,7 +235,11 @@ const ConversationList = ({
   user,
   onLogout,
   onSupport,
-  isMobile
+  isMobile,
+  isChatMuted,
+  onMuteChat,
+  onUnmuteChat,
+  onDeleteChat,
 }: {
   searchQuery: string;
   setSearchQuery: (val: string) => void;
@@ -245,15 +254,98 @@ const ConversationList = ({
   onLogout: () => void;
   onSupport: () => void;
   isMobile: boolean;
+  isChatMuted: (chatId: string) => boolean;
+  onMuteChat: (chatId: string, duration: MuteDurationOption) => void;
+  onUnmuteChat: (chatId: string) => void;
+  onDeleteChat: (chatId: string) => Promise<void>;
 }) => {
   const navigate = useNavigate();
+  const toast = useToast();
   const [isSearchVisible, setIsSearchVisible] = useState(false);
   const [showWelcomeBanner, setShowWelcomeBanner] = useState(() => localStorage.getItem("show_welcome_banner") === "true");
+  const [activeChatOptions, setActiveChatOptions] = useState<ChatType | null>(null);
+  const [chatOptionsMode, setChatOptionsMode] = useState<'main' | 'mute'>('main');
+  const [pendingDeleteChat, setPendingDeleteChat] = useState<ChatType | null>(null);
+  const [pressedChatId, setPressedChatId] = useState<string | null>(null);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressTriggeredRef = useRef(false);
 
   useEffect(() => {
     // Removed auto-dismiss timer to prevent layout shift.
     // The banner will stay until the user manually dismisses it.
   }, [showWelcomeBanner, isMobile, searchQuery, filteredChats.length]);
+
+  useEffect(() => {
+    return () => {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  const triggerHapticFeedback = useCallback(() => {
+    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+      navigator.vibrate(10);
+    }
+  }, []);
+
+  const clearLongPressState = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    setPressedChatId(null);
+  }, []);
+
+  const handleChatPressStart = useCallback((chat: ChatType) => {
+    clearLongPressState();
+    longPressTriggeredRef.current = false;
+    setPressedChatId(chat.chat_id);
+
+    longPressTimerRef.current = setTimeout(() => {
+      longPressTriggeredRef.current = true;
+      setChatOptionsMode('main');
+      setActiveChatOptions(chat);
+      setPressedChatId(null);
+      triggerHapticFeedback();
+      longPressTimerRef.current = null;
+    }, CHAT_LIST_LONG_PRESS_MS);
+  }, [clearLongPressState, triggerHapticFeedback]);
+
+  const handleChatPressEnd = useCallback(() => {
+    clearLongPressState();
+  }, [clearLongPressState]);
+
+  const handleChatSelect = useCallback((chat: ChatType) => {
+    if (longPressTriggeredRef.current) {
+      longPressTriggeredRef.current = false;
+      return;
+    }
+    setSelectedChat(chat);
+  }, [setSelectedChat]);
+
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!pendingDeleteChat) return;
+    const chat = pendingDeleteChat;
+
+    setPendingDeleteChat(null);
+    setActiveChatOptions(null);
+
+    try {
+      await onDeleteChat(chat.chat_id);
+      toast({
+        title: 'Chat deleted',
+        description: 'Conversation removed from your chat list.',
+      });
+    } catch (err) {
+      toast({
+        title: 'Failed to delete chat',
+        description: err instanceof Error ? err.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    }
+  }, [onDeleteChat, pendingDeleteChat, toast]);
 
   return (
     <div className="flex flex-col min-h-screen bg-white overflow-hidden font-dm-sans">
@@ -445,9 +537,18 @@ const ConversationList = ({
             <button
               key={chat.chat_id}
               onClick={() => {
-                setSelectedChat(chat);
+                handleChatSelect(chat);
               }}
-              className={`w-full grid grid-cols-[48px_1fr_auto] items-center gap-3 p-4 transition-colors text-left overflow-hidden bg-white`}
+              onPointerDown={() => handleChatPressStart(chat)}
+              onPointerUp={handleChatPressEnd}
+              onPointerLeave={handleChatPressEnd}
+              onPointerCancel={handleChatPressEnd}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                setChatOptionsMode('main');
+                setActiveChatOptions(chat);
+              }}
+              className={`w-full grid grid-cols-[48px_1fr_auto] items-center gap-3 p-4 transition-all duration-150 text-left overflow-hidden bg-white ${pressedChatId === chat.chat_id ? 'scale-[0.97]' : 'scale-100'}`}
             >
               <Avatar className="h-12 w-12 shrink-0">
                 <AvatarImage src={chat.avatar_url} loading="lazy" />
@@ -481,9 +582,14 @@ const ConversationList = ({
               </div>
 
               <div className="flex flex-col items-end gap-2 self-start pt-0.5 shrink-0 min-w-[50px]">
-                <span className="text-[10px] text-muted-foreground font-medium whitespace-nowrap opacity-80">
-                  {chat.last_message_time ? formatTime(chat.last_message_time) : ""}
-                </span>
+                <div className="flex items-center gap-1">
+                  {isChatMuted(chat.chat_id) && (
+                    <Icon name="BellOff" className="h-3.5 w-3.5 text-muted-foreground/80" />
+                  )}
+                  <span className="text-[10px] text-muted-foreground font-medium whitespace-nowrap opacity-80">
+                    {chat.last_message_time ? formatTime(chat.last_message_time) : ""}
+                  </span>
+                </div>
                 {chat.unread_count > 0 && (
                   <div className="bg-primary text-primary-foreground h-4 min-w-[16px] px-1 flex items-center justify-center text-[10px] font-bold rounded-full">
                     {chat.unread_count}
@@ -494,6 +600,56 @@ const ConversationList = ({
           ))
         )}
       </ScrollArea>
+
+      <ChatOptionsBottomSheet
+        open={!!activeChatOptions}
+        mode={chatOptionsMode}
+        isMuted={activeChatOptions ? isChatMuted(activeChatOptions.chat_id) : false}
+        onClose={() => {
+          setActiveChatOptions(null);
+          setChatOptionsMode('main');
+        }}
+        onOpenMuteMenu={() => setChatOptionsMode('mute')}
+        onToggleMute={() => {
+          if (!activeChatOptions) return;
+          onUnmuteChat(activeChatOptions.chat_id);
+          setActiveChatOptions(null);
+          toast({ title: 'Chat unmuted' });
+        }}
+        onSelectMuteDuration={(duration) => {
+          if (!activeChatOptions) return;
+          onMuteChat(activeChatOptions.chat_id, duration);
+          setActiveChatOptions(null);
+          setChatOptionsMode('main');
+          toast({ title: 'Chat muted' });
+        }}
+        onDeleteRequest={() => {
+          if (!activeChatOptions) return;
+          setPendingDeleteChat(activeChatOptions);
+        }}
+      />
+
+      <AlertDialog open={!!pendingDeleteChat} onOpenChange={(open) => !open && setPendingDeleteChat(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this chat?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove the conversation from your chat list. Messages will remain for the other user.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                void handleDeleteConfirm();
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
     </div>
   );
@@ -2419,6 +2575,18 @@ const ChatPage = () => {
   const [isPreviewViewOnce, setIsPreviewViewOnce] = useState(false);
   const [selectedCommunity, setSelectedCommunity] = useState<CommunityDetailView | null>(null);
 
+  const {
+    isChatMuted,
+    muteChat,
+    unmuteChat,
+    deleteChat,
+  } = useChatActions({
+    clearChatHistory,
+    setChats,
+    setSelectedChat,
+    selectedChatId: selectedChat?.chat_id,
+  });
+
   // Hide bottom navbar when in a chat on mobile
   useEffect(() => {
     if (selectedChat && isMobile) {
@@ -3456,6 +3624,16 @@ const ChatPage = () => {
     c.display_name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const handleDeleteChat = useCallback(async (chatId: string) => {
+    const snapshot = chats;
+    try {
+      await deleteChat(chatId);
+    } catch (err) {
+      setChats(snapshot);
+      throw err;
+    }
+  }, [chats, deleteChat]);
+
   if (authLoading) return <LoadingScreen />;
 
   // Mobile: show one panel at a time
@@ -3525,6 +3703,10 @@ const ChatPage = () => {
             onLogout={handleLogout}
             onSupport={handleSupport}
             isMobile={isMobile}
+            isChatMuted={isChatMuted}
+            onMuteChat={muteChat}
+            onUnmuteChat={unmuteChat}
+            onDeleteChat={handleDeleteChat}
           />
         )}
       <ProfileCompletionModal />
@@ -3552,6 +3734,10 @@ const ChatPage = () => {
           onSupport={handleSupport}
           onLogout={handleLogout}
           isMobile={isMobile}
+          isChatMuted={isChatMuted}
+          onMuteChat={muteChat}
+          onUnmuteChat={unmuteChat}
+          onDeleteChat={handleDeleteChat}
         />
       </div>
       <div className="flex-1 h-full min-h-0 overflow-hidden">
