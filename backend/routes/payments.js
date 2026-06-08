@@ -4,6 +4,8 @@ import { auth } from '../middleware/auth.js';
 import { createOrder, verifyPaymentSignature, fetchPayment } from '../config/razorpay.js';
 import { sendUserNotification } from './notifications.js';
 import { sendSubscriptionSuccessArtifacts } from '../services/subscriptionFulfillment.js';
+import { buildWalletInvoicePdf } from '../services/invoiceService.js';
+import { sendWalletInvoiceEmail } from '../services/emailService.js';
 
 const prisma = new PrismaClient();
 const router = express.Router();
@@ -550,6 +552,22 @@ router.post('/verify', auth, async (req, res) => {
                 }
             });
 
+            if (type === 'wallet') {
+                (async () => {
+                    try {
+                        const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+                        const pdfBuffer = await buildWalletInvoicePdf(amount, user, paymentId);
+                        await sendWalletInvoiceEmail(user.email, {
+                            customerName: user.displayName || user.username,
+                            receiptReference: paymentId,
+                            amount: amount
+                        }, pdfBuffer);
+                    } catch (err) {
+                        console.error('Failed to send wallet invoice:', err);
+                    }
+                })();
+            }
+
             return res.json({ message: 'Payment verified successfully.', amount: amount });
         } catch (err) {
             if (err.code === 'P2002') return res.json({ message: 'Payment already processed.', status: 'already_processed' });
@@ -677,6 +695,20 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
                         sendUserNotification(io, result.request.userId, 'Verification Payment Received', `Payment received.`, 'success', { type: 'wallet' });
                     } else if (result.type === 'wallet') {
                         sendUserNotification(io, result.userId, 'Wallet Credited', `₹${result.amount.toLocaleString('en-IN')} added to wallet.`, 'success', { type: 'wallet' });
+
+                        (async () => {
+                            try {
+                                const user = await prisma.user.findUnique({ where: { id: result.userId } });
+                                const pdfBuffer = await buildWalletInvoicePdf(result.amount, user, paymentId);
+                                await sendWalletInvoiceEmail(user.email, {
+                                    customerName: user.displayName || user.username,
+                                    receiptReference: paymentId,
+                                    amount: result.amount
+                                }, pdfBuffer);
+                            } catch (err) {
+                                console.error('Failed to send wallet invoice (webhook):', err);
+                            }
+                        })();
                     }
                 }
             } catch (err) {

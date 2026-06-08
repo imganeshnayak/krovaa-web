@@ -12,6 +12,12 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
     headers['Content-Type'] = 'application/json';
   }
 
+  // Fallback to Bearer token for environments (like Capacitor/mobile) where cookies are restricted
+  const storedToken = typeof window !== "undefined" ? localStorage.getItem("authToken") : null;
+  if (storedToken && !headers['Authorization']) {
+    headers['Authorization'] = `Bearer ${storedToken}`;
+  }
+
   const fullUrl = apiUrl(path);
   console.log(`[API Request] ${options?.method || 'GET'} ${fullUrl}`);
   
@@ -201,6 +207,10 @@ export function getRatingEligibility(userId: number): Promise<{ canRate: boolean
   return apiFetch(`/api/users/${userId}/rating-eligibility`);
 }
 
+export function getUserRatings(userId: number): Promise<{ ratings: any[] }> {
+  return apiFetch<{ ratings: any[] }>(`/api/users/${userId}/ratings`);
+}
+
 export function getAllUsers(): Promise<AuthUser[]> {
   return apiFetch<AuthUser[]>("/api/users");
 }
@@ -293,6 +303,9 @@ export interface Message {
   sender_name?: string;
   sender_avatar?: string;
   sender_username?: string;
+  parentMessageId?: number;
+  replyToText?: string;
+  replyToUser?: string;
 }
 
 export interface Chat {
@@ -354,6 +367,9 @@ export function sendMessage(data: {
   content: string;
   message_type?: string;
   is_view_once?: boolean;
+  parent_message_id?: number;
+  reply_to_text?: string;
+  reply_to_user?: string;
 }): Promise<Message> {
   return apiFetch<Message>("/api/messages", {
     method: "POST",
@@ -556,6 +572,9 @@ export async function uploadFile(data: {
   file: File;
   content?: string;
   is_view_once?: boolean;
+  parent_message_id?: number;
+  reply_to_text?: string;
+  reply_to_user?: string;
 }): Promise<Message> {
   const formData = new FormData();
   formData.append("receiver_id", data.receiver_id.toString());
@@ -563,19 +582,14 @@ export async function uploadFile(data: {
   formData.append("file", data.file);
   if (data.content) formData.append("content", data.content);
   if (data.is_view_once) formData.append("is_view_once", "true");
+  if (data.parent_message_id) formData.append("parent_message_id", data.parent_message_id.toString());
+  if (data.reply_to_text) formData.append("reply_to_text", data.reply_to_text);
+  if (data.reply_to_user) formData.append("reply_to_user", data.reply_to_user);
 
-  const res = await fetch(apiUrl("/api/messages/upload"), {
+  return apiFetch<Message>("/api/messages/upload", {
     method: "POST",
     body: formData,
-    credentials: "include",
   });
-
-  if (!res.ok) {
-    const error = await res.text();
-    throw new Error(error);
-  }
-
-  return res.json();
 }
 
 export function notifyScreenshotAttempt(data: {
@@ -962,8 +976,27 @@ export function getWalletBalance(): Promise<{ balance: number }> {
   return apiFetch<{ balance: number }>("/api/wallet/balance");
 }
 
-export function getWalletRecipient(shareId: string): Promise<WalletRecipient> {
-  return apiFetch<WalletRecipient>(`/api/wallet/recipient/${encodeURIComponent(shareId)}`);
+export interface SecureReceiveLinkResponse {
+  shareId: string;
+  expires: number;
+  token: string;
+  shareUrl: string;
+}
+
+export function getSecureReceiveLink(): Promise<SecureReceiveLinkResponse> {
+  return apiFetch<SecureReceiveLinkResponse>("/api/wallet/receive-link");
+}
+
+export function getWalletRecipient(
+  shareId: string,
+  expires?: string,
+  token?: string
+): Promise<WalletRecipient> {
+  const query = new URLSearchParams();
+  if (expires) query.append("expires", expires);
+  if (token) query.append("token", token);
+  const queryString = query.toString() ? `?${query.toString()}` : "";
+  return apiFetch<WalletRecipient>(`/api/wallet/recipient/${encodeURIComponent(shareId)}${queryString}`);
 }
 
 export function getWalletTransactions(type: string = 'all'): Promise<WalletTransaction[]> {
@@ -974,6 +1007,9 @@ export function transferWalletBalance(data: {
   shareId: string;
   amount: number;
   note?: string;
+  password?: string;
+  expires?: string;
+  token?: string;
 }): Promise<WalletTransferResponse> {
   return apiFetch<WalletTransferResponse>("/api/wallet/transfer", {
     method: "POST",
@@ -1467,6 +1503,19 @@ export function deleteJob(jobId: number): Promise<{ message: string }> {
   });
 }
 
+export function saveCollabProject(id: number) {
+  return apiFetch<{ message: string; saved: boolean }>(`/api/collab/${id}/save`, { method: "POST" });
+}
+
+export function unsaveCollabProject(id: number) {
+  return apiFetch<{ message: string; saved: boolean }>(`/api/collab/${id}/unsave`, { method: "DELETE" });
+}
+
+export function getSavedCollabProjects() {
+  return apiFetch<any[]>(`/api/collab/saved`);
+}
+
+
 // ============ Ads API ============
 
 export interface Ad {
@@ -1504,30 +1553,16 @@ export function deleteAd(id: number): Promise<{ success: boolean }> {
 }
 
 export function createAd(formData: FormData): Promise<Ad> {
-  return fetch(apiUrl("/api/ads"), {
+  return apiFetch<Ad>("/api/ads", {
     method: "POST",
     body: formData,
-    credentials: "include",
-  }).then(async (res) => {
-    if (!res.ok) {
-      const e = await res.json().catch(() => ({ error: "Failed" }));
-      throw new Error(e.error || "Failed to create ad");
-    }
-    return res.json();
   });
 }
 
 export function updateAd(id: number, formData: FormData): Promise<Ad> {
-  return fetch(apiUrl(`/api/ads/${id}`), {
+  return apiFetch<Ad>(`/api/ads/${id}`, {
     method: "PUT",
     body: formData,
-    credentials: "include",
-  }).then(async (res) => {
-    if (!res.ok) {
-      const e = await res.json().catch(() => ({ error: "Failed" }));
-      throw new Error(e.error || "Failed to update ad");
-    }
-    return res.json();
   });
 }
 
@@ -1570,16 +1605,9 @@ export function createPost(text: string, files: File[]): Promise<Post> {
   if (text) formData.append("text", text);
   files.forEach((file) => formData.append("files", file));
 
-  return fetch(apiUrl("/api/posts"), {
+  return apiFetch<Post>("/api/posts", {
     method: "POST",
     body: formData,
-    credentials: "include",
-  }).then(async (res) => {
-    if (!res.ok) {
-      const e = await res.json().catch(() => ({ error: "Failed" }));
-      throw new Error(e.error || "Failed to create post");
-    }
-    return res.json();
   });
 }
 
@@ -1741,32 +1769,235 @@ export function rateCommunityJob(communityId: number, jobId: number, data: { rev
   return apiFetch<any>(`/api/communities/${communityId}/jobs/${jobId}/ratings`, { method: 'POST', body: JSON.stringify(data) });
 }
 
-// ============ Image Sharing API ============
+// ============ Saved Jobs API ============
 
-export function shareImageToChat(
-  generationId: number,
-  data: {
-    chatId: string;
-    receiverId: number;
-    caption?: string;
+export interface SavedJob {
+  id: number;
+  userId: number;
+  jobId: number;
+  savedAt: string;
+  job: Job; // The actual job details
+}
+
+export function getSavedJobs(): Promise<SavedJob[]> {
+  return apiFetch<SavedJob[]>('/api/saved-jobs/saved');
+}
+
+export function saveJob(jobId: number): Promise<{ success: boolean }> {
+  return apiFetch<{ success: boolean }>(`/api/saved-jobs/${jobId}/save`, {
+    method: 'POST',
+  });
+}
+
+export function unsaveJob(jobId: number): Promise<{ success: boolean }> {
+  return apiFetch<{ success: boolean }>(`/api/saved-jobs/${jobId}/unsave`, {
+    method: 'DELETE',
+  });
+}
+
+// ============ User Preferences API ============
+
+export interface JobPreferences {
+  id: number;
+  userId: number;
+  skills: string[];
+  jobTypes: string[];
+  locations: string[];
+  remoteOnly: boolean;
+  minBudget: number | null;
+  maxBudget: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export function getUserPreferences(): Promise<JobPreferences> {
+  return apiFetch<JobPreferences>('/api/user-preferences/preferences');
+}
+
+export function updateUserPreferences(preferences: Partial<JobPreferences>): Promise<JobPreferences> {
+  return apiFetch<JobPreferences>('/api/user-preferences/preferences', {
+    method: 'POST',
+    body: JSON.stringify(preferences),
+  });
+}
+
+
+
+// ============ Collab Engine API ============
+
+export interface ProjectListingAttachment {
+  id: number;
+  projectId: number;
+  fileName: string;
+  fileUrl: string;
+  publicId?: string;
+  mimeType?: string;
+  fileSize?: number;
+  sortOrder: number;
+  resourceType?: string;
+  createdAt: string;
+}
+
+export interface ProjectListing {
+  id: number;
+  title: string;
+  description: string;
+  company?: string;
+  location?: string;
+  duration?: string;
+  deadline?: string;
+  terms?: string[];
+  tags: string[];
+  baseBudget: number;
+  mode: 'SINGLE' | 'GROUP';
+  status: string;
+  creatorId: number;
+  creator: { id: number; username: string; displayName: string; avatarUrl?: string };
+  collabCommunityId?: number;
+  seats: GroupSeat[];
+  milestones: GroupMilestone[];
+  attachments?: ProjectListingAttachment[];
+  createdAt: string;
+}
+
+export interface GroupSeat {
+  id: number;
+  projectId: number;
+  roleName: string;
+  splitPercent: number;
+  status: 'VACANT' | 'APPLIED' | 'OCCUPIED';
+  userId?: number;
+  user?: AuthUser;
+  bids: SeatBid[];
+  bidCount?: number;
+  createdAt: string;
+}
+
+export interface SeatBid {
+  id: number;
+  seatId: number;
+  userId: number;
+  user: AuthUser;
+  bidAmount: number;
+  proposalPitch: string;
+  userRatingAtTime: number;
+  status: 'PENDING' | 'ACCEPTED' | 'REJECTED';
+  createdAt: string;
+}
+
+export interface GroupMilestone {
+  id: number;
+  projectId: number;
+  title: string;
+  amount: number;
+  isReleased: boolean;
+  createdAt: string;
+}
+
+export function listCollabProjects(mode?: string, status?: string): Promise<ProjectListing[]> {
+  const query = new URLSearchParams();
+  if (mode && mode !== 'all') query.append('mode', mode.toUpperCase());
+  if (status) query.append('status', status);
+  return apiFetch<ProjectListing[]>(`/api/collab?${query.toString()}`);
+}
+
+export function getMyCollabProjects(): Promise<ProjectListing[]> {
+  return apiFetch<ProjectListing[]>('/api/collab/my');
+}
+
+export function getCollabProject(id: number): Promise<ProjectListing> {
+  return apiFetch<ProjectListing>(`/api/collab/${id}`);
+}
+
+export function createCollabProject(data: {
+  title: string;
+  description: string;
+  baseBudget: number;
+  mode: 'SINGLE' | 'GROUP';
+  singleVendorId?: number;
+  chatId?: string;
+  seats?: { roleName: string; splitPercent: number; amount: number }[];
+  milestones?: { title: string; amount: number }[];
+  company?: string;
+  location?: string;
+  duration?: string;
+  deadline?: string;
+  skills?: string[];
+  terms?: string[];
+  attachments?: File[];
+}): Promise<ProjectListing> {
+  const hasAttachments = (data.attachments?.length || 0) > 0;
+
+  if (hasAttachments) {
+    const formData = new FormData();
+    formData.append('title', data.title);
+    formData.append('description', data.description);
+    formData.append('baseBudget', data.baseBudget.toString());
+    formData.append('mode', data.mode);
+    if (data.singleVendorId) formData.append('singleVendorId', data.singleVendorId.toString());
+    if (data.chatId) formData.append('chatId', data.chatId);
+    if (data.seats) formData.append('seats', JSON.stringify(data.seats));
+    if (data.milestones) formData.append('milestones', JSON.stringify(data.milestones));
+    if (data.company) formData.append('company', data.company);
+    if (data.location) formData.append('location', data.location);
+    if (data.duration) formData.append('duration', data.duration);
+    if (data.deadline) formData.append('deadline', data.deadline);
+    if (data.skills) formData.append('tags', JSON.stringify(data.skills));
+    if (data.terms) formData.append('terms', JSON.stringify(data.terms));
+
+    data.attachments?.forEach((file) => {
+      formData.append('attachments', file);
+    });
+
+    return apiFetch<ProjectListing>('/api/collab', {
+      method: 'POST',
+      body: formData,
+    });
   }
-): Promise<{ success: boolean; message?: string }> {
-  return apiFetch<{ success: boolean; message?: string }>(`/api/image-generator/${generationId}/share`, {
+
+  return apiFetch<ProjectListing>('/api/collab', {
+    method: 'POST',
+    body: JSON.stringify({
+      ...data,
+      tags: data.skills
+    }),
+  });
+}
+
+export function submitSeatBid(projectId: number, seatId: number, data: { bidAmount: number; proposalPitch: string }): Promise<SeatBid> {
+  return apiFetch<SeatBid>(`/api/collab/${projectId}/bids?seatId=${seatId}`, {
     method: 'POST',
     body: JSON.stringify(data),
   });
 }
 
-export interface ImageGeneratorStats {
-  todayGenerations: number;
-  uniqueUsersToday: number;
-  usersAtLimitToday: number;
-  isEnabled: boolean;
-  dailyLimit: number;
+export function acceptSeatBid(projectId: number, seatId: number, bidId: number): Promise<{ success: boolean }> {
+  return apiFetch<{ success: boolean }>(`/api/collab/${projectId}/seats/${seatId}/accept/${bidId}`, {
+    method: 'PUT',
+  });
 }
 
-export function getImageGeneratorStats(): Promise<ImageGeneratorStats> {
-  return apiFetch<ImageGeneratorStats>('/api/admin/image-generator/stats');
+export function fundCollabProject(projectId: number): Promise<{ success: boolean }> {
+  return apiFetch<{ success: boolean }>(`/api/collab/${projectId}/fund`, {
+    method: 'POST',
+  });
 }
 
+export function releaseCollabMilestone(projectId: number, milestoneId: number): Promise<{ success: boolean }> {
+  return apiFetch<{ success: boolean }>(`/api/collab/${projectId}/milestones/${milestoneId}/release`, {
+    method: 'POST',
+  });
+}
 
+export function deleteCollabProject(projectId: number): Promise<{ success: boolean }> {
+  return apiFetch<{ success: boolean }>(`/api/collab/${projectId}`, {
+    method: 'DELETE',
+  });
+}
+
+export function updateCollabProject(projectId: number, data: any): Promise<ProjectListing> {
+  return apiFetch<ProjectListing>(`/api/collab/${projectId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}

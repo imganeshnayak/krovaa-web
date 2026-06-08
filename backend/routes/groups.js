@@ -134,6 +134,14 @@ router.post('/:id/messages', auth, async (req, res) => {
 
         const io = req.app.get('io');
         if (io) {
+            const socketMessage = {
+                ...message,
+                chatId: `group_${groupId}`,
+                sender_name: message.sender?.displayName,
+                sender_avatar: message.sender?.avatarUrl,
+                sender_username: message.sender?.username,
+            };
+            io.to(`group_${groupId}`).emit('newMessage', socketMessage);
             io.to(`group_${groupId}`).emit('newGroupMessage', message);
         }
 

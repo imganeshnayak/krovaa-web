@@ -7,82 +7,109 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum ProjectMode {
+  SINGLE
+  GROUP
+}
+
+enum ProjectStatus {
+  AUCTION_ACTIVE
+  FUNDING_PENDING
+  ACTIVE_WORKSPACE
+  COMPLETED
+  DISPUTED
+}
+
+enum SeatStatus {
+  VACANT
+  APPLIED
+  OCCUPIED
+}
+
+enum BidStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
 // ─── USER (web schema + app-specific fields added) ───────────────────────────
 
 model User {
-  id                   Int                   @id @default(autoincrement())
-  username             String                @unique
-  email                String                @unique
+  id                   Int       @id @default(autoincrement())
+  username             String    @unique
+  email                String    @unique
   password             String
-  displayName          String?               @map("display_name")
-  shareId              String?               @unique @map("share_id")
+  displayName          String?   @map("display_name")
+  shareId              String?   @unique @map("share_id")
   bio                  String?
-  avatarUrl            String?               @map("avatar_url")
-  coverPhotoUrl        String?               @map("cover_photo_url")
-  role                 String                @default("client")
-  status               String                @default("active")
-  telegramId           String?               @map("telegram_id")
-  createdAt            DateTime              @default(now()) @map("created_at")
-  updatedAt            DateTime              @default(now()) @updatedAt @map("updated_at")
-  socialLinks          Json?                 @default("[]") @map("social_links")
-  permissions          Json?                 @default("[]")
+  avatarUrl            String?   @map("avatar_url")
+  coverPhotoUrl        String?   @map("cover_photo_url")
+  role                 String    @default("client")
+  status               String    @default("active")
+  telegramId           String?   @map("telegram_id")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @default(now()) @updatedAt @map("updated_at")
+  socialLinks          Json?     @default("[]") @map("social_links")
+  permissions          Json?     @default("[]")
   profession           String?
-  verified             Boolean               @default(false)
-  walletBalance        Float                 @default(0) @map("wallet_balance")
-  razorpayContactId    String?               @map("razorpay_contact_id")
-  phoneNumber          String?               @map("phone_number")
+  verified             Boolean   @default(false)
+  walletBalance        Float     @default(0) @map("wallet_balance")
+  razorpayContactId    String?   @map("razorpay_contact_id")
+  phoneNumber          String?   @map("phone_number")
   city                 String?
   pincode              String?
   gender               String?
   age                  Int?
-  userGoal             String?               @map("user_goal")
-  skills               Json?                 @default("[]")
+  userGoal             String?   @map("user_goal")
+  skills               Json?     @default("[]")
   // RBI Compliance Fields
-  kycStatus            String                @default("not_submitted") @map("kyc_status")
-  kycVerifiedAt        DateTime?             @map("kyc_verified_at")
-  kycRejectionReason   String?               @map("kyc_rejection_reason")
-  kycData              Json?                 @map("kyc_data")
-  twoFactorEnabled     Boolean               @default(false) @map("two_factor_enabled")
-  twoFactorMethod      String?               @map("two_factor_method")
-  twoFactorSecret      String?               @map("two_factor_secret")
-  dataConsentGiven     Boolean               @default(false) @map("data_consent_given")
-  consentGivenAt       DateTime?             @map("consent_given_at")
-  dataRetentionUntil   DateTime?             @map("data_retention_until")
-  erasureRequested     Boolean               @default(false) @map("erasure_requested")
-  erasureRequestedAt   DateTime?             @map("erasure_requested_at")
-  dailyTransferLimit   Float                 @default(50000) @map("daily_transfer_limit")
-  monthlyTransferLimit Float                 @default(500000) @map("monthly_transfer_limit")
-  dailyTransferUsed    Float                 @default(0) @map("daily_transfer_used")
-  monthlyTransferUsed  Float                 @default(0) @map("monthly_transfer_used")
-  lastTransferResetDay DateTime?             @map("last_transfer_reset_day")
+  kycStatus            String    @default("not_submitted") @map("kyc_status")
+  kycVerifiedAt        DateTime? @map("kyc_verified_at")
+  kycRejectionReason   String?   @map("kyc_rejection_reason")
+  kycData              Json?     @map("kyc_data")
+  twoFactorEnabled     Boolean   @default(false) @map("two_factor_enabled")
+  twoFactorMethod      String?   @map("two_factor_method")
+  twoFactorSecret      String?   @map("two_factor_secret")
+  dataConsentGiven     Boolean   @default(false) @map("data_consent_given")
+  consentGivenAt       DateTime? @map("consent_given_at")
+  dataRetentionUntil   DateTime? @map("data_retention_until")
+  erasureRequested     Boolean   @default(false) @map("erasure_requested")
+  erasureRequestedAt   DateTime? @map("erasure_requested_at")
+  dailyTransferLimit   Float     @default(50000) @map("daily_transfer_limit")
+  monthlyTransferLimit Float     @default(500000) @map("monthly_transfer_limit")
+  dailyTransferUsed    Float     @default(0) @map("daily_transfer_used")
+  monthlyTransferUsed  Float     @default(0) @map("monthly_transfer_used")
+  lastTransferResetDay DateTime? @map("last_transfer_reset_day")
 
   // ── App-specific fields (not on web) ──────────────────────────────────────
-  location             String                @default("")
-  jobsDone             Int                   @default(0) @map("jobs_done")
-  reviews              Int                   @default(0)
-  earned               Float                 @default(0)
+  location String @default("")
+  jobsDone Int    @default(0) @map("jobs_done")
+  reviews  Int    @default(0)
+  earned   Float  @default(0)
 
   // ── Web compliance relations ───────────────────────────────────────────────
-  kycSubmissions       KYCSubmission[]
-  twoFactorOtps        TwoFactorOTP[]
-  dataConsents         DataConsent[]
-  paymentRefunds       PaymentRefund[]
-  transactionLimits    TransactionLimit[]
+  kycSubmissions    KYCSubmission[]
+  twoFactorOtps     TwoFactorOTP[]
+  dataConsents      DataConsent[]
+  paymentRefunds    PaymentRefund[]
+  transactionLimits TransactionLimit[]
 
   // ── Web social/content relations ──────────────────────────────────────────
-  posts                Post[]                @relation("UserPosts")
-  postLikes            Post_Like[]           @relation("UserPostLikes")
-  postComments         Post_Comment[]        @relation("UserPostComments")
+  posts        Post[]         @relation("UserPosts")
+  postLikes    Post_Like[]    @relation("UserPostLikes")
+  postComments Post_Comment[] @relation("UserPostComments")
 
   // ── Web messaging relations ────────────────────────────────────────────────
-  sentWebMessages      Message[]             @relation("UserSentWebMessages")
-  receivedWebMessages  Message[]             @relation("UserReceivedWebMessages")
+  sentWebMessages     Message[] @relation("UserSentWebMessages")
+  receivedWebMessages Message[] @relation("UserReceivedWebMessages")
 
   // ── Web job/deal relations ─────────────────────────────────────────────────
   clientDeals          EscrowDeal[]          @relation("UserClientDeals")
   vendorDeals          EscrowDeal[]          @relation("UserVendorDeals")
   postedWebJobs        Job[]                 @relation("PostedWebJobs")
   webJobApplications   Application[]         @relation("UserWebApplications")
+  savedJobs            SavedJob[]            @relation("UserSavedJobs")
+  jobPreferences       JobPreference?        @relation("UserJobPreferences")
   verificationRequests VerificationRequest[]
   payoutRequests       PayoutRequest[]
   walletTransactions   WalletTransaction[]
@@ -92,34 +119,41 @@ model User {
   reportReceived       Report[]              @relation("Reported")
 
   // ── Web community/workspace relations ─────────────────────────────────────
-  blockedUsers         BlockedUser[]         @relation("Blocker")
-  blockedBy            BlockedUser[]         @relation("Blocked")
-  createdTeams         Team[]                @relation("TeamCreator")
-  teamMemberships      TeamMember[]          @relation("TeamMemberships")
-  groupMemberships     GroupMember[]         @relation("GroupMemberships")
-  groupMessages        GroupMessage[]        @relation("UserGroupMessages")
-  communityMessages    CommunityMessage[]
-  createdCommunities   Community[]
-  communityMemberships CommunityMember[]
-  createdProjects      Project[]
-  projectMessages      ProjectMessage[]
-  uploadedProjectFiles ProjectFile[]
-  companyMemberships   CompanyMembership[]   @relation("CompanyMemberships")
+  blockedUsers          BlockedUser[]        @relation("Blocker")
+  blockedBy             BlockedUser[]        @relation("Blocked")
+  createdTeams          Team[]               @relation("TeamCreator")
+  teamMemberships       TeamMember[]         @relation("TeamMemberships")
+  groupMemberships      GroupMember[]        @relation("GroupMemberships")
+  groupMessages         GroupMessage[]       @relation("UserGroupMessages")
+  communityMessages     CommunityMessage[]
+  createdCommunities    Community[]
+  communityMemberships  CommunityMember[]
+  createdProjects       Project[]
+  projectMessages       ProjectMessage[]
+  uploadedProjectFiles  ProjectFile[]
+  companyMemberships    CompanyMembership[]  @relation("CompanyMemberships")
   professionalContracts Contract[]           @relation("ProfessionalContracts")
-  clientJobs           CommunityJob[]        @relation("ClientJobs")
-  ledBids              CommunityBid[]        @relation("BidLeader")
-  bidMemberships       CommunityBidMember[]  @relation("BidMemberships")
-  jobRatingsGiven      JobRating[]           @relation("JobRatingsGiven")
-  jobRatingsReceived   JobRating[]           @relation("JobRatingsReceived")
+  clientJobs            CommunityJob[]       @relation("ClientJobs")
+  ledBids               CommunityBid[]       @relation("BidLeader")
+  bidMemberships        CommunityBidMember[] @relation("BidMemberships")
+  jobRatingsGiven       JobRating[]          @relation("JobRatingsGiven")
+  jobRatingsReceived    JobRating[]          @relation("JobRatingsReceived")
+
+  // ── Collab Engine relations ────────────────────────────────────────────────
+  creatorListings      ProjectListing[]      @relation("CreatorListings")
+  singleListings       ProjectListing[]      @relation("SingleVendorListings")
+  seatOccupancies      GroupSeat[]           @relation("SeatOccupants")
+  seatBids             SeatBid[]             @relation("UserSeatBids")
+  savedCollabProjects  SavedProjectListing[] @relation("UserSavedCollabProjects")
 
   // ── App-only relations ─────────────────────────────────────────────────────
-  appSentMessages      AppMessage[]          @relation("AppUserSentMessages")
-  conversations        ConversationUser[]
-  transactions         Transaction[]
-  myPosts              MyPost[]
-  ratingsGiven         UserRating[]          @relation("ReviewerUserRatings")
-  ratingsReceived      UserRating[]          @relation("ReviewedUserRatings")
-  verificationRequest  AppVerificationRequest?
+  appSentMessages     AppMessage[]            @relation("AppUserSentMessages")
+  conversations       ConversationUser[]
+  transactions        Transaction[]
+  myPosts             MyPost[]
+  ratingsGiven        UserRating[]            @relation("ReviewerUserRatings")
+  ratingsReceived     UserRating[]            @relation("ReviewedUserRatings")
+  verificationRequest AppVerificationRequest?
 
   @@map("users")
 }
@@ -143,6 +177,9 @@ model Message {
   isOpened          Boolean  @default(false) @map("is_opened")
   isViewOnce        Boolean  @default(false) @map("is_view_once")
   color             String?
+  parentMessageId   Int?     @map("parent_message_id")
+  replyToText       String?  @map("reply_to_text")
+  replyToUser       String?  @map("reply_to_user")
   deletedBySender   Boolean  @default(false) @map("deleted_by_sender")
   deletedByReceiver Boolean  @default(false) @map("deleted_by_receiver")
 
@@ -185,7 +222,6 @@ model BlockedUser {
   blockedId Int      @map("blocked_id")
   blocker   User     @relation("Blocker", fields: [blockerId], references: [id])
   blocked   User     @relation("Blocked", fields: [blockedId], references: [id])
-  createdAt DateTime @default(now()) @map("created_at")
 
   @@unique([blockerId, blockedId])
   @@map("blocked_users")
@@ -476,20 +512,21 @@ model AdClick {
 }
 
 model Job {
-  id          Int           @id @default(autoincrement())
-  title       String
-  company     String
-  location    String
-  budget      String
-  mode        String        @default("Remote")
-  description String
-  terms       Json?         @default("[]")
-  deadline    DateTime?
-  postedById  Int           @map("posted_by_id")
-  createdAt   DateTime      @default(now()) @map("created_at")
-  postedBy    User          @relation("PostedWebJobs", fields: [postedById], references: [id], onDelete: Cascade)
-  attachments JobAttachment[]
+  id           Int             @id @default(autoincrement())
+  title        String
+  company      String
+  location     String
+  budget       String
+  mode         String          @default("Remote")
+  description  String
+  terms        Json?           @default("[]")
+  deadline     DateTime?
+  postedById   Int             @map("posted_by_id")
+  createdAt    DateTime        @default(now()) @map("created_at")
+  postedBy     User            @relation("PostedWebJobs", fields: [postedById], references: [id], onDelete: Cascade)
+  attachments  JobAttachment[]
   applications Application[]
+  savedBy      SavedJob[]      @relation("JobSavedJobs")
 
   @@map("jobs")
 }
@@ -526,6 +563,34 @@ model Application {
 
   @@unique([jobId, userId])
   @@map("applications")
+}
+
+model SavedJob {
+  id      Int      @id @default(autoincrement())
+  userId  Int
+  jobId   Int
+  savedAt DateTime @default(now())
+  user    User     @relation("UserSavedJobs", fields: [userId], references: [id], onDelete: Cascade)
+  job     Job      @relation("JobSavedJobs", fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, jobId])
+  @@map("saved_jobs")
+}
+
+model JobPreference {
+  id         Int      @id @default(autoincrement())
+  userId     Int      @unique
+  user       User     @relation("UserJobPreferences", fields: [userId], references: [id], onDelete: Cascade)
+  skills     Json?    @default("[]")
+  jobTypes   Json?    @default("[]")
+  locations  Json?    @default("[]")
+  remoteOnly Boolean  @default(false)
+  minBudget  Float?
+  maxBudget  Float?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("job_preferences")
 }
 
 model Post {
@@ -567,8 +632,6 @@ model Post_Comment {
 
   @@map("post_comments")
 }
-
-
 
 model Team {
   id           Int           @id @default(autoincrement())
@@ -666,25 +729,26 @@ model CompanyMembership {
 }
 
 model Community {
-  id          Int               @id @default(autoincrement())
-  name        String
-  slug        String            @unique
-  description String?
-  isPrivate   Boolean           @default(false)
-  avatarUrl   String?           @map("avatar_url")
-  creatorId   Int               @map("creator_id")
-  companyId   Int?              @map("company_id")
-  createdAt   DateTime          @default(now()) @map("created_at")
-  updatedAt   DateTime          @updatedAt @map("updated_at")
-  creator     User              @relation(fields: [creatorId], references: [id], onDelete: Cascade)
-  company     Company?          @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  members     CommunityMember[]
-  messages    CommunityMessage[]
-  projects    Project[]
-  jobs        CommunityJob[]
-  groupChat   GroupChat?
-  contracts   Contract[]
-  invitations Invitation[]
+  id             Int                @id @default(autoincrement())
+  name           String
+  slug           String             @unique
+  description    String?
+  isPrivate      Boolean            @default(false)
+  avatarUrl      String?            @map("avatar_url")
+  creatorId      Int                @map("creator_id")
+  companyId      Int?               @map("company_id")
+  createdAt      DateTime           @default(now()) @map("created_at")
+  updatedAt      DateTime           @updatedAt @map("updated_at")
+  creator        User               @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  company        Company?           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  members        CommunityMember[]
+  messages       CommunityMessage[]
+  projects       Project[]
+  jobs           CommunityJob[]
+  groupChat      GroupChat?
+  contracts      Contract[]
+  invitations    Invitation[]
+  projectListing ProjectListing?
 
   @@map("communities")
 }
@@ -796,22 +860,22 @@ model ProjectFile {
 }
 
 model CommunityJob {
-  id           Int               @id @default(autoincrement())
-  communityId  Int               @map("community_id")
-  community    Community         @relation(fields: [communityId], references: [id], onDelete: Cascade)
-  clientId     Int               @map("client_id")
-  client       User              @relation("ClientJobs", fields: [clientId], references: [id])
+  id           Int            @id @default(autoincrement())
+  communityId  Int            @map("community_id")
+  community    Community      @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  clientId     Int            @map("client_id")
+  client       User           @relation("ClientJobs", fields: [clientId], references: [id])
   title        String
   description  String
   budget       Float
   deadline     DateTime?
-  skills       Json?             @default("[]")
-  status       String            @default("open")
-  escrowDealId Int?              @unique @map("escrow_deal_id")
+  skills       Json?          @default("[]")
+  status       String         @default("open")
+  escrowDealId Int?           @unique @map("escrow_deal_id")
   bids         CommunityBid[]
   jobRatings   JobRating[]
-  createdAt    DateTime          @default(now()) @map("created_at")
-  updatedAt    DateTime          @updatedAt @map("updated_at")
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
 
   @@map("community_jobs")
 }
@@ -926,8 +990,6 @@ model MyPost {
   @@map("my_posts")
 }
 
-
-
 model Transaction {
   id           Int      @id @default(autoincrement())
   userId       Int      @map("user_id")
@@ -973,4 +1035,106 @@ model AppVerificationRequest {
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("app_verification_requests")
+}
+
+model ProjectListing {
+  id                Int              @id @default(autoincrement())
+  title             String
+  company           String?
+  location          String?
+  duration          String?
+  deadline          DateTime?
+  description       String
+  terms             Json?            @default("[]")
+  tags              Json?            @default("[]")
+  baseBudget        Float            @map("base_budget")
+  mode              ProjectMode      @default(GROUP)
+  status            ProjectStatus    @default(AUCTION_ACTIVE)
+  creatorId         Int              @map("creator_id")
+  creator           User             @relation("CreatorListings", fields: [creatorId], references: [id])
+  singleVendorId    Int?             @map("single_vendor_id")
+  singleVendor      User?            @relation("SingleVendorListings", fields: [singleVendorId], references: [id])
+  chatId            String?          @map("chat_id")
+  collabCommunityId Int?             @unique @map("collab_community_id")
+  collabCommunity   Community?       @relation(fields: [collabCommunityId], references: [id])
+  seats             GroupSeat[]
+  milestones        GroupMilestone[]
+  attachments       ProjectListingAttachment[]
+  savedBy           SavedProjectListing[] @relation("ProjectSavedBy")
+  createdAt         DateTime         @default(now()) @map("created_at")
+  updatedAt         DateTime         @updatedAt @map("updated_at")
+
+  @@map("project_listings")
+}
+
+model ProjectListingAttachment {
+  id           Int      @id @default(autoincrement())
+  projectId    Int      @map("project_id")
+  fileName     String   @map("file_name")
+  fileUrl      String   @map("file_url")
+  publicId     String?  @map("public_id")
+  mimeType     String?  @map("mime_type")
+  fileSize     Int?     @map("file_size")
+  sortOrder    Int      @default(0) @map("sort_order")
+  resourceType String?  @map("resource_type")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  project      ProjectListing @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("project_listing_attachments")
+}
+
+model GroupSeat {
+  id           Int            @id @default(autoincrement())
+  projectId    Int            @map("project_id")
+  project      ProjectListing @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  roleName     String         @map("role_name")
+  splitPercent Float          @map("split_percent")
+  status       SeatStatus     @default(VACANT)
+  userId       Int?           @map("user_id")
+  user         User?          @relation("SeatOccupants", fields: [userId], references: [id])
+  bids         SeatBid[]
+  createdAt    DateTime       @default(now()) @map("created_at")
+
+  @@map("group_seats")
+}
+
+model SeatBid {
+  id               Int       @id @default(autoincrement())
+  seatId           Int       @map("seat_id")
+  seat             GroupSeat @relation(fields: [seatId], references: [id], onDelete: Cascade)
+  userId           Int       @map("user_id")
+  user             User      @relation("UserSeatBids", fields: [userId], references: [id])
+  bidAmount        Float     @map("bid_amount")
+  proposalPitch    String    @map("proposal_pitch")
+  userRatingAtTime Float     @default(0) @map("user_rating_at_time")
+  status           BidStatus @default(PENDING)
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  @@unique([seatId, userId])
+  @@map("seat_bids")
+}
+
+model GroupMilestone {
+  id         Int            @id @default(autoincrement())
+  projectId  Int            @map("project_id")
+  project    ProjectListing @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title      String
+  amount     Float
+  isReleased Boolean        @default(false) @map("is_released")
+  createdAt  DateTime       @default(now()) @map("created_at")
+
+  @@map("group_milestones")
+}
+
+model SavedProjectListing {
+  id        Int            @id @default(autoincrement())
+  userId    Int            @map("user_id")
+  projectId Int            @map("project_id")
+  savedAt   DateTime       @default(now()) @map("saved_at")
+  user      User           @relation("UserSavedCollabProjects", fields: [userId], references: [id], onDelete: Cascade)
+  project   ProjectListing @relation("ProjectSavedBy", fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, projectId])
+  @@map("saved_project_listings")
 }

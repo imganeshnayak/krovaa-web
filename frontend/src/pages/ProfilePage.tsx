@@ -16,7 +16,7 @@ import {
   getUser, getUserByUsername, getUserByShareId, getProfileFull, updateUserProfile, uploadAvatar,
   rateUser, AuthUser, getVerificationStatus, getVerificationFee, 
   VerificationRequest, getRatingEligibility, uploadCoverPhoto,
-  deleteAvatar, deleteCoverPhoto, Post
+  deleteAvatar, deleteCoverPhoto, Post, getUserRatings
 } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { remoteUrl } from "@/lib/config";
@@ -504,15 +504,12 @@ const ProfilePage = () => {
   const openViewAllRatings = async () => {
     setIsViewAllRatingsOpen(true);
     try {
-      const res = await fetch(`/api/users/${user.id}/ratings`);
-      if (res.ok) {
-        const data = await res.json();
-        setAllRatings(data.ratings.map((r: any) => ({
-          rating: r.rating, comment: r.comment,
-          reviewerDisplayName: r.reviewer.displayName || r.reviewer.username,
-          reviewerAvatar: r.reviewer.avatarUrl, createdAt: r.createdAt
-        })));
-      }
+      const data = await getUserRatings(user.id);
+      setAllRatings(data.ratings.map((r: any) => ({
+        rating: r.rating, comment: r.comment,
+        reviewerDisplayName: r.reviewer.displayName || r.reviewer.username,
+        reviewerAvatar: r.reviewer.avatarUrl, createdAt: r.createdAt
+      })));
     } catch { toast({ title: "Failed to load reviews", variant: "destructive" }); }
   };
 
