@@ -1868,7 +1868,12 @@ const ChatView = ({
             <p className="text-[10px] text-muted-foreground font-medium px-1">Choose a profession:</p>
             <div className="flex gap-2">
               <Select onValueChange={(val) => {
-                setNewMessage(val);
+                if (val === 'Other') {
+                  setNewMessage('');
+                  setTimeout(() => messageInputRef.current?.focus(), 50);
+                } else {
+                  setNewMessage(val);
+                }
               }}>
                 <SelectTrigger className="h-9 bg-card border-border rounded-xl text-sm">
                   <SelectValue placeholder="Select Profession" />
@@ -2647,10 +2652,11 @@ const ChatPage = () => {
     if (showSpinner && !cached) setIsLoading(true);
     try {
       // Run all API calls in parallel to massively speed up loading time
-      const [chatListResult, groupsResult, supportChatResult] = await Promise.allSettled([
+      const [chatListResult, groupsResult, supportChatResult, communitiesResult] = await Promise.allSettled([
         getChatList(),
         getGroupChats(),
-        user?.role !== 'admin' && user?.role !== 'staff' && user?.id ? getSupportChat() : Promise.resolve(null)
+        user?.role !== 'admin' && user?.role !== 'staff' && user?.id ? getSupportChat() : Promise.resolve(null),
+        listCommunities()
       ]);
 
       if (chatListResult.status === 'rejected') {
@@ -2676,6 +2682,30 @@ const ChatPage = () => {
         data.push(...mappedGroups);
       } else {
         console.error("Failed to load group chats", groupsResult.reason);
+      }
+
+      // Handle Community Chats
+      if (communitiesResult.status === 'fulfilled') {
+        const myCommunities = (communitiesResult.value as any[]).filter(c => 
+          c.creatorId === user?.id || 
+          c.members?.some(m => m.userId === user?.id && m.status === 'approved')
+        );
+
+        const mappedCommunities: ChatType[] = myCommunities.map(c => ({
+          chat_id: `community_${c.id}`,
+          last_message: c.messages?.[0]?.content || "Community Chat",
+          last_message_time: c.messages?.[0]?.createdAt || c.createdAt || new Date().toISOString(),
+          user_id: 0,
+          display_name: c.name || "Unnamed Community",
+          avatar_url: c.avatarUrl || "/group-icon.svg",
+          username: c.slug || "community",
+          unread_count: 0,
+          verified: false,
+          isOfficial: false,
+        }));
+        data.push(...mappedCommunities);
+      } else {
+        console.error("Failed to load community chats", communitiesResult.reason);
       }
 
       // Handle Support Chat

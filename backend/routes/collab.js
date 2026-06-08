@@ -596,6 +596,7 @@ router.post('/:id/milestones/:milestoneId/release', auth, async (req, res) => {
         if (!milestone) return res.status(404).json({ error: 'Milestone not found' });
         if (milestone.isReleased) return res.status(400).json({ error: 'Milestone already released' });
 
+        let systemMessage = null;
         await prisma.$transaction(async (tx) => {
             if (project.mode === 'SINGLE') {
                 if (project.singleVendorId) {
@@ -647,7 +648,7 @@ router.post('/:id/milestones/:milestoneId/release', auth, async (req, res) => {
                 // Append system receipt log to community chat
                 if (project.collabCommunityId) {
                     const messageContent = `💰 Milestone Released: ${milestone.title} (₹${milestone.amount})`;
-                    await tx.communityMessage.create({
+                    systemMessage = await tx.communityMessage.create({
                         data: {
                             communityId: project.collabCommunityId,
                             senderId: req.user.id, // client
@@ -678,6 +679,27 @@ router.post('/:id/milestones/:milestoneId/release', auth, async (req, res) => {
                 });
             }
         });
+
+        if (systemMessage && project.collabCommunityId) {
+            const io = req.app.get('io');
+            if (io) {
+                const fullMsg = await prisma.communityMessage.findUnique({
+                    where: { id: systemMessage.id },
+                    include: { sender: true }
+                });
+                if (fullMsg) {
+                    const socketMessage = {
+                        ...fullMsg,
+                        chatId: `community_${project.collabCommunityId}`,
+                        senderId: fullMsg.senderId,
+                        sender_name: fullMsg.sender?.displayName,
+                        sender_avatar: fullMsg.sender?.avatarUrl,
+                        sender_username: fullMsg.sender?.username,
+                    };
+                    io.to(`community_${project.collabCommunityId}`).emit('newMessage', socketMessage);
+                }
+            }
+        }
 
         res.json({ success: true });
     } catch (err) {

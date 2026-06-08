@@ -6,7 +6,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import ShareJobDialog from "../components/ShareJobDialog";
 import { listCollabProjects, ProjectListing } from "@/lib/api";
 import ProjectAuctionCard from "@/components/collab/ProjectAuctionCard";
-import UnifiedProjectModal from "@/components/collab/UnifiedProjectModal";
 
 const PAGE_SIZE = 6;
 
@@ -53,7 +52,6 @@ const ExplorePage = () => {
   const [activeTab, setActiveTab] = useState<"jobs" | "collab">("collab");
   const [collabProjects, setCollabProjects] = useState<ProjectListing[]>([]);
   const [isCollabLoading, setIsCollabLoading] = useState(false);
-  const [isUnifiedModalOpen, setIsUnifiedModalOpen] = useState(false);
   const [sharingCollab, setSharingCollab] = useState<ProjectListing | null>(null);
   
   // Custom FAB state
@@ -190,7 +188,7 @@ const ExplorePage = () => {
                   activeTab === "collab" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
                 }`}
               >
-                Collab Hub
+                Group Jobs
               </button>
             </div>
             
@@ -384,8 +382,7 @@ const ExplorePage = () => {
       )}
 
       {/* Floating Action Button */}
-      {!isUnifiedModalOpen && (
-        <div className="fixed bottom-24 right-6 z-[60] flex flex-col items-end gap-3">
+      <div className="fixed bottom-24 right-6 z-[60] flex flex-col items-end gap-3">
           {isFabOpen && (
              <div className="flex flex-col gap-2 mb-2 animate-in slide-in-from-bottom-5 fade-in duration-200">
                <button
@@ -395,7 +392,7 @@ const ExplorePage = () => {
                  Standard Job <Briefcase className="h-4 w-4 text-slate-400" />
                </button>
                <button
-                 onClick={() => { setIsFabOpen(false); setIsUnifiedModalOpen(true); }}
+                 onClick={() => { setIsFabOpen(false); navigate("/post-collab"); }}
                  className="bg-slate-900 text-white shadow-lg rounded-xl px-4 py-3 text-sm font-bold flex items-center justify-end gap-3 hover:bg-slate-800 transition-colors"
                >
                  Collab Blueprint <Users className="h-4 w-4 text-slate-400" />
@@ -411,7 +408,6 @@ const ExplorePage = () => {
             <Plus className={`h-6 w-6 stroke-[2.5] transition-transform duration-200 ${isFabOpen ? 'rotate-45' : ''}`} />
           </button>
         </div>
-      )}
 
       {sharingJob && (
         <ShareJobDialog
@@ -435,12 +431,7 @@ const ExplorePage = () => {
         />
       )}
 
-      {/* Collab Modals */}
-      <UnifiedProjectModal 
-        isOpen={isUnifiedModalOpen} 
-        onClose={() => setIsUnifiedModalOpen(false)}
-        onSuccess={loadCollabProjects}
-      />
+
     </div>
   );
 };

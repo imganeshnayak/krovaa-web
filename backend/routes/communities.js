@@ -196,7 +196,17 @@ router.post('/', auth, async (req, res) => {
 router.get('/', auth, async (req, res) => {
   try {
     const communities = await prisma.community.findMany({
-      include: { members: { select: { userId: true, role: true, status: true } }, creator: true }
+      include: {
+        members: { select: { userId: true, role: true, status: true } },
+        creator: true,
+        messages: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          include: {
+            sender: { select: { id: true, username: true, displayName: true, avatarUrl: true } }
+          }
+        }
+      }
     });
     const mapped = communities.map(c => ({
       ...c,
@@ -715,6 +725,20 @@ router.post('/:id/messages', auth, async (req, res) => {
       where: { id: message.id },
       include: { sender: true }
     });
+
+    const io = req.app.get('io');
+    if (io) {
+        const socketMessage = {
+            ...fullMessage,
+            chatId: `community_${communityId}`,
+            senderId: fullMessage.senderId,
+            sender_name: fullMessage.sender?.displayName,
+            sender_avatar: fullMessage.sender?.avatarUrl,
+            sender_username: fullMessage.sender?.username,
+        };
+        io.to(`community_${communityId}`).emit('newMessage', socketMessage);
+    }
+
     res.json(fullMessage);
   } catch (err) {
     console.error('Create message error:', err);

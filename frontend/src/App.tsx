@@ -38,6 +38,7 @@ const Refund = lazy(() => import("./pages/legal/Refund"));
 const CookiePolicy = lazy(() => import("./pages/legal/CookiePolicy"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const CollabDetailsPage = lazy(() => import("./pages/CollabDetailsPage"));
+const PostCollabPage = lazy(() => import("./pages/PostCollabPage"));
 const SavedJobsPage = lazy(() => import("./components/SavedJobsPage").then((module) => ({ default: module.SavedJobsPage })));
 
 import PublicNavbar from "./components/Navbar";
@@ -121,6 +122,7 @@ const MainContent = () => {
           <Route path="/collab/:id/review" element={<ClientRoute><CollabReviewPage /></ClientRoute>} />
           <Route path="/blueprint/:id" element={<CollabDetailsPage />} />
           <Route path="/post-job" element={<ClientRoute><PostJobPage /></ClientRoute>} />
+          <Route path="/post-collab" element={<ClientRoute><PostCollabPage /></ClientRoute>} />
           <Route path="/jobs/:jobId" element={<JobDetailsPage />} />
           <Route path="/saved-jobs" element={<ClientRoute><SavedJobsPage /></ClientRoute>} />
           <Route path="/my-listings" element={<ClientRoute><MyListingsPage /></ClientRoute>} />

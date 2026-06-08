@@ -349,35 +349,89 @@ router.get('/best-profiles', auth, async (req, res) => {
             const userPincode = (user.pincode || '').trim();
             const userSkills = (Array.isArray(user.skills) ? user.skills : []).map(s => String(s).toLowerCase().trim()).filter(Boolean);
 
-            // 1. Profession similarity (30%) — fuzzy, no strict match
-            if (queryProfession && userProf) {
-                if (userProf === queryProfession) score += 0.30;
-                else if (userProf.includes(queryProfession) || queryProfession.includes(userProf)) score += 0.20;
-                else {
-                    const qWords = queryProfession.split(/\s+/);
-                    const uWords = userProf.split(/\s+/);
-                    const anyWordMatch = qWords.some(qw => uWords.some(uw => uw.includes(qw) || qw.includes(uw)));
-                    if (anyWordMatch) score += 0.12;
+            // 1. Profession similarity (35%)
+            let professionScore = 0;
+            if (queryProfession) {
+                if (userProf) {
+                    if (userProf === queryProfession) {
+                        professionScore += 0.35;
+                    } else if (userProf.includes(queryProfession) || queryProfession.includes(userProf)) {
+                        professionScore += 0.25;
+                    } else {
+                        const qWords = queryProfession.split(/\s+/).filter(w => w.length > 1);
+                        const uWords = userProf.split(/\s+/).filter(w => w.length > 1);
+                        const wordMatches = qWords.filter(qw => uWords.some(uw => uw.includes(qw) || qw.includes(uw)));
+                        if (wordMatches.length > 0) {
+                            professionScore += 0.15 * (wordMatches.length / qWords.length);
+                        }
+                    }
                 }
-            }
 
-            // 2. City similarity (25%) — fuzzy
-            if (queryCity && userCity) {
-                if (userCity === queryCity) score += 0.25;
-                else if (userCity.includes(queryCity) || queryCity.includes(userCity)) score += 0.15;
-                else {
-                    const qWords = queryCity.split(/\s+/);
-                    const uWords = userCity.split(/\s+/);
-                    if (qWords.some(qw => uWords.some(uw => uw.includes(qw) || qw.includes(uw)))) score += 0.08;
+                // Match queryProfession against candidate's skills array
+                if (userSkills.length > 0) {
+                    let skillMatchScore = 0;
+                    const qWords = queryProfession.split(/\s+/).filter(w => w.length > 1);
+                    const matchingSkills = userSkills.filter(us =>
+                        us === queryProfession ||
+                        us.includes(queryProfession) ||
+                        queryProfession.includes(us) ||
+                        qWords.some(qw => us.includes(qw) || qw.includes(us))
+                    );
+
+                    if (matchingSkills.length > 0) {
+                        skillMatchScore += 0.30;
+                        matchedSkills.push(...matchingSkills);
+                    }
+                    professionScore = Math.max(professionScore, skillMatchScore);
                 }
+
+                // If queryProfession was specified but there is no match on profession or skills, skip this user
+                if (professionScore === 0) {
+                    return null;
+                }
+                score += professionScore;
             }
 
-            // 3. Pincode exact match (10% bonus)
-            if (queryPincode && userPincode && userPincode === queryPincode) {
-                score += 0.10;
+            // 2. City similarity (25%)
+            let locationScore = 0;
+            if (queryCity) {
+                if (userCity) {
+                    if (userCity === queryCity) {
+                        locationScore += 0.25;
+                    } else if (userCity.includes(queryCity) || queryCity.includes(userCity)) {
+                        locationScore += 0.15;
+                    } else {
+                        const qWords = queryCity.split(/\s+/).filter(w => w.length > 1);
+                        const uWords = userCity.split(/\s+/).filter(w => w.length > 1);
+                        if (qWords.some(qw => uWords.some(uw => uw.includes(qw) || qw.includes(uw)))) {
+                            locationScore += 0.10;
+                        }
+                    }
+                }
+
+                // If queryCity was specified but locationScore is 0, skip this user
+                if (locationScore === 0) {
+                    return null;
+                }
+                score += locationScore;
             }
 
-            // 4. Skill overlap (20%)
+            // 3. Pincode exact match (15% bonus or filter)
+            let pincodeScore = 0;
+            if (queryPincode) {
+                if (userPincode && userPincode === queryPincode) {
+                    pincodeScore += 0.15;
+                } else {
+                    // If pincode was searched but doesn't match:
+                    // If no city was searched, pincode is the only location filter, so we skip this user.
+                    if (!queryCity) {
+                        return null;
+                    }
+                }
+                score += pincodeScore;
+            }
+
+            // 4. Skills overlap parameter (20%)
             if (querySkills.length > 0 && userSkills.length > 0) {
                 const overlap = userSkills.filter(us =>
                     querySkills.some(qs => us.includes(qs) || qs.includes(us))
@@ -385,7 +439,9 @@ router.get('/best-profiles', auth, async (req, res) => {
                 const uniqueOverlap = [...new Set(overlap)];
                 matchedSkills.push(...uniqueOverlap);
                 const maxLen = Math.max(querySkills.length, userSkills.length);
-                score += (uniqueOverlap.length / maxLen) * 0.20;
+                if (uniqueOverlap.length > 0) {
+                    score += (uniqueOverlap.length / maxLen) * 0.20;
+                }
             }
 
             // 5. Average rating (15%)
@@ -395,7 +451,7 @@ router.get('/best-profiles', auth, async (req, res) => {
                 score += (avg / 5) * 0.15;
             }
 
-            // 6. Verified badge (15% bonus — not a hard filter)
+            // 6. Verified badge (15% bonus)
             if (user.verified) score += 0.15;
 
             // 7. Profile completeness (10%)
@@ -425,7 +481,7 @@ router.get('/best-profiles', auth, async (req, res) => {
                 matchedSkills: [...new Set(matchedSkills)],
                 profileCompleteness: Math.round(completeness * 100)
             };
-        });
+        }).filter(Boolean);
 
         scored.sort((a, b) => b.score - a.score);
 
