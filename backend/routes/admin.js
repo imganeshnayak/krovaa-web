@@ -148,7 +148,7 @@ router.get('/users', auth, adminOnly, checkPermission('users'), async (req, res)
                     createdAt: true,
                     _count: {
                         select: {
-                            sentMessages: true,
+                            sentWebMessages: true,
                             clientDeals: true,
                             vendorDeals: true
                         }
