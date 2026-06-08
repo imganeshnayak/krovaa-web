@@ -718,6 +718,7 @@ const WalletPayPage = () => {
           </CardContent>
         </Card>
       </div>
+    </div>
   );
 };
 
