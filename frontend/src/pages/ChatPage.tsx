@@ -46,8 +46,6 @@ import {
   Drawer,
   DrawerClose,
   DrawerContent,
-  DrawerDescription,
-  DrawerFooter,
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
@@ -55,8 +53,8 @@ import {
   getChatList, getMessages, sendMessage, markMessagesAsRead, uploadFile,
   searchUsers, blockUser, reportUser, clearChatHistory, getUser,
   deleteMessage, deleteMessagesBatch, getSupportChat, openViewOnceMessage,
-  getBestProfiles, getGroupChats, getGroupMessages, sendGroupMessage,
-  listCommunities, getCommunity, getCommunityMessages, sendCommunityMessage,
+  getBestProfiles, getGroupChats, getGroupMessages, sendGroupMessage, leaveGroupChat,
+  listCommunities, getCommunity, getCommunityMessages, sendCommunityMessage, leaveCommunity, deleteCommunityHistory,
   Chat as ChatType, Message as MessageType, AuthUser,
   BestProfileUser
 } from "@/lib/api";
@@ -1225,6 +1223,7 @@ const ChatView = ({
                   chatId={selectedChat.chat_id}
                   userInfo={{ id: selectedChat.user_id, displayName: selectedChat.display_name }}
                   onChatCleared={() => setSelectedChat(null)}
+                  isLeft={selectedChat.isLeft}
                 />
               </div>
             ) : !(selectedChat.isOfficial && (user?.role !== 'admin' && user?.role !== 'staff')) && (
@@ -1244,6 +1243,7 @@ const ChatView = ({
                   chatId={selectedChat.chat_id}
                   userInfo={{ id: selectedChat.user_id, displayName: selectedChat.display_name }}
                   onChatCleared={() => setSelectedChat(null)}
+                  isLeft={selectedChat.isLeft}
                 />
               </div>
             )}
@@ -1964,6 +1964,11 @@ const ChatView = ({
             )}
           </div>
         )}
+        {selectedChat?.isLeft ? (
+          <div className="w-full p-4 bg-muted text-center rounded-2xl border border-border">
+            <p className="text-sm font-medium text-muted-foreground">You left this group. You can no longer send messages.</p>
+          </div>
+        ) : (
         <div className="flex items-end gap-2 w-full">
           {/* Main Pill-Shaped Container */}
           <div className="flex-1 flex items-end bg-white dark:bg-slate-800 rounded-[24px] min-h-[48px] py-1 pl-1 pr-1 gap-1 shadow-[0_1px_1px_rgba(0,0,0,0.1)] relative min-w-0 border border-border/20">
@@ -2093,6 +2098,7 @@ const ChatView = ({
             )}
           </button>
         </div>
+        )}
       </div>
 
       {/* Modals outside flex flow */}
@@ -2383,25 +2389,56 @@ const RecommendationCards = ({ cards, meta, navigate, username }: {
 const ChatMoreMenu = ({
   chatId,
   userInfo,
-  onChatCleared
+  onChatCleared,
+  isLeft
 }: {
   chatId: string;
   userInfo: { id: number, displayName: string };
   onChatCleared: () => void;
+  isLeft?: boolean;
 }) => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isClearDialogOpen, setIsClearDialogOpen] = useState(false);
   const [isBlockDialogOpen, setIsBlockDialogOpen] = useState(false);
   const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
+  const [isLeaveGroupDialogOpen, setIsLeaveGroupDialogOpen] = useState(false);
   const [reportReason, setReportReason] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  const isCommunity = chatId.startsWith('community_');
+
+  const handleLeaveGroup = async () => {
+    setIsLoading(true);
+    try {
+      if (chatId.startsWith('community_')) {
+        const communityId = parseInt(chatId.split('_')[1], 10);
+        await leaveCommunity(communityId);
+      } else if (chatId.startsWith('group_')) {
+        const groupId = parseInt(chatId.split('_')[1], 10);
+        await leaveGroupChat(groupId);
+      }
+      toast({ title: "Left Group", description: "You have left the group chat." });
+      onChatCleared();
+    } catch (err) {
+      toast({ title: "Error", description: err instanceof Error ? err.message : "Failed to leave group", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+      setIsLeaveGroupDialogOpen(false);
+    }
+  };
 
   const handleClearHistory = async () => {
     setIsLoading(true);
     try {
-      await clearChatHistory(chatId);
-      toast({ title: "History Cleared", description: "All messages in this chat have been deleted." });
+      if (isCommunity && isLeft) {
+        const communityId = parseInt(chatId.split('_')[1], 10);
+        await deleteCommunityHistory(communityId);
+        toast({ title: "Chat Deleted", description: "The group chat has been removed from your list." });
+      } else {
+        await clearChatHistory(chatId);
+        toast({ title: "History Cleared", description: "All messages in this chat have been deleted." });
+      }
       onChatCleared();
     } catch (err) {
       toast({ title: "Error", description: err instanceof Error ? err.message : "Failed to clear history", variant: "destructive" });
@@ -2448,32 +2485,64 @@ const ChatMoreMenu = ({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48 bg-card border-border">
-          <DropdownMenuItem onClick={() => setIsClearDialogOpen(true)} className="text-foreground">
-            <Icon name="Trash2" className="mr-2 h-4 w-4" /> Clear History
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => setIsBlockDialogOpen(true)} className="text-destructive focus:text-destructive">
-            <Icon name="Ban" className="mr-2 h-4 w-4" /> Block User
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => setIsReportDialogOpen(true)} className="text-foreground">
-            <Icon name="AlertTriangle" className="mr-2 h-4 w-4" /> Report User
-          </DropdownMenuItem>
+          {(!isCommunity && !chatId.startsWith('group_') || isLeft) && (
+            <DropdownMenuItem onClick={() => setIsClearDialogOpen(true)} className={isCommunity && isLeft ? "text-destructive focus:text-destructive" : "text-foreground"}>
+              <Icon name="Trash2" className="mr-2 h-4 w-4" /> {isCommunity && isLeft ? "Delete Chat" : "Clear History"}
+            </DropdownMenuItem>
+          )}
+          {(!isCommunity && !chatId.startsWith('group_') || isLeft) && <DropdownMenuSeparator />}
+          {isCommunity || chatId.startsWith('group_') ? (
+            !isLeft && (
+              <DropdownMenuItem onClick={() => setIsLeaveGroupDialogOpen(true)} className="text-destructive focus:text-destructive">
+                <Icon name="LogOut" className="mr-2 h-4 w-4" /> Leave Group
+              </DropdownMenuItem>
+            )
+          ) : (
+            <>
+              <DropdownMenuItem onClick={() => setIsBlockDialogOpen(true)} className="text-destructive focus:text-destructive">
+                <Icon name="Ban" className="mr-2 h-4 w-4" /> Block User
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setIsReportDialogOpen(true)} className="text-foreground">
+                <Icon name="AlertTriangle" className="mr-2 h-4 w-4" /> Report User
+              </DropdownMenuItem>
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {/* Clear History Dialog */}
+      {/* Leave Group Dialog */}
+      <AlertDialog open={isLeaveGroupDialogOpen} onOpenChange={setIsLeaveGroupDialogOpen}>
+        <AlertDialogContent className="bg-card border-border">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Leave Collab Group?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to leave this collab group? You will no longer receive messages from this group.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleLeaveGroup} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {isLoading ? "Leaving..." : "Leave Group"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Clear History / Delete Chat Dialog */}
       <AlertDialog open={isClearDialogOpen} onOpenChange={setIsClearDialogOpen}>
         <AlertDialogContent className="bg-card border-border">
           <AlertDialogHeader>
-            <AlertDialogTitle>Clear Chat History?</AlertDialogTitle>
+            <AlertDialogTitle>{isCommunity && isLeft ? "Delete Chat?" : "Clear Chat History?"}</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete all messages in this conversation for both participants. This action cannot be undone.
+              {isCommunity && isLeft 
+                ? "This will permanently remove this group chat from your list. You will not be able to see its messages anymore." 
+                : "This will permanently delete all messages in this conversation for both participants. This action cannot be undone."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleClearHistory} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              {isLoading ? "Clearing..." : "Clear Everything"}
+              {isLoading ? (isCommunity && isLeft ? "Deleting..." : "Clearing...") : (isCommunity && isLeft ? "Delete Chat" : "Clear Everything")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -2582,13 +2651,25 @@ const ChatPage = () => {
   const [isPreviewViewOnce, setIsPreviewViewOnce] = useState(false);
   const [selectedCommunity, setSelectedCommunity] = useState<CommunityDetailView | null>(null);
 
+  const wrappedClearChatHistory = useCallback(async (chatId: string) => {
+    if (chatId.startsWith('community_')) {
+      const communityId = parseInt(chatId.split('_')[1], 10);
+      return deleteCommunityHistory(communityId);
+    }
+    if (chatId.startsWith('group_')) {
+      const groupId = parseInt(chatId.split('_')[1], 10);
+      return leaveGroupChat(groupId);
+    }
+    return clearChatHistory(chatId);
+  }, []);
+
   const {
     isChatMuted,
     muteChat,
     unmuteChat,
     deleteChat,
   } = useChatActions({
-    clearChatHistory,
+    clearChatHistory: wrappedClearChatHistory,
     setChats,
     setSelectedChat,
     selectedChatId: selectedChat?.chat_id,
@@ -2687,22 +2768,25 @@ const ChatPage = () => {
       // Handle Community Chats
       if (communitiesResult.status === 'fulfilled') {
         const myCommunities = (communitiesResult.value as any[]).filter(c => 
-          c.creatorId === user?.id || 
-          c.members?.some(m => m.userId === user?.id && m.status === 'approved')
+          c.members?.some(m => m.userId === user?.id && (m.status === 'approved' || m.status === 'left'))
         );
 
-        const mappedCommunities: ChatType[] = myCommunities.map(c => ({
-          chat_id: `community_${c.id}`,
-          last_message: c.messages?.[0]?.content || "Community Chat",
-          last_message_time: c.messages?.[0]?.createdAt || c.createdAt || new Date().toISOString(),
-          user_id: 0,
-          display_name: c.name || "Unnamed Community",
-          avatar_url: c.avatarUrl || "/group-icon.svg",
-          username: c.slug || "community",
-          unread_count: 0,
-          verified: false,
-          isOfficial: false,
-        }));
+        const mappedCommunities: ChatType[] = myCommunities.map(c => {
+          const isLeft = c.members?.find(m => m.userId === user?.id)?.status === 'left';
+          return {
+            chat_id: `community_${c.id}`,
+            last_message: c.messages?.[0]?.content || "Community Chat",
+            last_message_time: c.messages?.[0]?.createdAt || c.createdAt || new Date().toISOString(),
+            user_id: 0,
+            display_name: c.name || "Unnamed Community",
+            avatar_url: c.avatarUrl || "/group-icon.svg",
+            username: c.slug || "community",
+            unread_count: 0,
+            verified: false,
+            isOfficial: false,
+            isLeft: !!isLeft,
+          };
+        });
         data.push(...mappedCommunities);
       } else {
         console.error("Failed to load community chats", communitiesResult.reason);

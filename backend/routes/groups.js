@@ -152,4 +152,18 @@ router.post('/:id/messages', auth, async (req, res) => {
     }
 });
 
+// DELETE /api/groups/:id/leave
+router.delete('/:id/leave', auth, async (req, res) => {
+    try {
+        const groupId = Number(req.params.id);
+        await prisma.groupMember.deleteMany({
+            where: { groupId, userId: req.user.id }
+        });
+        res.json({ success: true, message: 'Left the group chat.' });
+    } catch (err) {
+        console.error('Leave group error:', err);
+        res.status(500).json({ error: 'Failed to leave group.' });
+    }
+});
+
 export default router;

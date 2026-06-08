@@ -319,6 +319,7 @@ export interface Chat {
   unread_count: number;
   verified: boolean;
   isOfficial?: boolean;
+  isLeft?: boolean;
 }
 
 // ============ Moderation API ============
@@ -428,6 +429,10 @@ export function leaveCommunity(id: number): Promise<any> {
 
 export function deleteCommunity(id: number): Promise<any> {
   return apiFetch(`/api/communities/${id}`, { method: 'DELETE' });
+}
+
+export function deleteCommunityHistory(id: number): Promise<any> {
+  return apiFetch(`/api/communities/${id}/history`, { method: 'DELETE' });
 }
 
 export function updateCommunityAvatar(communityId: number, file: File): Promise<{ avatarUrl: string }> {
@@ -1696,8 +1701,12 @@ export function getGroupMessages(groupId: number): Promise<any[]> {
   return apiFetch<any[]>(`/api/groups/${groupId}/messages`);
 }
 
-export function sendGroupMessage(groupId: number, data: { content: string; messageType?: string; attachmentUrl?: string }): Promise<any> {
-  return apiFetch<any>(`/api/groups/${groupId}/messages`, { method: 'POST', body: JSON.stringify(data) });
+export function sendGroupMessage(groupId: number, data: any): Promise<any> {
+  return apiFetch(`/api/groups/${groupId}/messages`, { method: 'POST', body: JSON.stringify(data) });
+}
+
+export function leaveGroupChat(groupId: number): Promise<any> {
+  return apiFetch(`/api/groups/${groupId}/leave`, { method: 'DELETE' });
 }
 
 // ============ Community Jobs API ============
