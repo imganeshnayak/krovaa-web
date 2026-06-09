@@ -1,6 +1,6 @@
 
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { themeColors } from "@/lib/themeColors";
 import { useAuth } from "@/contexts/AuthContext";
@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Info, Plus, Share2, Send, QrCode } from "lucide-react";
 import { initiateWalletTopup, verifyPayment } from "@/lib/api";
-import QrScannerModal from "@/components/wallet/QrScannerModal";
+
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -39,6 +39,7 @@ const WalletPage = () => {
     useEffect(() => {
         document.title = "Wallet - Krovaa";
     }, []);
+    const navigate = useNavigate();
     const { user } = useAuth();
     const [balance, setBalance] = useState(0);
     const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
@@ -49,7 +50,6 @@ const WalletPage = () => {
     const [filterType, setFilterType] = useState("all");
     const [selectedTx, setSelectedTx] = useState<WalletTransaction | null>(null);
     const [isAddMoneyOpen, setIsAddMoneyOpen] = useState(false);
-    const [isScannerOpen, setIsScannerOpen] = useState(false);
     const [addAmount, setAddAmount] = useState<string>("500");
     const [agreeToWalletTerms, setAgreeToWalletTerms] = useState(false);
     const [isProcessingPayment, setIsProcessingPayment] = useState(false);
@@ -125,7 +125,7 @@ const WalletPage = () => {
                 </h1>
                 <div className="flex items-center gap-2">
                     <Button
-                        onClick={() => setIsScannerOpen(true)}
+                        onClick={() => navigate("/wallet/pay")}
                         variant="outline"
                         className="border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-xl flex items-center gap-1.5 font-semibold text-sm h-10 px-4"
                     >
@@ -515,11 +515,6 @@ const WalletPage = () => {
                 onOpenChange={setIsPayoutOpen}
                 maxAmount={balance}
                 onSuccess={() => loadData(filterType)}
-            />
-
-            <QrScannerModal
-                open={isScannerOpen}
-                onOpenChange={setIsScannerOpen}
             />
 
             {/* Transaction Detail Modal */}

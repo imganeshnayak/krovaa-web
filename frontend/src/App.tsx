@@ -132,6 +132,7 @@ const MainContent = () => {
           <Route path="/profile/:username" element={<ProfileRedirect />} />
           <Route path="/escrow" element={<ClientRoute><EscrowPage /></ClientRoute>} />
           <Route path="/wallet" element={<ClientRoute><WalletPage /></ClientRoute>} />
+          <Route path="/wallet/pay" element={<WalletPayPage />} />
           <Route path="/wallet/pay/:shareId" element={<WalletPayPage />} />
           <Route path="/settings" element={<ClientRoute><SettingsPage /></ClientRoute>} />
           <Route path="/blocked-users" element={<ClientRoute><BlockedUsersPage /></ClientRoute>} />
