@@ -80,6 +80,7 @@ import {
 import ChatOptionsBottomSheet from "@/components/chat/ChatOptionsBottomSheet";
 import { MuteDurationOption } from "@/lib/chatMute";
 import { useChatActions } from "@/hooks/useChatActions";
+import QrScannerModal from "@/components/wallet/QrScannerModal";
 
 type LocalMessage = MessageType & { message_type?: string; isUploading?: boolean; sender?: { role?: string; avatarUrl?: string; displayName?: string } };
 
@@ -613,6 +614,8 @@ const ChatView = ({
   setReplyingTo,
   selectedCommunity,
   filteredChats,
+  isScannerOpen,
+  setIsScannerOpen,
 }: {
   selectedChat: ChatType | null;
   selectedCommunity: CommunityDetailView | null;
@@ -659,6 +662,8 @@ const ChatView = ({
   replyingTo: MessageType | null;
   setReplyingTo: (val: MessageType | null) => void;
   filteredChats: ChatType[];
+  isScannerOpen: boolean;
+  setIsScannerOpen: (val: boolean) => void;
 }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
@@ -1230,6 +1235,14 @@ const ChatView = ({
               <div className="flex gap-1">
                 <Button variant="ghost" size="icon" onClick={() => navigate(`/${selectedChat.username}`)}>
                   <Icon name="User" className="h-5 w-5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setIsScannerOpen(true)}
+                  title="Pay via QR"
+                >
+                  <Icon name="QrCode" className="h-5 w-5 text-primary" />
                 </Button>
                 <Button
                   variant="ghost"
@@ -2597,6 +2610,12 @@ const ChatMoreMenu = ({
           </div>
         </DialogContent>
       </Dialog>
+
+      <QrScannerModal
+        open={isScannerOpen}
+        onOpenChange={setIsScannerOpen}
+        promptText={`Scan ${selectedChat?.display_name || "partner"}'s Krovaa QR code`}
+      />
     </>
   );
 };
@@ -2650,6 +2669,7 @@ const ChatPage = () => {
   const [isBlurred, setIsBlurred] = useState(false);
   const [isPreviewViewOnce, setIsPreviewViewOnce] = useState(false);
   const [selectedCommunity, setSelectedCommunity] = useState<CommunityDetailView | null>(null);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
 
   const wrappedClearChatHistory = useCallback(async (chatId: string) => {
     if (chatId.startsWith('community_')) {
@@ -3781,6 +3801,8 @@ const ChatPage = () => {
             setReplyingTo={setReplyingTo}
             filteredChats={filteredChats}
             selectedCommunity={selectedCommunity}
+            isScannerOpen={isScannerOpen}
+            setIsScannerOpen={setIsScannerOpen}
           />
         ) : (
           <ConversationList
@@ -3880,6 +3902,8 @@ const ChatPage = () => {
           setReplyingTo={setReplyingTo}
           filteredChats={filteredChats}
           selectedCommunity={selectedCommunity}
+          isScannerOpen={isScannerOpen}
+          setIsScannerOpen={setIsScannerOpen}
         />
       </div>
       <ProfileCompletionModal />
