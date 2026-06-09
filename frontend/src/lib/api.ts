@@ -745,6 +745,22 @@ export function getAdminChats(params?: {
   return apiFetch(`/api/admin/chats?${query.toString()}`);
 }
 
+export function getAdminGroupChats(params?: {
+  page?: number;
+  limit?: number;
+}): Promise<{
+  chats: any[];
+  total: number;
+  page: number;
+  totalPages: number;
+}> {
+  const query = new URLSearchParams();
+  if (params?.page) query.append("page", params.page.toString());
+  if (params?.limit) query.append("limit", params.limit.toString());
+
+  return apiFetch(`/api/admin/group-chats?${query.toString()}`);
+}
+
 export function getAdminChatMessages(chatId: string): Promise<Message[]> {
   return apiFetch(`/api/admin/chats/${chatId}/messages`);
 }
