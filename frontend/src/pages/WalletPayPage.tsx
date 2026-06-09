@@ -22,7 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { WalletRecipient, getWalletRecipient, getSecureReceiveLink, transferWalletBalance } from "@/lib/api";
+import { WalletRecipient, getWalletRecipient, getSecureReceiveLink, transferWalletBalance, getWalletBalance } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 
 const LARGE_TRANSFER_THRESHOLD = 10000;
@@ -55,6 +55,10 @@ const WalletPayPage = () => {
     recipientBalance: number;
   } | null>(null);
 
+  // 3-step wizard states
+  const [step, setStep] = useState(1);
+  const [senderBalance, setSenderBalance] = useState<number | null>(null);
+
   // States for receive link and timer
   const [password, setPassword] = useState("");
   const [currentTime, setCurrentTime] = useState(Date.now());
@@ -84,6 +88,14 @@ const WalletPayPage = () => {
       fetchReceiveLink();
     }
   }, [isSelf]);
+
+  useEffect(() => {
+    if (!isSelf && user) {
+      getWalletBalance()
+        .then((data) => setSenderBalance(data.balance))
+        .catch(console.error);
+    }
+  }, [isSelf, user]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -413,11 +425,17 @@ const WalletPayPage = () => {
       <div className="mx-auto w-full max-w-2xl space-y-6">
         <button
           type="button"
-          onClick={() => navigate(-1)}
+          onClick={() => {
+            if (step > 1) {
+              setStep(step - 1);
+            } else {
+              navigate(-1);
+            }
+          }}
           className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 transition-colors hover:text-slate-900"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back
+          {step > 1 ? "Back to Step " + (step - 1) : "Back"}
         </button>
 
         <Card className="overflow-hidden border-slate-200 shadow-sm rounded-3xl">
@@ -442,12 +460,45 @@ const WalletPayPage = () => {
                 {error}
               </div>
             ) : recipient ? (
-              <div className="space-y-5">
+              <div className="space-y-6">
+                {/* Step Progress Bar */}
+                <div className="flex items-center justify-between px-2 mb-6">
+                  {[
+                    { id: 1, label: "Verify" },
+                    { id: 2, label: "Amount" },
+                    { id: 3, label: "Confirm" }
+                  ].map((s) => (
+                    <div key={s.id} className="flex items-center flex-1 last:flex-none">
+                      <div className="flex items-center gap-2">
+                        <div className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all duration-300 ${
+                          step === s.id 
+                            ? "bg-sky-600 text-white ring-4 ring-sky-500/20" 
+                            : step > s.id 
+                              ? "bg-emerald-500 text-white" 
+                              : "bg-slate-100 text-slate-400"
+                        }`}>
+                          {step > s.id ? "✓" : s.id}
+                        </div>
+                        <span className={`text-xs font-semibold hidden sm:inline ${
+                          step === s.id ? "text-slate-900 font-bold" : "text-slate-400"
+                        }`}>
+                          {s.label}
+                        </span>
+                      </div>
+                      {s.id < 3 && (
+                        <div className={`flex-1 h-0.5 mx-4 transition-all duration-500 min-w-[30px] ${
+                          step > s.id ? "bg-emerald-500" : "bg-slate-100"
+                        }`} />
+                      )}
+                    </div>
+                  ))}
+                </div>
+
                 {/* Secure countdown banner */}
                 {expiryTime > 0 && remainingSeconds > 0 && (
                   <div className={`flex items-center justify-between px-4 py-3 rounded-2xl border text-sm font-semibold transition-all ${
                     remainingSeconds < 60
-                      ? "bg-amber-50 text-amber-700 border-amber-100 animate-pulse"
+                      ? "bg-rose-50 text-rose-700 border-rose-100 animate-pulse"
                       : "bg-slate-50 text-slate-600 border-slate-100"
                   }`}>
                     <span className="flex items-center gap-1.5 text-xs text-slate-500">
@@ -460,167 +511,213 @@ const WalletPayPage = () => {
                   </div>
                 )}
 
-                <div className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-5 sm:flex-row sm:items-center">
-                  <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl bg-slate-100">
-                    {recipient.avatarUrl ? (
-                      <img src={recipient.avatarUrl} alt={recipient.displayName} className="h-full w-full object-cover" />
-                    ) : (
-                      <span className="text-lg font-bold text-slate-500">
-                        {(recipient.displayName || recipient.username || "U").slice(0, 1).toUpperCase()}
-                      </span>
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h2 className="text-xl font-semibold text-slate-950">{recipient.displayName || recipient.username}</h2>
-                      {recipient.verified && <BadgeCheck className="h-5 w-5 text-sky-600" />}
+                {/* STEP 1: RECIPIENT VERIFICATION */}
+                {step === 1 && (
+                  <div className="space-y-6">
+                    <div className="text-center space-y-2">
+                      <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Recipient Details</p>
+                      <div className="flex flex-col items-center justify-center p-6 rounded-3xl border border-slate-200 bg-slate-50/50 max-w-sm mx-auto">
+                        <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl bg-slate-100 shadow-sm mb-4">
+                          {recipient.avatarUrl ? (
+                            <img src={recipient.avatarUrl} alt={recipient.displayName} className="h-full w-full object-cover" />
+                          ) : (
+                            <span className="text-2xl font-bold text-slate-500">
+                              {(recipient.displayName || recipient.username || "U").slice(0, 1).toUpperCase()}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5 justify-center">
+                          <h2 className="text-xl font-bold text-slate-900">{recipient.displayName || recipient.username}</h2>
+                          {recipient.verified && <BadgeCheck className="h-5 w-5 text-sky-600" />}
+                        </div>
+                        <p className="text-sm text-slate-500">@{recipient.username}</p>
+                      </div>
                     </div>
-                    <p className="text-sm text-slate-500">@{recipient.username}</p>
-                  </div>
-                </div>
 
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="amount" className="text-xs font-semibold text-slate-600">Amount (₹)</Label>
-                    <Input
-                      id="amount"
-                      type="number"
-                      placeholder="0.00"
-                      value={amount}
-                      onChange={(e) => setAmount(e.target.value)}
-                      min="1"
-                      step="0.01"
-                      className="rounded-xl border-slate-200 focus-visible:ring-sky-500/20 h-11 text-lg font-semibold"
-                      disabled={isTransferring}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-2">
-                    {["100", "500", "1000"].map((amt) => (
+                    <div className="flex justify-center pt-2">
                       <Button
-                        key={amt}
+                        onClick={() => setStep(2)}
+                        className="w-full max-w-sm bg-sky-600 text-white hover:bg-sky-700 rounded-xl h-11 font-semibold transition-all duration-200 active:scale-[0.97]"
+                      >
+                        Continue to Payment
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* STEP 2: AMOUNT & NOTE */}
+                {step === 2 && (
+                  <div className="space-y-5">
+                    {senderBalance !== null && (
+                      <div className="text-right text-xs text-slate-500 font-medium">
+                        Your Available Balance: <span className="font-bold text-slate-800">₹{senderBalance.toFixed(2)}</span>
+                      </div>
+                    )}
+
+                    <div className="space-y-2">
+                      <Label htmlFor="amount" className="text-xs font-semibold text-slate-600">Amount (₹)</Label>
+                      <Input
+                        id="amount"
+                        type="number"
+                        placeholder="0.00"
+                        value={amount}
+                        onChange={(e) => setAmount(e.target.value)}
+                        min="1"
+                        step="0.01"
+                        className="rounded-xl border-slate-200 focus-visible:ring-sky-500/20 h-11 text-lg font-semibold"
+                        disabled={isTransferring}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2">
+                      {["100", "500", "1000"].map((amt) => (
+                        <Button
+                          key={amt}
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setAmount(amt)}
+                          className={`rounded-xl transition-all duration-200 h-9 font-semibold ${amount === amt ? "border-sky-500 bg-sky-50 text-sky-600 font-bold" : "border-slate-200 text-slate-600"}`}
+                          disabled={isTransferring}
+                        >
+                          ₹{amt}
+                        </Button>
+                      ))}
+                    </div>
+
+                    {senderBalance !== null && parsedAmount > senderBalance && (
+                      <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-700 font-semibold flex items-center gap-2">
+                        <AlertTriangle className="h-4 w-4 shrink-0 text-rose-600" />
+                        Insufficient balance. You need ₹{(parsedAmount - senderBalance).toFixed(2)} more.
+                      </div>
+                    )}
+
+                    <div className="space-y-2">
+                      <Label htmlFor="note" className="text-xs font-semibold text-slate-600">Note (optional)</Label>
+                      <Input
+                        id="note"
+                        type="text"
+                        placeholder="What's this for?"
+                        value={note}
+                        onChange={(e) => setNote(e.target.value)}
+                        maxLength={200}
+                        className="rounded-xl border-slate-200 focus-visible:ring-sky-500/20 h-11"
+                        disabled={isTransferring}
+                      />
+                    </div>
+
+                    <div className="flex gap-3 pt-2">
+                      <Button
                         variant="outline"
-                        size="sm"
-                        onClick={() => setAmount(amt)}
-                        className={`rounded-xl transition-all duration-200 h-9 font-semibold ${amount === amt ? "border-sky-500 bg-sky-50 text-sky-600 font-bold" : "border-slate-200 text-slate-600"}`}
+                        onClick={() => setStep(1)}
+                        className="rounded-xl flex-1 h-11"
                         disabled={isTransferring}
                       >
-                        ₹{amt}
+                        Back
                       </Button>
-                    ))}
+                      <Button
+                        onClick={() => setStep(3)}
+                        disabled={parsedAmount <= 0 || (senderBalance !== null && parsedAmount > senderBalance)}
+                        className="bg-sky-600 text-white hover:bg-sky-700 rounded-xl flex-1 h-11 font-semibold transition-all duration-200 active:scale-[0.97]"
+                      >
+                        Review Payment
+                      </Button>
+                    </div>
                   </div>
+                )}
 
-                  <div className="space-y-2">
-                    <Label htmlFor="note" className="text-xs font-semibold text-slate-600">Note (optional)</Label>
-                    <Input
-                      id="note"
-                      type="text"
-                      placeholder="What's this for?"
-                      value={note}
-                      onChange={(e) => setNote(e.target.value)}
-                      maxLength={200}
-                      className="rounded-xl border-slate-200 focus-visible:ring-sky-500/20 h-11"
-                      disabled={isTransferring}
-                    />
-                  </div>
-                </div>
+                {/* STEP 3: SUMMARY & PASSWORD */}
+                {step === 3 && (
+                  <div className="space-y-5">
+                    <div className="rounded-3xl border border-sky-100 bg-sky-50/30 p-5 space-y-4">
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-sky-800">Transfer Summary</h3>
+                      
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-slate-100 shrink-0">
+                          {recipient.avatarUrl ? (
+                            <img src={recipient.avatarUrl} alt={recipient.displayName} className="h-full w-full object-cover" />
+                          ) : (
+                            <span className="text-sm font-bold text-slate-500">
+                              {(recipient.displayName || recipient.username || "U").slice(0, 1).toUpperCase()}
+                            </span>
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1">
+                            <span className="font-semibold text-sm text-slate-900 truncate">{recipient.displayName || recipient.username}</span>
+                            {recipient.verified && <BadgeCheck className="h-4 w-4 text-sky-600 shrink-0" />}
+                          </div>
+                          <span className="text-xs text-slate-500 block">@{recipient.username}</span>
+                        </div>
+                      </div>
 
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  <Button
-                    onClick={handleTransferClick}
-                    disabled={!canTransfer}
-                    className="bg-sky-600 text-white hover:bg-sky-700 rounded-xl px-6 h-11 font-semibold transition-all duration-200 active:scale-[0.97] disabled:opacity-50"
-                  >
-                    {isTransferring ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Sending...
-                      </>
-                    ) : (
-                      `Send ₹${parsedAmount > 0 ? parsedAmount.toFixed(2) : "0.00"}`
+                      <div className="border-t border-sky-100/50 pt-3 flex justify-between items-baseline">
+                        <span className="text-xs text-slate-500">Amount to send:</span>
+                        <span className="text-xl font-black text-sky-700">₹{parsedAmount.toFixed(2)}</span>
+                      </div>
+
+                      {note.trim() && (
+                        <div className="border-t border-sky-100/50 pt-3 space-y-1">
+                          <span className="text-xs text-slate-500 font-semibold block">Note:</span>
+                          <p className="text-xs text-slate-700 italic font-medium">"{note}"</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {isLargeTransfer && (
+                      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-800 flex items-start gap-2.5">
+                        <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+                        <div>
+                          <span className="font-bold">Attention:</span> This is a large transfer. Please verify the recipient details carefully. This transaction cannot be undone.
+                        </div>
+                      </div>
                     )}
-                  </Button>
-                </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="confirm-password" className="text-xs font-semibold text-slate-600">
+                        Enter account password to authorize
+                      </Label>
+                      <Input
+                        id="confirm-password"
+                        type="password"
+                        placeholder="Account password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="rounded-xl border-slate-200 focus-visible:ring-sky-500/20 h-11"
+                        disabled={isTransferring}
+                      />
+                    </div>
+
+                    <div className="flex gap-3 pt-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => { setStep(2); setPassword(""); }}
+                        className="rounded-xl flex-1 h-11"
+                        disabled={isTransferring}
+                      >
+                        Back
+                      </Button>
+                      <Button
+                        onClick={executeTransfer}
+                        disabled={isTransferring || !password}
+                        className="bg-sky-600 text-white hover:bg-sky-700 rounded-xl flex-1 h-11 font-semibold transition-all duration-200 active:scale-[0.97]"
+                      >
+                        {isTransferring ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Sending...
+                          </>
+                        ) : (
+                          "Confirm & Send"
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : null}
           </CardContent>
         </Card>
       </div>
-
-      <Dialog open={showConfirm} onOpenChange={(open) => {
-        if (!open) setPassword("");
-        setShowConfirm(open);
-      }}>
-        <DialogContent className="sm:max-w-md rounded-2xl border-slate-200/80 shadow-2xl p-6">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <KeyRound className="h-5 w-5 text-sky-600" />
-              Confirm Secure Transfer
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="rounded-2xl border border-sky-100 bg-sky-50/50 p-4 text-sm text-slate-700">
-              You are about to send <span className="font-bold text-sky-600">₹{parsedAmount.toFixed(2)}</span> to{" "}
-              <span className="font-bold text-slate-950">{recipient?.displayName || recipient?.username}</span>.
-            </div>
-
-            {isLargeTransfer && (
-              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 flex items-start gap-2">
-                <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
-                <div>
-                  <span className="font-bold">Attention:</span> This is a large transfer. Please verify the recipient details carefully before proceeding. This transfer cannot be undone.
-                </div>
-              </div>
-            )}
-
-            {note.trim() && (
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
-                <span className="font-semibold">Note:</span> {note}
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <Label htmlFor="confirm-password" className="text-xs font-semibold text-slate-600">
-                Enter your password to authorize
-              </Label>
-              <Input
-                id="confirm-password"
-                type="password"
-                placeholder="Account password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="rounded-xl border-slate-200 focus-visible:ring-sky-500/20 h-11"
-                disabled={isTransferring}
-              />
-            </div>
-
-            <div className="flex flex-col gap-3 sm:flex-row pt-2">
-              <Button 
-                variant="outline" 
-                onClick={() => { setShowConfirm(false); setPassword(""); }} 
-                className="rounded-xl flex-1"
-                disabled={isTransferring}
-              >
-                Cancel
-              </Button>
-              <Button 
-                onClick={executeTransfer} 
-                className="bg-sky-600 text-white hover:bg-sky-700 rounded-xl flex-1 font-semibold"
-                disabled={isTransferring || !password}
-              >
-                {isTransferring ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Sending...
-                  </>
-                ) : (
-                  "Confirm & Send"
-                )}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };

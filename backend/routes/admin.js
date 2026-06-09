@@ -148,7 +148,7 @@ router.get('/users', auth, adminOnly, checkPermission('users'), async (req, res)
                     createdAt: true,
                     _count: {
                         select: {
-                            sentMessages: true,
+                            sentWebMessages: true,
                             clientDeals: true,
                             vendorDeals: true
                         }
@@ -819,15 +819,12 @@ router.get('/users/:id/full', auth, adminOnly, async (req, res) => {
                         orderBy: { createdAt: 'desc' }
                     },
                     blockedBy: {
-                        include: { blocker: { select: { id: true, displayName: true, username: true } } },
-                        orderBy: { createdAt: 'desc' }
+                        include: { blocker: { select: { id: true, displayName: true, username: true } } }
                     },
                     blockedUsers: {
-                        include: { blocked: { select: { id: true, displayName: true, username: true } } },
-                        orderBy: { createdAt: 'desc' }
+                        include: { blocked: { select: { id: true, displayName: true, username: true } } }
                     },
-                    verificationRequests: { orderBy: { createdAt: 'desc' } },
-                    imageGenerations: { orderBy: { createdAt: 'desc' }, take: 50 }
+                    verificationRequests: { orderBy: { createdAt: 'desc' } }
                 }
             }),
             prisma.activityLog.findMany({

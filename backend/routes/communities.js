@@ -418,11 +418,26 @@ router.post('/:id/join', auth, async (req, res) => {
 router.post('/:id/leave', auth, async (req, res) => {
   try {
     const communityId = Number(req.params.id);
-    await prisma.communityMember.deleteMany({ where: { communityId, userId: req.user.id } });
+    await prisma.communityMember.updateMany({ 
+      where: { communityId, userId: req.user.id },
+      data: { status: 'left' }
+    });
     res.json({ success: true });
   } catch (err) {
     console.error('Leave community error:', err);
     res.status(500).json({ error: 'Failed to leave workspace.' });
+  }
+});
+
+// Delete community history (remove member completely)
+router.delete('/:id/history', auth, async (req, res) => {
+  try {
+    const communityId = Number(req.params.id);
+    await prisma.communityMember.deleteMany({ where: { communityId, userId: req.user.id } });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Delete community history error:', err);
+    res.status(500).json({ error: 'Failed to delete history.' });
   }
 });
 

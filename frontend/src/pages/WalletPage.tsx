@@ -19,8 +19,9 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Info, Plus, Share2, Send } from "lucide-react";
+import { Info, Plus, Share2, Send, QrCode } from "lucide-react";
 import { initiateWalletTopup, verifyPayment } from "@/lib/api";
+import QrScannerModal from "@/components/wallet/QrScannerModal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -48,6 +49,7 @@ const WalletPage = () => {
     const [filterType, setFilterType] = useState("all");
     const [selectedTx, setSelectedTx] = useState<WalletTransaction | null>(null);
     const [isAddMoneyOpen, setIsAddMoneyOpen] = useState(false);
+    const [isScannerOpen, setIsScannerOpen] = useState(false);
     const [addAmount, setAddAmount] = useState<string>("500");
     const [agreeToWalletTerms, setAgreeToWalletTerms] = useState(false);
     const [isProcessingPayment, setIsProcessingPayment] = useState(false);
@@ -121,16 +123,26 @@ const WalletPage = () => {
                     <Wallet className="h-8 w-8 text-[#00A4EF]" />
                     My Wallet
                 </h1>
-                <Button
-                    asChild
-                    variant="outline"
-                    className="border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-xl"
-                    aria-label="Share wallet QR"
-                >
-                    <Link to={`/wallet/pay/${encodeURIComponent(shareId)}`}>
-                        <Share2 className="h-4 w-4" />
-                    </Link>
-                </Button>
+                <div className="flex items-center gap-2">
+                    <Button
+                        onClick={() => setIsScannerOpen(true)}
+                        variant="outline"
+                        className="border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-xl flex items-center gap-1.5 font-semibold text-sm h-10 px-4"
+                    >
+                        <QrCode className="h-4 w-4 text-[#00A4EF]" />
+                        Scan & Pay
+                    </Button>
+                    <Button
+                        asChild
+                        variant="outline"
+                        className="border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-xl h-10 w-10 p-0 flex items-center justify-center"
+                        aria-label="Share wallet QR"
+                    >
+                        <Link to={`/wallet/pay/${encodeURIComponent(shareId)}`}>
+                            <Share2 className="h-4 w-4" />
+                        </Link>
+                    </Button>
+                </div>
             </div>
 
             {/* Balance Card */}
@@ -503,6 +515,11 @@ const WalletPage = () => {
                 onOpenChange={setIsPayoutOpen}
                 maxAmount={balance}
                 onSuccess={() => loadData(filterType)}
+            />
+
+            <QrScannerModal
+                open={isScannerOpen}
+                onOpenChange={setIsScannerOpen}
             />
 
             {/* Transaction Detail Modal */}
