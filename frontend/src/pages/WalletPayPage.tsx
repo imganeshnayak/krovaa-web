@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { 
   ArrowLeft, 
@@ -14,7 +14,11 @@ import {
   RefreshCw,
   QrCode,
   ShieldAlert,
-  KeyRound
+  KeyRound,
+  Camera,
+  CameraOff,
+  AlertCircle,
+  ArrowRight
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -24,6 +28,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { toast } from "sonner";
 import { WalletRecipient, getWalletRecipient, getSecureReceiveLink, transferWalletBalance, getWalletBalance } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
+import { Html5Qrcode } from "html5-qrcode";
 
 const LARGE_TRANSFER_THRESHOLD = 10000;
 
@@ -37,7 +42,7 @@ const WalletPayPage = () => {
   const { user } = useAuth();
   
   const isSelf = useMemo(() => {
-    if (!user) return false;
+    if (!user || !shareId) return false;
     return shareId === user.shareId || shareId === user.username;
   }, [user, shareId]);
 
@@ -69,6 +74,15 @@ const WalletPayPage = () => {
     shareUrl: string;
   } | null>(null);
   const [isLoadingLink, setIsLoadingLink] = useState(false);
+
+  // Direct QR scanner states
+  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  const [scannerError, setScannerError] = useState<string | null>(null);
+  const [manualLink, setManualLink] = useState("");
+  const [isInitializing, setIsInitializing] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
+  const qrCodeRef = useRef<Html5Qrcode | null>(null);
+  const scannerId = "wallet-pay-page-scanner";
 
   const fetchReceiveLink = async () => {
     setIsLoadingLink(true);
@@ -124,12 +138,12 @@ const WalletPayPage = () => {
 
   useEffect(() => {
     const loadRecipient = async () => {
-      if (isSelf) {
+      if (!shareId) {
         setIsLoading(false);
+        setError(null);
         return;
       }
-      if (!shareId) {
-        setError("Invalid wallet share link.");
+      if (isSelf) {
         setIsLoading(false);
         return;
       }
@@ -146,6 +160,116 @@ const WalletPayPage = () => {
 
     loadRecipient();
   }, [shareId, expires, token, isSelf]);
+
+  const handleQrSuccess = async (decodedText: string) => {
+    try {
+      const url = new URL(decodedText);
+      const isKrovaaDomain = url.origin === window.location.origin;
+      const isWalletPayPath = url.pathname.startsWith("/wallet/pay/");
+
+      if (isKrovaaDomain && isWalletPayPath) {
+        toast.success("QR Code scanned successfully!");
+        await stopScanner();
+        navigate(url.pathname + url.search);
+      } else {
+        toast.error("Invalid QR Code. Please scan a valid Krovaa Wallet payment QR code.");
+      }
+    } catch (err) {
+      toast.error("Invalid QR Code content. Please scan a valid Krovaa payment link.");
+    }
+  };
+
+  const startScanner = async () => {
+    if (isInitializing || isScanning) return;
+    setIsInitializing(true);
+    setScannerError(null);
+
+    setTimeout(async () => {
+      try {
+        const html5QrCode = new Html5Qrcode(scannerId);
+        qrCodeRef.current = html5QrCode;
+
+        await html5QrCode.start(
+          { facingMode: "environment" },
+          {
+            fps: 10,
+            qrbox: (width, height) => {
+              const size = Math.min(width, height) * 0.7;
+              return { width: size, height: size };
+            },
+          },
+          (decodedText) => {
+            handleQrSuccess(decodedText);
+          },
+          () => {
+            // Ignore verbose frame scanning errors
+          }
+        );
+
+        setHasPermission(true);
+        setIsScanning(true);
+      } catch (err: any) {
+        console.error("Error starting QR Code scanner:", err);
+        if (err?.name === "NotAllowedError" || err?.message?.includes("Permission denied")) {
+          setHasPermission(false);
+          setScannerError("Camera permission denied. Please allow access to scan QR codes.");
+        } else {
+          setScannerError("Failed to access camera. Make sure no other app is using it.");
+        }
+      } finally {
+        setIsInitializing(false);
+      }
+    }, 100);
+  };
+
+  const stopScanner = async () => {
+    if (qrCodeRef.current) {
+      try {
+        if (qrCodeRef.current.isScanning) {
+          await qrCodeRef.current.stop();
+        }
+      } catch (err) {
+        console.error("Error stopping scanner:", err);
+      } finally {
+        qrCodeRef.current = null;
+        setIsScanning(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (!shareId) {
+      startScanner();
+    } else {
+      stopScanner();
+    }
+    return () => {
+      stopScanner();
+    };
+  }, [shareId]);
+
+  const handleManualSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!manualLink.trim()) return;
+
+    try {
+      let targetUrl = manualLink.trim();
+      if (targetUrl.startsWith("/")) {
+        targetUrl = window.location.origin + targetUrl;
+      }
+      const url = new URL(targetUrl);
+      const isKrovaaDomain = url.origin === window.location.origin;
+      const isWalletPayPath = url.pathname.startsWith("/wallet/pay/");
+
+      if (isKrovaaDomain && isWalletPayPath) {
+        navigate(url.pathname + url.search);
+      } else {
+        toast.error("Link is not a valid Krovaa payment URL.");
+      }
+    } catch (err) {
+      toast.error("Please enter a valid payment URL.");
+    }
+  };
 
   const copyPaymentLink = async () => {
     if (!receiveLinkData) return;
@@ -413,6 +537,138 @@ const WalletPayPage = () => {
                 <Link to="/wallet">Go to Wallet</Link>
               </Button>
             </div>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  // No recipient (landing Scan & Paste screen)
+  if (!shareId) {
+    return (
+      <div className="min-h-[calc(100vh-4rem)] bg-gradient-to-b from-slate-50 to-white px-4 py-8 sm:px-6">
+        <div className="mx-auto w-full max-w-md space-y-6">
+          <button
+            type="button"
+            onClick={() => navigate("/wallet")}
+            className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 transition-colors hover:text-slate-900"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Wallet
+          </button>
+
+          <Card className="overflow-hidden border-slate-200 shadow-xl rounded-3xl bg-white">
+            <div className="bg-sky-600 px-6 py-8 text-center text-white space-y-2">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 backdrop-blur-sm">
+                <QrCode className="h-8 w-8 text-white" />
+              </div>
+              <h1 className="text-2xl font-bold tracking-tight">Scan & Pay</h1>
+              <p className="text-sky-100 text-xs max-w-xs mx-auto">
+                Scan the recipient's secure Krovaa QR code or paste their payment link below to transfer funds.
+              </p>
+            </div>
+
+            <CardContent className="p-6 sm:p-8 space-y-6">
+              {/* Viewfinder Container */}
+              <div className="relative mx-auto w-full aspect-square max-w-[280px] bg-slate-900 rounded-2xl overflow-hidden shadow-inner flex flex-col items-center justify-center border border-slate-800">
+                <div id={scannerId} className="w-full h-full [&_video]:object-cover [&_video]:w-full [&_video]:h-full" />
+                
+                {/* Custom Scanning Overlay */}
+                {isScanning && (
+                  <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+                    {/* 4 corner brackets */}
+                    <div className="absolute top-8 left-8 w-6 h-6 border-t-2 border-l-2 border-sky-400 rounded-tl-md" />
+                    <div className="absolute top-8 right-8 w-6 h-6 border-t-2 border-r-2 border-sky-400 rounded-tr-md" />
+                    <div className="absolute bottom-8 left-8 w-6 h-6 border-b-2 border-l-2 border-sky-400 rounded-bl-md" />
+                    <div className="absolute bottom-8 right-8 w-6 h-6 border-b-2 border-r-2 border-sky-400 rounded-br-md" />
+                    
+                    {/* Scanning line animation */}
+                    <div className="absolute w-[80%] h-0.5 bg-gradient-to-r from-transparent via-sky-400 to-transparent animate-pulse" 
+                         style={{
+                           animation: "scan 2s linear infinite",
+                           top: "20%"
+                         }} 
+                    />
+                  </div>
+                )}
+
+                {/* Loading/Error states */}
+                {isInitializing && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/80 text-white p-4 text-center space-y-3">
+                    <Loader2 className="h-8 w-8 animate-spin text-sky-400" />
+                    <span className="text-xs font-semibold text-slate-300">Initializing Camera...</span>
+                  </div>
+                )}
+
+                {!isScanning && !isInitializing && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/90 text-white p-4 text-center space-y-3">
+                    {hasPermission === false ? (
+                      <>
+                        <CameraOff className="h-8 w-8 text-rose-500" />
+                        <span className="text-xs font-bold text-slate-200">Camera Access Blocked</span>
+                        <span className="text-[10px] text-slate-400 max-w-[200px]">
+                          Enable camera access in your browser settings to scan QR codes.
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <AlertCircle className="h-8 w-8 text-amber-500" />
+                        <span className="text-xs font-bold text-slate-200">Camera Not Available</span>
+                        {scannerError && <span className="text-[10px] text-slate-400 max-w-[200px]">{scannerError}</span>}
+                        <Button 
+                          size="sm" 
+                          onClick={startScanner}
+                          type="button"
+                          className="bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs h-8 px-4 font-semibold mt-1"
+                        >
+                          Try Again
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Style injection for scanning line animation */}
+              <style>{`
+                @keyframes scan {
+                  0% { top: 15%; }
+                  50% { top: 85%; }
+                  100% { top: 15%; }
+                }
+              `}</style>
+
+              {/* Divider */}
+              <div className="relative flex py-2 items-center">
+                <div className="flex-grow border-t border-slate-200"></div>
+                <span className="flex-shrink mx-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Or enter link manually</span>
+                <div className="flex-grow border-t border-slate-200"></div>
+              </div>
+
+              {/* Manual Link Input */}
+              <form onSubmit={handleManualSubmit} className="space-y-2.5">
+                <div className="space-y-1">
+                  <Label htmlFor="manual-link" className="text-xs font-semibold text-slate-600">Secure Payment Link</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="manual-link"
+                      type="text"
+                      placeholder="Paste https://krovaa.com/wallet/pay/..."
+                      value={manualLink}
+                      onChange={(e) => setManualLink(e.target.value)}
+                      className="rounded-xl border-slate-200 focus-visible:ring-sky-500/20 h-10 flex-1 text-xs"
+                    />
+                    <Button 
+                      type="submit" 
+                      disabled={!manualLink.trim()}
+                      className="bg-sky-600 hover:bg-sky-700 text-white rounded-xl h-10 px-4 font-semibold shrink-0"
+                    >
+                      <ArrowRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </form>
+            </CardContent>
           </Card>
         </div>
       </div>

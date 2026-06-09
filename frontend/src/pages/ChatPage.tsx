@@ -1234,6 +1234,14 @@ const ChatView = ({
                 <Button
                   variant="ghost"
                   size="icon"
+                  onClick={() => navigate("/wallet/pay")}
+                  title="Pay via QR"
+                >
+                  <Icon name="QrCode" className="h-5 w-5 text-primary" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
                   onClick={() => navigate(`/escrow?chatId=${selectedChat.chat_id}&vendorId=${selectedChat.user_id}&vendorUsername=${selectedChat.username}`)}
                   title="Escrow"
                 >
