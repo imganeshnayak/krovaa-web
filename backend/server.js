@@ -188,11 +188,26 @@ app.use('/api/saved-jobs', savedJobsRoutes);
 app.use('/api/user-preferences', userPreferencesRoutes);
 app.use('/api/collab', collabRoutes);
 
+// API 404 Handler - Catch-all for any unmatched /api routes
+app.all('/api/*', (req, res) => {
+    res.status(404).json({
+        error: `API route not found: ${req.method} ${req.url}`
+    });
+});
+
 // SPA Fallback for React Router (Must be after all /api routes)
 app.get('*', (req, res) => {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
+
+    const accept = (req.headers.accept || '').toLowerCase();
+    // If the client expects JSON (or the path looks like an API call), return JSON 404
+    if (accept.includes('application/json') || req.path.startsWith('/api/') || req.xhr) {
+        return res.status(404).json({ error: 'Not found' });
+    }
+
+    // Otherwise serve the SPA entrypoint (HTML)
     res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
 });
 

@@ -50,7 +50,17 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
     throw err;
   }
 
-  return res.json();
+  const contentType = (res.headers.get('content-type') || '').toLowerCase();
+  if (contentType.includes('application/json')) {
+    return res.json();
+  }
+
+  // If the server returned HTML (e.g., SPA index.html), throw a helpful error instead of attempting to parse JSON
+  const text = await res.text();
+  const err: any = new Error('Unexpected non-JSON response from server');
+  err.status = res.status;
+  err.body = text;
+  throw err;
 }
 
 // ============ Auth API ============
