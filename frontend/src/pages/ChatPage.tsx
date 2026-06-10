@@ -1055,9 +1055,7 @@ const ChatView = ({
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-[#00A4EF]/5 rounded-full blur-[120px] pointer-events-none" />
 
         <div className="text-center relative z-10 p-8">
-          <div className="bg-[#00A4EF]/10 h-24 w-24 rounded-3xl flex items-center justify-center mx-auto mb-8 border border-[#00A4EF]/20 shadow-2xl shadow-[#00A4EF]/10 -rotate-6 animate-float">
-            <Icon name="Send" className="h-10 w-10 text-[#00A4EF] opacity-80" />
-          </div>
+
           <h2 style={{ fontFamily: "'Inter', sans-serif" }} className="text-3xl font-bold text-[#1C1C1C] mb-4 tracking-tight">Welcome to Krovaa</h2>
           <p className="max-w-[280px] mx-auto text-sm text-[#1C1C1C60] leading-relaxed font-light">
             Select a conversation from the list to start chatting. <br />
