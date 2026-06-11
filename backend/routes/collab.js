@@ -4,6 +4,7 @@ import { auth } from '../middleware/auth.js';
 import { sendUserNotification } from './notifications.js';
 import multer from 'multer';
 import cloudinary from '../config/cloudinary.js';
+import jwt from 'jsonwebtoken';
 
 const prisma = new PrismaClient();
 const router = express.Router();
@@ -264,7 +265,7 @@ router.get('/saved', auth, async (req, res) => {
 });
 
 // GET SINGLE: GET /api/collab/:id
-router.get('/:id', auth, async (req, res) => {
+router.get('/:id', async (req, res) => {
     try {
         const project = await prisma.projectListing.findUnique({
             where: { id: parseInt(req.params.id) },
@@ -287,14 +288,24 @@ router.get('/:id', auth, async (req, res) => {
         });
         if (!project) return res.status(404).json({ error: 'Project not found' });
         
-        // Check if the user has saved this project
-        const hasSaved = await prisma.savedProjectListing.findFirst({
-            where: { userId: req.user.id, projectId: project.id }
-        });
+        let hasSaved = false;
         
+        // Optional Auth parsing
+        const authHeader = req.header('Authorization');
+        const token = req.cookies?.token || authHeader?.replace('Bearer ', '');
+        if (token) {
+            try {
+                const decoded = jwt.verify(token, process.env.JWT_SECRET);
+                const saved = await prisma.savedProjectListing.findFirst({
+                    where: { userId: decoded.id, projectId: project.id }
+                });
+                hasSaved = !!saved;
+            } catch (err) {}
+        }
+
         res.json({
             ...project,
-            hasSaved: !!hasSaved
+            hasSaved
         });
     } catch (err) {
         console.error('Error getting single collab project:', err);

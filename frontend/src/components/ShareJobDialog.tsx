@@ -22,7 +22,7 @@ export default function ShareJobDialog({
   type = "job",
 }: ShareJobDialogProps) {
   const [copied, setCopied] = useState(false);
-  const shareUrl = `${window.location.origin}/${type === "collab" ? "collab" : "jobs"}/${jobId}`;
+  const shareUrl = `${window.location.origin}/${type === "collab" ? "blueprint" : "jobs"}/${jobId}`;
   const itemTypeLabel = type === "collab" ? "Collab Blueprint" : "opportunity";
   const shareText = `Check out this ${itemTypeLabel}: ${jobTitle} at ${companyName} on Krovaa!`;
 
