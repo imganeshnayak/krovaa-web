@@ -23,7 +23,11 @@ import {
   Calendar as CalendarIcon,
   ChevronDown,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Store,
+  AtSign,
+  MapPin,
+  Landmark
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { updateUserProfile } from "@/lib/api";
@@ -297,7 +301,146 @@ const StepGoal = ({ formData, setFormData }: StepProps) => (
           </div>
           {formData.userGoal === "HIRE_PROFESSIONALS" && <CheckCircle2 className="w-4 h-4 text-purple-500 ml-auto" />}
         </button>
+
+        <button
+          type="button"
+          onClick={() => setFormData({ ...formData, userGoal: "RUN_BUSINESS" })}
+          className={cn("flex items-center gap-3.5 p-4 rounded-xl border transition-all duration-300 text-left group", formData.userGoal === "RUN_BUSINESS" ? "bg-amber-500/5 border-amber-500/40 ring-1 ring-amber-500/40" : "bg-slate-50 border-slate-200 hover:bg-slate-100 hover:border-slate-300")}
+        >
+          <div className={cn("p-2.5 rounded-lg transition-colors", formData.userGoal === "RUN_BUSINESS" ? "bg-amber-500 text-white" : "bg-slate-100 text-slate-600 group-hover:text-slate-900")}>
+            <Store className="w-4 h-4" />
+          </div>
+          <div>
+            <p className={cn("text-xs font-bold", formData.userGoal === "RUN_BUSINESS" ? "text-slate-900" : "text-slate-700")}>My Business</p>
+            <p className="text-[10px] text-slate-500 mt-0.5">Sell the products</p>
+          </div>
+          {formData.userGoal === "RUN_BUSINESS" && <CheckCircle2 className="w-4 h-4 text-amber-500 ml-auto" />}
+        </button>
       </div>
+    </div>
+  </div>
+);
+
+const StepBusiness = ({ formData, setFormData }: StepProps) => (
+  <div className="space-y-4">
+    <div className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/20">
+      <p className="text-[10px] font-semibold text-amber-600">🏷️ Business Account</p>
+      <p className="text-[10px] mt-0.5 text-amber-600/80">Add your business details to set up your marketplace profile.</p>
+    </div>
+    <div className="space-y-1">
+      <label className="text-[10px] font-bold tracking-widest uppercase text-slate-500 ml-1 flex items-center gap-1.5">
+        <AtSign className="w-3 h-3" /> Business Name *
+      </label>
+      <Input value={formData.businessName || ""} onChange={e => setFormData({ ...formData, businessName: e.target.value })} className="bg-slate-50 border-slate-200 text-slate-900 h-10 rounded-xl text-xs focus-visible:ring-amber-500/50" placeholder="e.g. Acme Studios" />
+    </div>
+    <div className="space-y-1">
+      <label className="text-[10px] font-bold tracking-widest uppercase text-slate-500 ml-1 flex items-center gap-1.5">
+        <Store className="w-3 h-3" /> Business Type
+      </label>
+      <div className="relative">
+        <select
+          className="w-full bg-slate-50 border border-slate-200 rounded-xl outline-none px-3 h-10 text-xs text-slate-900 appearance-none focus:ring-2 focus:ring-amber-500/50 transition-all"
+          value={formData.businessType || ""}
+          onChange={e => setFormData({ ...formData, businessType: e.target.value })}
+        >
+          <option value="" disabled>Select business type...</option>
+          <option value="Agency">Agency</option>
+          <option value="Startup">Startup</option>
+          <option value="Enterprise">Enterprise</option>
+          <option value="Freelance Studio">Freelance Studio</option>
+          <option value="E-commerce">E-commerce</option>
+          <option value="Other">Other</option>
+        </select>
+        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+      </div>
+    </div>
+  </div>
+);
+
+const INDIAN_STATES = [
+  "Andhra Pradesh","Arunachal Pradesh","Assam","Bihar","Chhattisgarh",
+  "Goa","Gujarat","Haryana","Himachal Pradesh","Jharkhand",
+  "Karnataka","Kerala","Madhya Pradesh","Maharashtra","Manipur",
+  "Meghalaya","Mizoram","Nagaland","Odisha","Punjab",
+  "Rajasthan","Sikkim","Tamil Nadu","Telangana","Tripura",
+  "Uttar Pradesh","Uttarakhand","West Bengal",
+  "Andaman and Nicobar Islands","Chandigarh","Dadra and Nagar Haveli and Daman and Diu",
+  "Delhi","Jammu and Kashmir","Ladakh","Lakshadweep","Puducherry",
+];
+
+const StepBusinessAddress = ({ formData, setFormData }: StepProps) => (
+  <div className="space-y-4">
+    <div className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/20">
+      <p className="text-[10px] font-semibold text-amber-600">📍 Pickup Address</p>
+      <p className="text-[10px] mt-0.5 text-amber-600/80">Add the address where buyers can pick up orders from your business.</p>
+    </div>
+    <div className="space-y-1">
+      <label className="text-[10px] font-bold tracking-widest uppercase text-slate-500 ml-1 flex items-center gap-1.5">
+        <MapPin className="w-3 h-3" /> Street Address *
+      </label>
+      <Input
+        value={formData.businessAddress || ""}
+        onChange={e => setFormData({ ...formData, businessAddress: e.target.value })}
+        className="bg-slate-50 border-slate-200 text-slate-900 h-10 rounded-xl text-xs focus-visible:ring-amber-500/50"
+        placeholder="e.g. 123 Main Street, Shop No. 4B"
+      />
+    </div>
+    <div className="space-y-1">
+      <label className="text-[10px] font-bold tracking-widest uppercase text-slate-500 ml-1 flex items-center gap-1.5">
+        <Landmark className="w-3 h-3" /> Landmark (Optional)
+      </label>
+      <Input
+        value={formData.businessLandmark || ""}
+        onChange={e => setFormData({ ...formData, businessLandmark: e.target.value })}
+        className="bg-slate-50 border-slate-200 text-slate-900 h-10 rounded-xl text-xs focus-visible:ring-amber-500/50"
+        placeholder="e.g. Near City Mall, Opposite Bank"
+      />
+    </div>
+    <div className="space-y-1">
+      <label className="text-[10px] font-bold tracking-widest uppercase text-slate-500 ml-1 flex items-center gap-1.5">
+        <MapPin className="w-3 h-3" /> City *
+      </label>
+      <Input
+        value={formData.businessCity || ""}
+        onChange={e => setFormData({ ...formData, businessCity: e.target.value })}
+        className="bg-slate-50 border-slate-200 text-slate-900 h-10 rounded-xl text-xs focus-visible:ring-amber-500/50"
+        placeholder="e.g. Mumbai"
+      />
+    </div>
+    <div className="space-y-1">
+      <label className="text-[10px] font-bold tracking-widest uppercase text-slate-500 ml-1 flex items-center gap-1.5">
+        <MapPin className="w-3 h-3" /> State *
+      </label>
+      <div className="relative">
+        <select
+          className="w-full bg-slate-50 border border-slate-200 rounded-xl outline-none px-3 h-10 text-xs text-slate-900 appearance-none focus:ring-2 focus:ring-amber-500/50 transition-all"
+          value={formData.businessState || ""}
+          onChange={e => setFormData({ ...formData, businessState: e.target.value })}
+        >
+          <option value="" disabled>Select state...</option>
+          {INDIAN_STATES.map(s => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
+        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+      </div>
+    </div>
+    <div className="space-y-1">
+      <label className="text-[10px] font-bold tracking-widest uppercase text-slate-500 ml-1 flex items-center gap-1.5">
+        <MapPin className="w-3 h-3" /> Pincode *
+      </label>
+      <Input
+        type="text"
+        inputMode="numeric"
+        value={formData.businessPincode || ""}
+        onChange={e => {
+          const raw = e.target.value.replace(/\D/g, "");
+          if (raw.length <= 6) setFormData({ ...formData, businessPincode: raw });
+        }}
+        className="bg-slate-50 border-slate-200 text-slate-900 h-10 rounded-xl text-xs focus-visible:ring-amber-500/50"
+        placeholder="6-digit pincode"
+        maxLength={6}
+      />
     </div>
   </div>
 );
@@ -454,6 +597,13 @@ export function ProfileCompletionModal() {
     gender: "",
     dateOfBirth: "",
     userGoal: "",
+    businessName: "",
+    businessType: "",
+    businessAddress: "",
+    businessCity: "",
+    businessState: "",
+    businessPincode: "",
+    businessLandmark: "",
   });
 
   useEffect(() => {
@@ -468,14 +618,28 @@ export function ProfileCompletionModal() {
         dateOfBirth:  "",
         userGoal:     user.userGoal     || "",
         bio:          user.bio          || "",
+        businessName: user.businessName || "",
+        businessType: user.businessType || "",
+        businessAddress:  user.businessAddress  || "",
+        businessCity:     user.businessCity     || "",
+        businessState:    user.businessState    || "",
+        businessPincode:  user.businessPincode  || "",
+        businessLandmark: user.businessLandmark || "",
       }));
     }
   }, [user]);
 
+  const isBusiness = formData.userGoal === "RUN_BUSINESS";
+  const totalSteps = isBusiness ? 5 : 4;
+
+  useEffect(() => {
+    if (step > totalSteps) setStep(totalSteps);
+  }, [totalSteps, step]);
+
   const hasProfession = !!(user?.profession && user.profession.trim() !== "");
   if (!user || hasProfession || forceClose) return null;
 
-  const handleNext = () => setStep(s => Math.min(s + 1, 4));
+  const handleNext = () => setStep(s => Math.min(s + 1, totalSteps));
   const handleBack = () => setStep(s => Math.max(s - 1, 1));
 
   const isIndianPhoneValid = /^[6-9]\d{9}$/.test(formData.phoneNumber);
@@ -486,7 +650,13 @@ export function ProfileCompletionModal() {
       return !formData.displayName || !isIndianPhoneValid || !formData.gender || !formData.dateOfBirth || calculateAge(formData.dateOfBirth) === null;
     }
     if (step === 3) {
+      if (formData.userGoal === "RUN_BUSINESS") {
+        return !formData.businessName || !formData.businessName.trim() || !formData.businessType;
+      }
       return !formData.category || (formData.category !== "none" && formData.category !== "freelancer" && formData.category !== "student" && formData.category !== "other" && !formData.profession) || (formData.category === "other" && !formData.customProfession) || (formData.profession === "Other" && !formData.customProfession);
+    }
+    if (step === 4 && isBusiness) {
+      return !formData.businessAddress?.trim() || !formData.businessCity?.trim() || !formData.businessState || !formData.businessPincode || !/^\d{6}$/.test(formData.businessPincode);
     }
     return false;
   };
@@ -498,7 +668,7 @@ export function ProfileCompletionModal() {
     if (formData.category === "client")     finalProfession = "Client";
     if (formData.category === "other" || formData.profession === "Other") finalProfession = formData.customProfession || "Other";
 
-    if (!finalProfession && formData.category !== "none") { 
+    if (!finalProfession && formData.category !== "none" && formData.userGoal !== "RUN_BUSINESS") { 
       toast.error("Please specify your profession profile entry."); 
       return; 
     }
@@ -507,6 +677,10 @@ export function ProfileCompletionModal() {
     if (formData.dateOfBirth && age === null) { 
       toast.error("Please enter a valid date of birth."); 
       return; 
+    }
+
+    if (formData.userGoal === "RUN_BUSINESS") {
+      finalProfession = "Business Owner";
     }
 
     setIsSubmitting(true);
@@ -521,6 +695,14 @@ export function ProfileCompletionModal() {
         gender:       formData.gender,
         age,
         userGoal:     formData.userGoal,
+        accountType:  formData.userGoal === "RUN_BUSINESS" ? "business" : "individual",
+        businessName: formData.userGoal === "RUN_BUSINESS" ? formData.businessName.trim() : undefined,
+        businessType: formData.userGoal === "RUN_BUSINESS" ? formData.businessType : undefined,
+        businessAddress:  formData.userGoal === "RUN_BUSINESS" ? formData.businessAddress.trim() : undefined,
+        businessCity:     formData.userGoal === "RUN_BUSINESS" ? formData.businessCity.trim() : undefined,
+        businessState:    formData.userGoal === "RUN_BUSINESS" ? formData.businessState : undefined,
+        businessPincode:  formData.userGoal === "RUN_BUSINESS" ? formData.businessPincode : undefined,
+        businessLandmark: formData.userGoal === "RUN_BUSINESS" ? formData.businessLandmark.trim() || undefined : undefined,
       });
 
       queryClient.setQueryData(['profile', user.id], (existing: any) => {
@@ -548,7 +730,12 @@ export function ProfileCompletionModal() {
   const stepMeta = [
     { icon: <Handshake className="w-4 h-4" />,     title: "Start Your Journey",   desc: "What brings you to Krovaa today?" },
     { icon: <UserIcon className="w-4 h-4" />,      title: "Personal Presence",    desc: "Help us get to know you better." },
-    { icon: <Briefcase className="w-4 h-4" />,     title: "Identity Alignment",   desc: "Tell us about your skills and expertise." },
+    isBusiness
+      ? { icon: <Store className="w-4 h-4" />,       title: "Business Details",     desc: "Tell us about your business." }
+      : { icon: <Briefcase className="w-4 h-4" />,   title: "Identity Alignment",   desc: "Tell us about your skills and expertise." },
+    ...(isBusiness
+      ? [{ icon: <MapPin className="w-4 h-4" />,     title: "Pickup Address",       desc: "Where can buyers pick up orders?" }]
+      : []),
     { icon: <CheckCircle2 className="w-4 h-4" />,  title: "Final Details",        desc: "A small blueprint overview goes a long way." },
   ];
 
@@ -562,7 +749,7 @@ export function ProfileCompletionModal() {
       >
         {/* Top Fixed Progress Bar */}
         <div className="w-full h-1 bg-slate-100 shrink-0">
-          <div className="h-full bg-blue-600 transition-all duration-300 ease-out" style={{ width: `${(step / 4) * 100}%` }} />
+          <div className="h-full bg-blue-600 transition-all duration-300 ease-out" style={{ width: `${(step / totalSteps) * 100}%` }} />
         </div>
 
         {/* Top Fixed Header Context */}
@@ -576,12 +763,12 @@ export function ProfileCompletionModal() {
           </DialogHeader>
         </div>
 
-        {/* Scrollable Step Layout Area */}
         <div className="flex-1 overflow-y-auto px-5 py-4 min-h-0 structural-scrolling">
           {step === 1 && <StepGoal formData={formData} setFormData={setFormData} />}
           {step === 2 && <StepPersonalInfo formData={formData} setFormData={setFormData} />}
-          {step === 3 && <StepProfession formData={formData} setFormData={setFormData} />}
-          {step === 4 && <StepBio formData={formData} setFormData={setFormData} />}
+          {step === 3 && (isBusiness ? <StepBusiness formData={formData} setFormData={setFormData} /> : <StepProfession formData={formData} setFormData={setFormData} />)}
+          {step === 4 && isBusiness && <StepBusinessAddress formData={formData} setFormData={setFormData} />}
+          {step === totalSteps && <StepBio formData={formData} setFormData={setFormData} />}
         </div>
 
         {/* Bottom Fixed Navigation Actions Area */}
@@ -598,7 +785,7 @@ export function ProfileCompletionModal() {
               </Button>
             )}
             
-            {step < 4 ? (
+            {step < totalSteps ? (
               <Button
                 onClick={handleNext}
                 disabled={isStepDisabled()}
@@ -628,7 +815,7 @@ export function ProfileCompletionModal() {
 
           {/* Stepper Dots Indicators */}
           <div className="flex justify-center gap-1">
-            {[1, 2, 3, 4].map(s => (
+            {Array.from({ length: totalSteps }, (_, i) => i + 1).map(s => (
               <div key={s} className={cn("h-1 rounded-full transition-all duration-300", step === s ? "w-4 bg-blue-600" : "w-1 bg-slate-200")} />
             ))}
           </div>

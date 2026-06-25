@@ -6,8 +6,8 @@ import compression from "vite-plugin-compression";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-  // Use relative base paths for Capacitor Android WebView compatibility
-  base: mode === 'production' ? './' : '/',
+  // Use absolute base path to fix asset loading on nested routes (e.g. /collab/:id)
+  base: '/',
   envDir: "../",
   server: {
     host: "::",

@@ -134,6 +134,14 @@ router.post('/:id/messages', auth, async (req, res) => {
 
         const io = req.app.get('io');
         if (io) {
+            const socketMessage = {
+                ...message,
+                chatId: `group_${groupId}`,
+                sender_name: message.sender?.displayName,
+                sender_avatar: message.sender?.avatarUrl,
+                sender_username: message.sender?.username,
+            };
+            io.to(`group_${groupId}`).emit('newMessage', socketMessage);
             io.to(`group_${groupId}`).emit('newGroupMessage', message);
         }
 
@@ -141,6 +149,20 @@ router.post('/:id/messages', auth, async (req, res) => {
     } catch (err) {
         console.error('Send group message error:', err);
         res.status(500).json({ error: 'Failed to send message.' });
+    }
+});
+
+// DELETE /api/groups/:id/leave
+router.delete('/:id/leave', auth, async (req, res) => {
+    try {
+        const groupId = Number(req.params.id);
+        await prisma.groupMember.deleteMany({
+            where: { groupId, userId: req.user.id }
+        });
+        res.json({ success: true, message: 'Left the group chat.' });
+    } catch (err) {
+        console.error('Leave group error:', err);
+        res.status(500).json({ error: 'Failed to leave group.' });
     }
 });
 

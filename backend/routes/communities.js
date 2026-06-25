@@ -196,7 +196,17 @@ router.post('/', auth, async (req, res) => {
 router.get('/', auth, async (req, res) => {
   try {
     const communities = await prisma.community.findMany({
-      include: { members: { select: { userId: true, role: true, status: true } }, creator: true }
+      include: {
+        members: { select: { userId: true, role: true, status: true } },
+        creator: true,
+        messages: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          include: {
+            sender: { select: { id: true, username: true, displayName: true, avatarUrl: true } }
+          }
+        }
+      }
     });
     const mapped = communities.map(c => ({
       ...c,
@@ -408,11 +418,26 @@ router.post('/:id/join', auth, async (req, res) => {
 router.post('/:id/leave', auth, async (req, res) => {
   try {
     const communityId = Number(req.params.id);
-    await prisma.communityMember.deleteMany({ where: { communityId, userId: req.user.id } });
+    await prisma.communityMember.updateMany({ 
+      where: { communityId, userId: req.user.id },
+      data: { status: 'left' }
+    });
     res.json({ success: true });
   } catch (err) {
     console.error('Leave community error:', err);
     res.status(500).json({ error: 'Failed to leave workspace.' });
+  }
+});
+
+// Delete community history (remove member completely)
+router.delete('/:id/history', auth, async (req, res) => {
+  try {
+    const communityId = Number(req.params.id);
+    await prisma.communityMember.deleteMany({ where: { communityId, userId: req.user.id } });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Delete community history error:', err);
+    res.status(500).json({ error: 'Failed to delete history.' });
   }
 });
 
@@ -715,6 +740,20 @@ router.post('/:id/messages', auth, async (req, res) => {
       where: { id: message.id },
       include: { sender: true }
     });
+
+    const io = req.app.get('io');
+    if (io) {
+        const socketMessage = {
+            ...fullMessage,
+            chatId: `community_${communityId}`,
+            senderId: fullMessage.senderId,
+            sender_name: fullMessage.sender?.displayName,
+            sender_avatar: fullMessage.sender?.avatarUrl,
+            sender_username: fullMessage.sender?.username,
+        };
+        io.to(`community_${communityId}`).emit('newMessage', socketMessage);
+    }
+
     res.json(fullMessage);
   } catch (err) {
     console.error('Create message error:', err);

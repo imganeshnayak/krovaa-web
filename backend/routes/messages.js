@@ -224,7 +224,7 @@ router.get('/:chatId', auth, async (req, res) => {
 // POST /api/messages - Send a message
 router.post('/', auth, async (req, res) => {
     try {
-        const { receiver_id, chat_id, content, message_type } = req.body;
+        const { receiver_id, chat_id, content, message_type, parent_message_id, reply_to_text, reply_to_user } = req.body;
 
         // Check if sender is blocked by receiver
         const isBlocked = await prisma.blockedUser.findUnique({
@@ -247,7 +247,10 @@ router.post('/', auth, async (req, res) => {
                 chatId: chat_id,
                 content,
                 messageType: message_type || 'text',
-                isViewOnce: req.body.is_view_once === true || req.body.is_view_once === 'true'
+                isViewOnce: req.body.is_view_once === true || req.body.is_view_once === 'true',
+                parentMessageId: parent_message_id ? parseInt(parent_message_id) : undefined,
+                replyToText: reply_to_text || undefined,
+                replyToUser: reply_to_user || undefined,
             },
             include: { sender: { select: { displayName: true, avatarUrl: true, username: true, role: true } } },
         });
@@ -272,6 +275,8 @@ router.post('/', auth, async (req, res) => {
         const io = req.app.get('io');
         if (io) {
             io.to(chat_id).emit('newMessage', maskedResult);
+            // Also notify receiver's personal room to refresh their chat list
+            io.to(`user_${receiver_id}`).emit('newMessage', maskedResult);
 
             // If it's a support chat, broadcast to ALL admins (they see unmasked result)
             if (chat_id.startsWith('support_')) {
@@ -289,7 +294,7 @@ router.post('/', auth, async (req, res) => {
 // POST /api/messages/upload - Send message with file attachment via Cloudinary
 router.post('/upload', auth, upload.single('file'), async (req, res) => {
     try {
-        const { receiver_id, chat_id, content } = req.body;
+        const { receiver_id, chat_id, content, parent_message_id, reply_to_text, reply_to_user } = req.body;
 
         // Check if sender is blocked by receiver
         const isBlocked = await prisma.blockedUser.findUnique({
@@ -332,7 +337,10 @@ router.post('/upload', auth, upload.single('file'), async (req, res) => {
                 messageType: req.file.mimetype.startsWith('image/') ? 'image' : (isAudio ? 'voice' : 'file'),
                 attachmentUrl: uploadResult.secure_url,
                 attachmentName: req.file.originalname,
-                isViewOnce: req.body.is_view_once === true || req.body.is_view_once === 'true'
+                isViewOnce: req.body.is_view_once === true || req.body.is_view_once === 'true',
+                parentMessageId: parent_message_id ? parseInt(parent_message_id) : undefined,
+                replyToText: reply_to_text || undefined,
+                replyToUser: reply_to_user || undefined,
             },
             include: { sender: { select: { displayName: true, avatarUrl: true, username: true, role: true } } },
         });
@@ -355,6 +363,8 @@ router.post('/upload', auth, upload.single('file'), async (req, res) => {
         const io = req.app.get('io');
         if (io) {
             io.to(chat_id).emit('newMessage', maskedResult);
+            // Also notify receiver's personal room for chat list updates
+            io.to(`user_${receiver_id}`).emit('newMessage', maskedResult);
 
             if (chat_id.startsWith('support_')) {
                 io.to('admin_broadcast').emit('newMessage', result);

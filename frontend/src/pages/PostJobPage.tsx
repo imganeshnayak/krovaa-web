@@ -57,8 +57,8 @@ const PostJobPage = () => {
       // Extended payload structure with parsed skills and timeline settings
       const job = await postJob({ 
         title, 
-        company, 
-        location, 
+        company: company.trim() || undefined, 
+        location: mode === 'Remote' ? 'Remote' : location, 
         budget, 
         mode, 
         description, 
@@ -122,7 +122,7 @@ const PostJobPage = () => {
 
             <Button 
               className="w-full sm:w-auto rounded-xl bg-slate-950 text-white font-semibold text-xs h-11 px-6 hover:bg-slate-800"
-              onClick={() => navigate('/jobs')}
+              onClick={() => navigate('/my-listings')}
             >
               Return to Job Listings
             </Button>
@@ -155,15 +155,14 @@ const PostJobPage = () => {
                 </label>
 
                 <label className="flex flex-col gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400">
-                  <span>Company Name <span className="text-rose-500">*</span></span>
+                  <span>Company Name</span>
                   <div className="relative flex items-center">
                     <Building className="absolute left-4 h-4 w-4 text-slate-400" />
                     <input
                       value={company}
                       onChange={(event) => setCompany(event.target.value)}
-                      placeholder="e.g. Utopia SaaS Platforms"
+                      placeholder="e.g. Utopia SaaS Platforms (Optional)"
                       className="w-full rounded-xl border border-slate-200 bg-slate-50/50 pl-11 pr-4 py-2.5 text-sm normal-case font-normal text-slate-900 outline-none transition focus:border-[#00A4EF] focus:ring-4 focus:ring-[#00A4EF]/10"
-                      required
                     />
                   </div>
                 </label>
@@ -181,11 +180,12 @@ const PostJobPage = () => {
                 <label className="flex flex-col gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400">
                   <span>Job Location <span className="text-rose-500">*</span></span>
                   <input
-                    value={location}
+                    value={mode === 'Remote' ? 'Remote' : location}
                     onChange={(event) => setLocation(event.target.value)}
-                    placeholder="e.g. Remote / Bangalore"
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-2.5 text-sm normal-case font-normal text-slate-900 outline-none transition focus:border-[#00A4EF] focus:ring-4 focus:ring-[#00A4EF]/10"
-                    required
+                    placeholder={mode === 'Remote' ? 'Remote' : 'e.g. Bangalore'}
+                    disabled={mode === 'Remote'}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-2.5 text-sm normal-case font-normal text-slate-900 outline-none transition focus:border-[#00A4EF] focus:ring-4 focus:ring-[#00A4EF]/10 disabled:opacity-60 disabled:cursor-not-allowed"
+                    required={mode !== 'Remote'}
                   />
                 </label>
 

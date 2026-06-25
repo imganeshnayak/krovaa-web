@@ -40,6 +40,7 @@ import {
   getAdminStats,
   getAdminUsers,
   getAdminChats,
+  getAdminGroupChats,
   getAdminEscrowDeals,
   getActivityLogs,
   updateUserStatus,
@@ -88,6 +89,8 @@ const AdminDashboard = () => {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [chats, setChats] = useState<any[]>([]);
+  const [chatTab, setChatTab] = useState<"individual" | "group">("individual");
+  const [groupChats, setGroupChats] = useState<any[]>([]);
   const [escrowDeals, setEscrowDeals] = useState<any[]>([]);
   const [activities, setActivities] = useState<any[]>([]);
   const [reports, setReports] = useState<AdminReport[]>([]);
@@ -193,6 +196,8 @@ const AdminDashboard = () => {
       } else if (activeTab === "chats") {
         const chatsData = await getAdminChats();
         setChats(chatsData.chats);
+        const groupChatsData = await getAdminGroupChats();
+        setGroupChats(groupChatsData.chats);
       } else if (activeTab === "escrow") {
         const escrowData = await getAdminEscrowDeals({ status: statusFilter === "all" ? "" : statusFilter });
         setEscrowDeals(escrowData.deals);
@@ -927,55 +932,86 @@ const AdminDashboard = () => {
             )}
 
             {activeTab === "chats" && (
-              <div className="space-y-3">
-                {chats.map((chat) => (
-                  <Card key={chat.chatId} className="bg-card border-border overflow-hidden">
-                    <CardContent className="p-4 grid grid-cols-[auto_1fr_auto] items-center gap-4">
-                      <div className="flex -space-x-3 overflow-hidden shrink-0">
-                        {chat.participants.map((p: any) => (
-                          <Avatar key={p.id} className="h-10 w-10 border-2 border-card shadow-sm">
-                            <AvatarImage src={p.avatarUrl} />
-                            <AvatarFallback className="bg-muted text-card-foreground text-xs">
-                              {p.displayName?.[0] || '?'}
-                            </AvatarFallback>
-                          </Avatar>
-                        ))}
-                      </div>
+              <div className="space-y-4">
+                <div className="flex gap-1 p-1 bg-muted rounded-lg w-fit">
+                  <button
+                    onClick={() => setChatTab("individual")}
+                    className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${chatTab === "individual" ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                  >
+                    Individual Chats
+                  </button>
+                  <button
+                    onClick={() => setChatTab("group")}
+                    className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${chatTab === "group" ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                  >
+                    Colab Group Chats
+                  </button>
+                </div>
+                
+                <div className="space-y-3">
+                  {(chatTab === "individual" ? chats : groupChats).map((chat) => (
+                    <Card key={chat.chatId} className="bg-card border-border overflow-hidden">
+                      <CardContent className="p-4 grid grid-cols-[auto_1fr_auto] items-center gap-4">
+                        <div className="flex -space-x-3 overflow-hidden shrink-0">
+                          {chat.avatarUrl ? (
+                            <Avatar className="h-10 w-10 border-2 border-card shadow-sm z-10">
+                              <AvatarImage src={chat.avatarUrl} />
+                              <AvatarFallback className="bg-muted text-card-foreground text-xs">
+                                {chat.name?.[0] || '?'}
+                              </AvatarFallback>
+                            </Avatar>
+                          ) : (
+                            chat.participants.map((p: any, i: number) => (
+                              <Avatar key={p.id} className="h-10 w-10 border-2 border-card shadow-sm relative" style={{ zIndex: 10 - i }}>
+                                <AvatarImage src={p.avatarUrl} />
+                                <AvatarFallback className="bg-muted text-card-foreground text-xs">
+                                  {p.displayName?.[0] || '?'}
+                                </AvatarFallback>
+                              </Avatar>
+                            ))
+                          )}
+                        </div>
 
-                      <div className="min-w-0 flex flex-col gap-1">
-                        <p className="font-semibold text-card-foreground text-sm truncate leading-tight">
-                          {chat.participants.map((p: any) => p.displayName).join(" & ")}
-                        </p>
-                        <p className="text-[12px] text-muted-foreground truncate opacity-80 leading-tight">
-                          {chat.lastMessage || `${chat.messageCount} messages`}
-                        </p>
-                      </div>
+                        <div className="min-w-0 flex flex-col gap-1">
+                          <p className="font-semibold text-card-foreground text-sm truncate leading-tight">
+                            {chat.name || chat.participants.map((p: any) => p.displayName).join(" & ")}
+                          </p>
+                          <p className="text-[12px] text-muted-foreground truncate opacity-80 leading-tight">
+                            {chat.lastMessage || `${chat.messageCount} messages`}
+                          </p>
+                        </div>
 
-                      <div className="flex flex-col items-end gap-2 shrink-0 min-w-[60px]">
-                        {chat.lastMessageAt && (
-                          <span className="text-[10px] text-muted-foreground font-medium whitespace-nowrap opacity-70">
-                            {(() => {
-                              const d = new Date(chat.lastMessageAt);
-                              let h = d.getHours();
-                              const m = d.getMinutes();
-                              const ap = h >= 12 ? 'PM' : 'AM';
-                              h = h % 12 || 12;
-                              return `${h}:${m < 10 ? '0' + m : m} ${ap}`;
-                            })()}
-                          </span>
-                        )}
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          className="h-8 w-8 p-0"
-                          onClick={() => navigate(`/admin/chats/${chat.chatId}`)}
-                        >
-                          <MessageSquare className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                        <div className="flex flex-col items-end gap-2 shrink-0 min-w-[60px]">
+                          {chat.lastActivity && (
+                            <span className="text-[10px] text-muted-foreground font-medium whitespace-nowrap opacity-70">
+                              {new Date(chat.lastActivity).toLocaleDateString()}
+                            </span>
+                          )}
+                          {chat.lastMessageAt && (
+                            <span className="text-[10px] text-muted-foreground font-medium whitespace-nowrap opacity-70">
+                              {(() => {
+                                const d = new Date(chat.lastMessageAt);
+                                let h = d.getHours();
+                                const m = d.getMinutes();
+                                const ap = h >= 12 ? 'PM' : 'AM';
+                                h = h % 12 || 12;
+                                return `${h}:${m < 10 ? '0' + m : m} ${ap}`;
+                              })()}
+                            </span>
+                          )}
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            onClick={() => navigate(`/admin/chats/${chat.chatId}`)}
+                          >
+                            <MessageSquare className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
               </div>
             )}
 

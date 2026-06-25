@@ -10,7 +10,7 @@ import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/reac
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import CookieConsent from "./components/CookieConsent";
-import { ENABLE_COMMUNITIES } from "./lib/features";
+import { Agentation } from "agentation";
 
 // Lazy-load page components
 const Landing = lazy(() => import("./pages/Landing"));
@@ -31,15 +31,22 @@ const AdminChatView = lazy(() => import("./pages/AdminChatView"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const BlockedUsersPage = lazy(() => import("./pages/BlockedUsersPage"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
-const CommunitiesPage = lazy(() => import("./pages/CommunitiesPage"));
-const CommunityDetailPage = lazy(() => import("./pages/CommunityDetailPage"));
+const CollabSpacePage = lazy(() => import("./pages/CollabSpacePage"));
+const CollabReviewPage = lazy(() => import("./pages/CollabReviewPage"));
 const Terms = lazy(() => import("./pages/legal/Terms"));
 const Privacy = lazy(() => import("./pages/legal/Privacy"));
 const Refund = lazy(() => import("./pages/legal/Refund"));
 const CookiePolicy = lazy(() => import("./pages/legal/CookiePolicy"));
 const NotFound = lazy(() => import("./pages/NotFound"));
-const CommunitiesTabPage = lazy(() => import("./pages/CommunitiesTabPage"));
-const JoinCommunityPage = lazy(() => import("./pages/JoinCommunityPage"));
+const CollabDetailsPage = lazy(() => import("./pages/CollabDetailsPage"));
+const PostCollabPage = lazy(() => import("./pages/PostCollabPage"));
+const SavedJobsPage = lazy(() => import("./components/SavedJobsPage").then((module) => ({ default: module.SavedJobsPage })));
+const CreateDealPage = lazy(() => import("./pages/CreateDealPage"));
+const DealPublicPage = lazy(() => import("./pages/DealPublicPage"));
+const MarketplacePage = lazy(() => import("./pages/MarketplacePage"));
+const DealTransactionPage = lazy(() => import("./pages/DealTransactionPage"));
+
+import PublicNavbar from "./components/Navbar";
 
 const queryClient = new QueryClient();
 
@@ -84,7 +91,12 @@ const PublicRoute = ({ children }: { children: ReactNode }) => {
 const ProfileRedirect = () => {
   const { username } = useParams<{ username: string }>();
 
-  return <Navigate to={`/${username}`} replace />;
+  // Only allow safe usernames to prevent open redirect / XSS via URL
+  const safeUsername = username && /^[a-zA-Z0-9_-]{1,20}$/.test(username) ? username : null;
+
+  return safeUsername
+    ? <Navigate to={`/${encodeURIComponent(safeUsername)}`} replace />
+    : <Navigate to="/404" replace />;
 };
 
 const MainContent = () => {
@@ -101,10 +113,12 @@ const MainContent = () => {
 
   // Hide navbar on auth pages and on public profile pages when not logged in
   const isAuthPage = ["/login", "/register", "/", "/forgot-password"].includes(location.pathname);
-  const showNavbar = !isAuthPage && !!user;
+  const showBottomNavbar = !isAuthPage && !!user;
+  const showPublicNavbar = !isAuthPage && !user;
 
   return (
-    <main className={`${showNavbar ? "pb-16" : ""} main-wrapper`}>
+    <main className={`${showBottomNavbar ? "pb-16" : ""} main-wrapper`}>
+      {showPublicNavbar && <PublicNavbar />}
       <Suspense fallback={<LoadingScreen />}>
         <Routes>
           <Route path="/" element={<Landing />} />
@@ -113,13 +127,14 @@ const MainContent = () => {
           <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
           <Route path="/chat" element={<ClientRoute><ChatPage /></ClientRoute>} />
                   <Route path="/posts" element={<ClientRoute><PostsPage /></ClientRoute>} />
-          <Route path="/explore" element={<ClientRoute><ExplorePage /></ClientRoute>} />
-          <Route path="/communities" element={ENABLE_COMMUNITIES ? <ClientRoute><CommunitiesPage /></ClientRoute> : <Navigate to="/chat" replace />} />
-          <Route path="/communities/tab" element={ENABLE_COMMUNITIES ? <ClientRoute><CommunitiesTabPage /></ClientRoute> : <Navigate to="/chat" replace />} />
-          <Route path="/communities/:id" element={ENABLE_COMMUNITIES ? <ClientRoute><CommunityDetailPage /></ClientRoute> : <Navigate to="/chat" replace />} />
-          <Route path="/join/:slug" element={ENABLE_COMMUNITIES ? <ClientRoute><JoinCommunityPage /></ClientRoute> : <Navigate to="/chat" replace />} />
+          <Route path="/explore" element={<ExplorePage />} />
+          <Route path="/collab/:id" element={<ClientRoute><CollabSpacePage /></ClientRoute>} />
+          <Route path="/collab/:id/review" element={<ClientRoute><CollabReviewPage /></ClientRoute>} />
+          <Route path="/blueprint/:id" element={<CollabDetailsPage />} />
           <Route path="/post-job" element={<ClientRoute><PostJobPage /></ClientRoute>} />
-          <Route path="/jobs/:jobId" element={<ClientRoute><JobDetailsPage /></ClientRoute>} />
+          <Route path="/post-collab" element={<ClientRoute><PostCollabPage /></ClientRoute>} />
+          <Route path="/jobs/:jobId" element={<JobDetailsPage />} />
+          <Route path="/saved-jobs" element={<ClientRoute><SavedJobsPage /></ClientRoute>} />
           <Route path="/my-listings" element={<ClientRoute><MyListingsPage /></ClientRoute>} />
           {/* Own profile - requires login */}
           <Route path="/profile" element={<ClientRoute><ProfilePage /></ClientRoute>} />
@@ -127,11 +142,17 @@ const MainContent = () => {
           <Route path="/profile/:username" element={<ProfileRedirect />} />
           <Route path="/escrow" element={<ClientRoute><EscrowPage /></ClientRoute>} />
           <Route path="/wallet" element={<ClientRoute><WalletPage /></ClientRoute>} />
+          <Route path="/wallet/pay" element={<WalletPayPage />} />
           <Route path="/wallet/pay/:shareId" element={<WalletPayPage />} />
           <Route path="/settings" element={<ClientRoute><SettingsPage /></ClientRoute>} />
           <Route path="/blocked-users" element={<ClientRoute><BlockedUsersPage /></ClientRoute>} />
           <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
           <Route path="/admin/chats/:chatId" element={<AdminRoute><AdminChatView /></AdminRoute>} />
+          {/* Deal Marketplace */}
+          <Route path="/marketplace" element={<ClientRoute><MarketplacePage /></ClientRoute>} />
+          <Route path="/deal/create" element={<ClientRoute><CreateDealPage /></ClientRoute>} />
+          <Route path="/deal/:shareCode" element={<DealPublicPage />} />
+          <Route path="/deal/transaction/:escrowDealId" element={<ClientRoute><DealTransactionPage /></ClientRoute>} />
           {/* Legal Pages */}
           <Route path="/terms" element={<Terms />} />
           <Route path="/privacy" element={<Privacy />} />
@@ -148,7 +169,7 @@ const MainContent = () => {
         </Routes>
       </Suspense>
 
-      {showNavbar && (
+      {showBottomNavbar && (
           <BottomNavbar />
       )}
     </main>
@@ -165,6 +186,7 @@ const App = () => (
             <BrowserRouter>
               <MainContent />
                 <CookieConsent />
+                {process.env.NODE_ENV === "development" && <Agentation />}
             </BrowserRouter>
           </TooltipProvider>
       </AuthProvider>

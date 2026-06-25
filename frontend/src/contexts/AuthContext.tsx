@@ -37,37 +37,35 @@ const clearSession = () => {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(() => readCachedUser());
   const [token, setToken] = useState<string | null>(() => localStorage.getItem("authToken"));
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const restoreSession = async () => {
       const storedToken = localStorage.getItem("authToken");
       const cachedUser = readCachedUser();
 
-      if (!storedToken) {
-        // No token at all - no need to call API, just show the app immediately
-        setIsLoading(false);
-        return;
-      }
-
-      setToken(storedToken);
       if (cachedUser) {
         // Instantly render the app using cached user while we verify in background
         setUser(cachedUser);
-        setIsLoading(false);
-      } else {
-        // No cached user but we have a token, show loading briefly
-        setIsLoading(true);
+      }
+
+      if (storedToken) {
+        setToken(storedToken);
       }
 
       try {
-        // Verify session in the background with a timeout
+        // Verify session in the background with a timeout.
+        // This also covers cookie-based sessions, so we always probe /me.
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 3000); // 3s timeout (faster feedback)
         const userData = await getCurrentUser();
         clearTimeout(timeoutId);
         setUser(userData);
-        persistSession(storedToken, userData);
+        if (storedToken) {
+          persistSession(storedToken, userData);
+        } else {
+          localStorage.setItem("authUser", JSON.stringify(userData));
+        }
       } catch (error) {
         const status = (error as { status?: number })?.status;
         if (status === 401 || status === 403) {
@@ -115,7 +113,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const register = async (username: string, email: string, password: string, displayName: string | undefined, otp: string, profession?: string) => {
     setIsLoading(true);
     try {
-      const response = await apiRegister({ username, email, password, display_name: displayName, otp, profession });
+      const response = await apiRegister({
+        username, email, password,
+        display_name: displayName, otp, profession,
+      });
       setToken(response.token || "cookie_session");
       setUser(response.user);
       persistSession(response.token || "cookie_session", response.user);

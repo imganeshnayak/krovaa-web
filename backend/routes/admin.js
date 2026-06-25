@@ -148,7 +148,7 @@ router.get('/users', auth, adminOnly, checkPermission('users'), async (req, res)
                     createdAt: true,
                     _count: {
                         select: {
-                            sentMessages: true,
+                            sentWebMessages: true,
                             clientDeals: true,
                             vendorDeals: true
                         }
@@ -242,10 +242,71 @@ router.get('/chats', auth, adminOnly, checkPermission('chats'), async (req, res)
     }
 });
 
+// GET /api/admin/group-chats - Get all group chats
+router.get('/group-chats', auth, adminOnly, checkPermission('chats'), async (req, res) => {
+    try {
+        const { page = 1, limit = 20 } = req.query;
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+
+        const [communities, total] = await Promise.all([
+            prisma.community.findMany({
+                include: {
+                    creator: { select: { id: true, displayName: true, username: true, avatarUrl: true } },
+                    _count: {
+                        select: { messages: true, members: true }
+                    }
+                },
+                orderBy: { createdAt: 'desc' },
+                skip,
+                take: parseInt(limit)
+            }),
+            prisma.community.count()
+        ]);
+
+        const groupChats = communities.map(c => ({
+            chatId: `community_${c.id}`,
+            name: c.name,
+            avatarUrl: c.avatarUrl,
+            messageCount: c._count.messages,
+            memberCount: c._count.members,
+            lastActivity: c.createdAt,
+            participants: [c.creator]
+        }));
+
+        res.json({
+            chats: groupChats,
+            total,
+            page: parseInt(page),
+            totalPages: Math.ceil(total / parseInt(limit))
+        });
+    } catch (err) {
+        console.error('Get group chats error:', err);
+        res.status(500).json({ error: 'Server error.' });
+    }
+});
+
 // GET /api/admin/chats/:chatId/messages - Get all messages for a chat
 router.get('/chats/:chatId/messages', auth, adminOnly, checkPermission('chats'), async (req, res) => {
     try {
         const { chatId } = req.params;
+
+        if (chatId.startsWith('community_')) {
+            const communityId = parseInt(chatId.replace('community_', ''));
+            const messages = await prisma.communityMessage.findMany({
+                where: { communityId },
+                include: {
+                    sender: { select: { id: true, displayName: true, avatarUrl: true, username: true } }
+                },
+                orderBy: { createdAt: 'asc' }
+            });
+            const formatted = messages.map(m => ({
+                ...m,
+                chatId,
+                receiver: null
+            }));
+            return res.json(formatted);
+        }
+
         const messages = await prisma.message.findMany({
             where: { chatId },
             include: {
@@ -819,15 +880,12 @@ router.get('/users/:id/full', auth, adminOnly, async (req, res) => {
                         orderBy: { createdAt: 'desc' }
                     },
                     blockedBy: {
-                        include: { blocker: { select: { id: true, displayName: true, username: true } } },
-                        orderBy: { createdAt: 'desc' }
+                        include: { blocker: { select: { id: true, displayName: true, username: true } } }
                     },
                     blockedUsers: {
-                        include: { blocked: { select: { id: true, displayName: true, username: true } } },
-                        orderBy: { createdAt: 'desc' }
+                        include: { blocked: { select: { id: true, displayName: true, username: true } } }
                     },
-                    verificationRequests: { orderBy: { createdAt: 'desc' } },
-                    imageGenerations: { orderBy: { createdAt: 'desc' }, take: 50 }
+                    verificationRequests: { orderBy: { createdAt: 'desc' } }
                 }
             }),
             prisma.activityLog.findMany({

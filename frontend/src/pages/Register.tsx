@@ -96,7 +96,13 @@ const Register = () => {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => { setMounted(true); document.title = "Join Krovaa"; }, []);
-  useEffect(() => { if (user) navigate("/chat"); }, [user]);
+  useEffect(() => {
+    if (user) {
+      const searchParams = new URLSearchParams(window.location.search);
+      const redirectUrl = searchParams.get("redirect") || "/chat";
+      navigate(redirectUrl, { replace: true });
+    }
+  }, [user, navigate]);
   useEffect(() => {
     if (step !== "otp" || resendCooldown <= 0) return;
 
@@ -115,9 +121,15 @@ const Register = () => {
 
   const startResendCooldown = () => setResendCooldown(120);
 
+  const validateUsername = (value: string) => /^[a-zA-Z0-9_-]{3,20}$/.test(value);
+
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    if (!validateUsername(username)) {
+      setError("Username can only contain letters, numbers, underscores, and hyphens (3–20 characters).");
+      return;
+    }
     const chk = validatePassword(password);
     if (!chk.isValid) { setError(chk.message || "Stronger password required"); return; }
     setIsSendingOtp(true);
@@ -134,10 +146,18 @@ const Register = () => {
     e.preventDefault();
     setError("");
     try {
-      await register(username.trim(), email.trim().toLowerCase(), password, displayName.trim(), otp);
+      await register(
+        username.trim(),
+        email.trim().toLowerCase(),
+        password,
+        displayName.trim(),
+        otp
+      );
       localStorage.setItem('show_welcome_banner', 'true');
       toast.success(`Welcome to Krovaa, ${displayName || username}!`);
-      navigate("/chat", { replace: true });
+      const searchParams = new URLSearchParams(window.location.search);
+      const redirectUrl = searchParams.get("redirect") || "/chat";
+      navigate(redirectUrl, { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed");
     }

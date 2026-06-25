@@ -34,7 +34,7 @@ async function createSubscriptionSupportCard(io, userId, message) {
         sender_avatar: null
       };
       io.to(chatId).emit('newMessage', socketPayload);
-      io.to(`user_${userId}`).emit('newMessage', socketPayload);
+      io.to(`user_${userId}`).emit('chatListUpdate');
       console.log(`[SUBSCRIPTION] Socket emitted to ${chatId} and user_${userId}`);
     } else {
       console.warn('[SUBSCRIPTION] io not available for socket emit');

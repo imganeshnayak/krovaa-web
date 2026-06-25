@@ -35,9 +35,12 @@ import subscriptionRoutes from './routes/subscriptions.js';
 import teamsRoutes from './routes/teams.js';
 import groupsRoutes from './routes/groups.js';
 import communitiesRoutes from './routes/communities.js';
-import communityJobsRoutes from './routes/communityJobs.js';
-import contractsRoutes from './routes/contracts.js';
-import { requireFeature } from './middleware/features.js';
+// import communityJobsRoutes from './routes/communityJobs.js';
+// import contractsRoutes from './routes/contracts.js';
+import savedJobsRoutes from './routes/savedJobs.js';
+import userPreferencesRoutes from './routes/userPreferences.js';
+import collabRoutes from './routes/collab.js';
+import dealsRoutes from './routes/deals.js';
 import setupSocket from './socket/chat.js';
 
 const app = express();
@@ -58,6 +61,7 @@ app.use((req, res, next) => {
 
 const allowedOrigins = [
     'http://localhost',
+    'https://localhost',
     'capacitor://localhost',
     'http://localhost:5173',
     'http://localhost:8080',
@@ -178,15 +182,34 @@ app.use('/api/posts', postsRoutes);
 app.use('/api/subscriptions', subscriptionRoutes);
 app.use('/api/teams', teamsRoutes);
 app.use('/api/groups', groupsRoutes);
-    app.use('/api/communities', requireFeature('VITE_ENABLE_COMMUNITIES'), communitiesRoutes);
-    app.use('/api/communities', requireFeature('VITE_ENABLE_COMMUNITIES'), communityJobsRoutes);
-    app.use('/api/contracts', requireFeature('VITE_ENABLE_COMMUNITIES'), contractsRoutes);
+    app.use('/api/communities', communitiesRoutes);
+    // app.use('/api/communities', communityJobsRoutes);
+    // app.use('/api/contracts', contractsRoutes);
+app.use('/api/saved-jobs', savedJobsRoutes);
+app.use('/api/user-preferences', userPreferencesRoutes);
+app.use('/api/collab', collabRoutes);
+app.use('/api/deals', dealsRoutes);
+
+// API 404 Handler - Catch-all for any unmatched /api routes
+app.all('/api/*', (req, res) => {
+    res.status(404).json({
+        error: `API route not found: ${req.method} ${req.url}`
+    });
+});
 
 // SPA Fallback for React Router (Must be after all /api routes)
 app.get('*', (req, res) => {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
+
+    const accept = (req.headers.accept || '').toLowerCase();
+    // If the client expects JSON (or the path looks like an API call), return JSON 404
+    if (accept.includes('application/json') || req.path.startsWith('/api/') || req.xhr) {
+        return res.status(404).json({ error: 'Not found' });
+    }
+
+    // Otherwise serve the SPA entrypoint (HTML)
     res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
 });
 

@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, CheckCircle2, FileText, MessageSquare, Paperclip, User, Calendar, MapPin, Briefcase, IndianRupee, Clock, Code2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2, FileText, MessageSquare, Paperclip, User, Calendar, MapPin, Briefcase, IndianRupee, Clock, Code2, Share2, Bookmark, BookmarkCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { getJob, applyJob, withdrawJobApplication, JobDetails } from "@/lib/api";
+import ShareJobDialog from "../components/ShareJobDialog";
+import { JobSaveButton } from "@/components/JobSaveButton";
 
 const formatPostedAt = (createdAt: string) => {
   return new Date(createdAt).toLocaleDateString(undefined, {
@@ -32,6 +34,8 @@ const JobDetailsPage = () => {
   const [justApplied, setJustApplied] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [userApplication, setUserApplication] = useState<any>(null);
+  const [showShareDialog, setShowShareDialog] = useState(false);
+  const [showAuthPromptModal, setShowAuthPromptModal] = useState(false);
   const isJobOwner = Boolean(user && job && job.postedBy.id === user.id);
 
   useEffect(() => {
@@ -68,6 +72,10 @@ const JobDetailsPage = () => {
   }, [jobId, user]);
 
   const openApplyModal = () => {
+    if (!user) {
+      setShowAuthPromptModal(true);
+      return;
+    }
     setApplyBidAmount("");
     setApplyCoverLetter("");
     setTermsAndConditions("");
@@ -170,9 +178,23 @@ const JobDetailsPage = () => {
             <div className="space-y-6">
               <section className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm space-y-6">
                 <div>
-                  <span className="inline-flex items-center rounded-md bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-800 uppercase tracking-wider">
-                    {job.company}
-                  </span>
+                  <div className="flex justify-between items-center mb-3">
+                    <span className="inline-flex items-center rounded-md bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-800 uppercase tracking-wider">
+                      {job.company}
+                    </span>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowShareDialog(true)}
+                        className="rounded-xl border-slate-200 text-xs font-semibold gap-1.5 hover:text-[#00A4EF] hover:border-[#00A4EF]/30"
+                      >
+                        <Share2 className="h-3.5 w-3.5" />
+                        
+                      </Button>
+                      <JobSaveButton jobId={job.id} className="p-1" />
+                    </div>
+                  </div>
                   <h1 className="mt-3 text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">{job.title}</h1>
                   
                   {/* Dynamic Metadata Container Row */}
@@ -351,7 +373,7 @@ const JobDetailsPage = () => {
                           {/* Top row: Profile & Bid Amount */}
                           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                             <div className="flex items-center gap-3">
-                              <a href={`/profile/${app.user.username}`} className="flex items-center gap-3 group shrink-0">
+                              <a href={`/profile/${encodeURIComponent(app.user.username)}`} className="flex items-center gap-3 group shrink-0">
                                 <div className="h-11 w-11 rounded-full bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center shrink-0">
                                   {app.user.avatarUrl ? (
                                     <img src={app.user.avatarUrl} alt={app.user.displayName || app.user.username} className="h-full w-full object-cover" />
@@ -465,7 +487,7 @@ const JobDetailsPage = () => {
 
                 {/* Inline Client Credentials Context */}
                 <div className="space-y-4">
-                  <a href={`/profile/${job.postedBy.username}`} className="flex items-center gap-3 group">
+                  <a href={`/profile/${encodeURIComponent(job.postedBy.username)}`} className="flex items-center gap-3 group">
                     <div className="h-11 w-11 rounded-full bg-slate-50 border border-slate-200 overflow-hidden flex items-center justify-center shrink-0">
                       {job.postedBy.avatarUrl ? (
                         <img 
@@ -674,6 +696,53 @@ const JobDetailsPage = () => {
               onClick={handleApply}
             >
               {isSubmitting ? "Submitting..." : "Submit Application"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Share Job Dialog */}
+      {job && showShareDialog && (
+        <ShareJobDialog
+          isOpen={showShareDialog}
+          onClose={() => setShowShareDialog(false)}
+          jobId={job.id}
+          jobTitle={job.title}
+          companyName={job.company}
+        />
+      )}
+
+      {/* Authentication Required Dialog Modal */}
+      <Dialog open={showAuthPromptModal} onOpenChange={setShowAuthPromptModal}>
+        <DialogContent className="sm:max-w-[440px] p-6 rounded-[2rem] border border-slate-200/80 bg-white/95 backdrop-blur-md shadow-2xl">
+          <DialogHeader className="space-y-1">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#00A4EF]/10 text-[#00A4EF] mb-2 animate-bounce">
+              <User className="h-5 w-5" />
+            </div>
+            <DialogTitle className="text-xl font-bold text-center text-slate-900">Authentication Required</DialogTitle>
+            <DialogDescription className="text-sm text-center text-slate-500">
+              You must log in or create a free account to apply for jobs and submit bids.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 mt-6">
+            <Button
+              className="w-full rounded-2xl bg-[#00A4EF] h-12 text-sm font-semibold text-white hover:bg-[#0087d1] shadow-md transition-all active:scale-[0.98]"
+              onClick={() => {
+                setShowAuthPromptModal(false);
+                navigate(`/login?redirect=/jobs/${jobId}`);
+              }}
+            >
+              Sign In to Your Account
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full rounded-2xl border-slate-200 h-12 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-all active:scale-[0.98]"
+              onClick={() => {
+                setShowAuthPromptModal(false);
+                navigate(`/register?redirect=/jobs/${jobId}`);
+              }}
+            >
+              Create a Free Account
             </Button>
           </div>
         </DialogContent>

@@ -49,7 +49,9 @@ const Login = () => {
     setError("");
     try {
       const loggedInUser = await login(email.trim().toLowerCase(), password);
-      navigate(loggedInUser.role === "admin" ? "/admin" : "/chat", { replace: true });
+      const searchParams = new URLSearchParams(window.location.search);
+      const redirectUrl = searchParams.get("redirect") || (loggedInUser.role === "admin" ? "/admin" : "/chat");
+      navigate(redirectUrl, { replace: true });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Login failed";
       if (

@@ -53,8 +53,12 @@ router.post('/send-otp', async (req, res) => {
         const existingEmail = await prisma.user.findUnique({ where: { email } });
         if (existingEmail) return res.status(400).json({ error: 'Email already registered. Try logging in.' });
 
-        // If username provided, check if it's taken
+        // If username provided, validate format and check if it's taken
         if (username) {
+            const usernameRegex = /^[a-zA-Z0-9_-]{3,20}$/;
+            if (!usernameRegex.test(username.trim())) {
+                return res.status(400).json({ error: 'Username can only contain letters, numbers, underscores, and hyphens (3-20 characters).' });
+            }
             const existingUser = await prisma.user.findUnique({ where: { username: username.trim() } });
             if (existingUser) return res.status(400).json({ error: 'Username is already taken.' });
         }
@@ -97,7 +101,7 @@ router.post('/send-otp', async (req, res) => {
 // ─────────────────────────────────────────────────────────────────
 router.post('/register', async (req, res) => {
     try {
-        let { username, email, password, display_name, otp, profession } = req.body;
+        let { username, email, password, display_name, otp, profession, account_type, business_name, business_type } = req.body;
         username = username?.trim();
         email = email?.trim().toLowerCase();
 
@@ -147,6 +151,12 @@ router.post('/register', async (req, res) => {
             return res.status(400).json({ error: 'This username is already taken. Please choose another one.' });
         }
 
+        // Validate username format
+        const usernameRegex = /^[a-zA-Z0-9_-]{3,20}$/;
+        if (!username || !usernameRegex.test(username)) {
+            return res.status(400).json({ error: 'Username can only contain letters, numbers, underscores, and hyphens (3-20 characters).' });
+        }
+
         // Validate password strength
         const passwordValidation = validatePassword(password);
         if (!passwordValidation.isValid) {
@@ -154,10 +164,29 @@ router.post('/register', async (req, res) => {
             return res.status(400).json({ error: passwordValidation.message });
         }
 
+        // Validate business fields
+        const resolvedAccountType = account_type === 'business' ? 'business' : 'individual';
+        if (resolvedAccountType === 'business' && !business_name?.trim()) {
+            return res.status(400).json({ error: 'Business name is required for business accounts.' });
+        }
+
         const hashedPassword = await bcrypt.hash(password, 10);
         const user = await prisma.user.create({
-            data: { username, email, password: hashedPassword, displayName: display_name || username, profession },
-            select: { id: true, username: true, email: true, displayName: true, role: true, profession: true },
+            data: {
+                username,
+                email,
+                password: hashedPassword,
+                displayName: display_name || username,
+                profession,
+                accountType: resolvedAccountType,
+                businessName: business_name?.trim() || null,
+                businessType: business_type || null,
+            },
+            select: {
+                id: true, username: true, email: true, displayName: true,
+                role: true, profession: true, accountType: true,
+                businessName: true, businessType: true,
+            },
         });
 
         const token = jwt.sign(
@@ -274,7 +303,10 @@ router.get('/me', auth, async (req, res) => {
                 avatarUrl: true, role: true, status: true, city: true, 
                 pincode: true, profession: true, bio: true, phoneNumber: true,
                 gender: true, age: true, userGoal: true, skills: true,
-                createdAt: true 
+                createdAt: true, walletBalance: true, verified: true,
+                shareId: true, telegramId: true, socialLinks: true,
+                permissions: true, coverPhotoUrl: true,
+                accountType: true, businessName: true, businessType: true,
             },
         });
 

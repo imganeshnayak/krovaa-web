@@ -5,6 +5,7 @@ import { auth } from '../middleware/auth.js';
 import cloudinary from '../config/cloudinary.js';
 import multer from 'multer';
 import { sendUserNotification } from './notifications.js';
+import { sendTargetedJobNotifications } from '../services/preferenceMatchingService.js';
 
 const prisma = new PrismaClient();
 const router = express.Router();
@@ -295,7 +296,7 @@ router.get('/:id', async (req, res) => {
         let reqUser = req.user;
         if (!reqUser) {
             const authHeader = req.header('Authorization');
-            const token = authHeader?.replace('Bearer ', '');
+            const token = req.cookies?.token || authHeader?.replace('Bearer ', '');
             if (token) {
                 try {
                     const decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -350,8 +351,8 @@ router.get('/:id', async (req, res) => {
 router.post('/', auth, uploadJobAttachments, async (req, res) => {
     try {
         const { title, company, location, budget, mode, description, terms, termsAndConditions, deadline } = req.body;
-        if (!title || !company || !location || !budget || !description) {
-            return res.status(400).json({ error: 'Title, company, location, budget, and description are required.' });
+        if (!title || !location || !budget || !description) {
+            return res.status(400).json({ error: 'Title, location, budget, and description are required.' });
         }
 
         const normalizedMode = (mode || 'Remote').trim();
@@ -385,7 +386,7 @@ router.post('/', auth, uploadJobAttachments, async (req, res) => {
             return tx.job.create({
                 data: {
                     title: title.trim(),
-                    company: company.trim(),
+                    company: company ? company.trim() : "Independent",
                     location: location.trim(),
                     budget: budget.trim(),
                     mode: normalizedMode,
@@ -425,32 +426,18 @@ router.post('/', auth, uploadJobAttachments, async (req, res) => {
             skipChatMirror: true,
         };
 
-        const activeUsers = await prisma.user.findMany({
-            where: {
-                status: 'active',
-                NOT: { id: req.user.id }
-            },
-            select: { id: true }
-        });
+        // Notify the job poster that their job was posted successfully
+        await sendUserNotification(
+            io,
+            req.user.id,
+            'Job Posted Successfully',
+            `Your job ${sanitizeText(job.title)} is now live and visible to applicants.`,
+            'success',
+            jobNotificationMetadata
+        );
 
-        await Promise.allSettled([
-            sendUserNotification(
-                io,
-                req.user.id,
-                'Job Posted Successfully',
-                `Your job ${sanitizeText(job.title)} is now live and visible to applicants.`,
-                'success',
-                jobNotificationMetadata
-            ),
-            ...activeUsers.map((user) => sendUserNotification(
-                io,
-                user.id,
-                `New Job: ${sanitizeText(job.title)}`,
-                `${posterName} posted a new ${job.mode.toLowerCase()} job at ${sanitizeText(job.company)} in ${sanitizeText(job.location)}.`,
-                'info',
-                jobNotificationMetadata
-            )),
-        ]);
+        // Send targeted notifications to users whose preferences match this job
+        await sendTargetedJobNotifications(io, job, req.user.id);
 
         res.status(201).json(job);
     } catch (err) {
@@ -559,7 +546,7 @@ router.post('/:id/apply', auth, async (req, res) => {
                 sender_username: message.sender.username,
             };
             io.to(chatId).emit('newMessage', socketMessage);
-            io.to(`user_${job.postedById}`).emit('newMessage', socketMessage);
+            io.to(`user_${job.postedById}`).emit('chatListUpdate');
             
             // Also send a system notification (bell icon)
             const applicant = await prisma.user.findUnique({ where: { id: userId }, select: { displayName: true, username: true } });

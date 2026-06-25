@@ -340,3 +340,40 @@ export async function sendSubscriptionReceiptEmail(email, details) {
 
   console.log(`Subscription receipt sent to ${email}`);
 }
+
+export async function sendWalletInvoiceEmail(email, details, pdfBuffer) {
+  const customerName = details.customerName || 'Krovaa member';
+  const receiptReference = details.receiptReference || `TXN-${Date.now()}`;
+  const amountLabel = formatCurrency(details.amount, 'INR');
+  const senderEmail = process.env.EMAIL_USER || 'support@krovaa.com';
+
+  const subject = `Your Krovaa Wallet Receipt (PDF)`;
+  const bodyHtml = `
+    <div style="font-family:Arial,Helvetica,sans-serif;color:#E5E7EB;line-height:1.6;">
+      <p style="margin:0 0 12px;">Hi ${escapeHtml(customerName)},</p>
+      <p style="margin:0 0 18px;">Your wallet was successfully credited. Your receipt PDF is attached to this email.</p>
+      <div style="background:#111827;border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:18px 20px;margin:0 0 18px;">
+        <p style="margin:0 0 8px;color:#9CA3AF;font-size:12px;text-transform:uppercase;letter-spacing:.12em;">Wallet Credit</p>
+        <p style="margin:0;color:#FFFFFF;font-size:18px;font-weight:700;">Top-up Successful</p>
+        <p style="margin:4px 0 0;color:#0FB881;font-size:14px;font-weight:700;">${escapeHtml(amountLabel)}</p>
+      </div>
+      <p style="margin:0;color:#9CA3AF;font-size:13px;">Reference ID: ${escapeHtml(receiptReference)}</p>
+    </div>
+  `;
+
+  await transporter.sendMail({
+    from: `"Krovaa Billing" <${senderEmail}>`,
+    to: email,
+    replyTo: 'support@krovaa.com',
+    subject,
+    text: `Hi ${customerName},\n\nYour wallet was successfully credited. Reference ID: ${receiptReference}. Amount: ${amountLabel}.\n\nThe receipt PDF is attached to this email.`,
+    html: emailShell('#0FB881', 'Wallet Receipt', bodyHtml),
+    attachments: [{
+      filename: `Krovaa-Wallet-Receipt-${receiptReference}.pdf`,
+      content: pdfBuffer,
+      contentType: 'application/pdf',
+    }],
+  });
+
+  console.log(`Wallet receipt sent to ${email}`);
+}
