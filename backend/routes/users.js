@@ -746,7 +746,7 @@ router.put('/profile/:id', auth, async (req, res) => {
             return res.status(403).json({ error: 'Not authorized.' });
         }
 
-        const { displayName, bio, email, avatarUrl, role, socialLinks, skills, phoneNumber, city, pincode, profession, gender, age, userGoal } = req.body;
+        const { displayName, bio, email, avatarUrl, role, socialLinks, skills, phoneNumber, city, pincode, profession, gender, age, userGoal, accountType, businessName, businessType, businessAddress, businessCity, businessState, businessPincode, businessLandmark } = req.body;
 
         const updateData = {};
         if (displayName !== undefined) updateData.displayName = displayName?.trim();
@@ -769,6 +769,20 @@ router.put('/profile/:id', auth, async (req, res) => {
         if (age !== undefined) updateData.age = parseInt(age) || null;
         if (userGoal !== undefined) updateData.userGoal = userGoal;
         if (role !== undefined && ['client', 'admin'].includes(role)) updateData.role = role;
+        if (accountType !== undefined) updateData.accountType = accountType;
+        if (businessName !== undefined) updateData.businessName = businessName;
+        if (businessType !== undefined) updateData.businessType = businessType;
+        if (businessAddress !== undefined) updateData.businessAddress = businessAddress?.trim() || null;
+        if (businessCity !== undefined) updateData.businessCity = businessCity?.trim() || null;
+        if (businessState !== undefined) updateData.businessState = businessState?.trim() || null;
+        if (businessPincode !== undefined) {
+            const trimmedBPincode = businessPincode?.trim();
+            if (trimmedBPincode && !/^\d{6}$/.test(trimmedBPincode)) {
+                return res.status(400).json({ error: 'Business pincode must be exactly 6 digits.' });
+            }
+            updateData.businessPincode = trimmedBPincode || null;
+        }
+        if (businessLandmark !== undefined) updateData.businessLandmark = businessLandmark?.trim() || null;
 
         const updatedUser = await prisma.user.update({
             where: { id: parseInt(req.params.id) },
@@ -794,6 +808,14 @@ router.put('/profile/:id', auth, async (req, res) => {
                 age: true,
                 userGoal: true,
                 skills: true,
+                accountType: true,
+                businessName: true,
+                businessType: true,
+                businessAddress: true,
+                businessCity: true,
+                businessState: true,
+                businessPincode: true,
+                businessLandmark: true,
                 createdAt: true
             }
         });

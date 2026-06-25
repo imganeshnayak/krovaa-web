@@ -40,6 +40,7 @@ import communitiesRoutes from './routes/communities.js';
 import savedJobsRoutes from './routes/savedJobs.js';
 import userPreferencesRoutes from './routes/userPreferences.js';
 import collabRoutes from './routes/collab.js';
+import dealsRoutes from './routes/deals.js';
 import setupSocket from './socket/chat.js';
 
 const app = express();
@@ -187,6 +188,7 @@ app.use('/api/groups', groupsRoutes);
 app.use('/api/saved-jobs', savedJobsRoutes);
 app.use('/api/user-preferences', userPreferencesRoutes);
 app.use('/api/collab', collabRoutes);
+app.use('/api/deals', dealsRoutes);
 
 // API 404 Handler - Catch-all for any unmatched /api routes
 app.all('/api/*', (req, res) => {

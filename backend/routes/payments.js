@@ -84,6 +84,160 @@ router.post('/escrow/initiate', auth, async (req, res) => {
     }
 });
 
+// POST /api/payments/escrow/wallet-pay - Pay for escrow deal using wallet balance
+router.post('/escrow/wallet-pay', auth, async (req, res) => {
+    try {
+        const { dealId } = req.body;
+
+        if (!dealId) {
+            return res.status(400).json({ error: 'Deal ID is required.' });
+        }
+
+        const deal = await prisma.escrowDeal.findUnique({
+            where: { id: parseInt(dealId) },
+            include: { vendor: { select: { id: true, displayName: true } } }
+        });
+
+        if (!deal) {
+            return res.status(404).json({ error: 'Deal not found.' });
+        }
+
+        // Verify user is the client
+        if (deal.clientId !== req.user.id) {
+            return res.status(403).json({ error: 'Only the client can pay for this deal.' });
+        }
+
+        // Check if already paid
+        if (deal.paymentStatus === 'paid') {
+            return res.status(400).json({ error: 'Payment already completed for this deal.' });
+        }
+
+        // Check user balance
+        const user = await prisma.user.findUnique({
+            where: { id: req.user.id },
+            select: { walletBalance: true }
+        });
+
+        const amountToDeduct = deal.totalAmount;
+        if (user.walletBalance < amountToDeduct) {
+            return res.status(400).json({ error: `Insufficient wallet balance. You need ₹${amountToDeduct.toLocaleString('en-IN')} but only have ₹${user.walletBalance.toLocaleString('en-IN')}.` });
+        }
+
+        // Fetch platform fee from settings
+        let platformFeePercent = 0.10; // Default
+        const feeSetting = await prisma.systemSetting.findUnique({ where: { key: 'platform_fee_percent' } });
+        if (feeSetting) platformFeePercent = parseFloat(feeSetting.value);
+        const feeAmount = amountToDeduct * platformFeePercent;
+
+        const updatedDeal = await prisma.$transaction(async (tx) => {
+            // 1. Deduct from wallet
+            const updatedUser = await tx.user.update({
+                where: { id: req.user.id },
+                data: { walletBalance: { decrement: amountToDeduct } }
+            });
+
+            // 2. Log wallet transaction
+            await tx.walletTransaction.create({
+                data: {
+                    userId: req.user.id,
+                    type: 'debit',
+                    amount: -amountToDeduct,
+                    balance: updatedUser.walletBalance,
+                    description: `Paid Escrow Deal: ${deal.title}`,
+                    reference: deal.chatId,
+                    metadata: {
+                        dealId: deal.id,
+                        dealTitle: deal.title,
+                        chatId: deal.chatId,
+                        vendorId: deal.vendorId,
+                        otherUserId: deal.vendorId,
+                        otherDisplayName: deal.vendor.displayName
+                    }
+                }
+            });
+
+            // 3. Update escrow deal status to active & paid
+            const paidDeal = await tx.escrowDeal.update({
+                where: { id: deal.id },
+                data: {
+                    paymentStatus: 'paid',
+                    paidAmount: amountToDeduct,
+                    status: 'active'
+                },
+                include: {
+                    client: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
+                    vendor: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
+                    transactions: true
+                }
+            });
+
+            // 3a. Record platform fee transaction
+            if (feeAmount > 0) {
+                await tx.escrowTransaction.create({
+                    data: {
+                        dealId: deal.id,
+                        percent: 0,
+                        amount: feeAmount,
+                        note: 'platform_fee'
+                    }
+                });
+            }
+
+            // 4. Activity Log
+            await tx.activityLog.create({
+                data: {
+                    userId: req.user.id,
+                    action: 'Paid for escrow deal (Wallet)',
+                    details: `${deal.title} - ₹${amountToDeduct}`
+                }
+            });
+
+            // 5. System Message
+            const systemMessage = await tx.message.create({
+                data: {
+                    senderId: req.user.id,
+                    receiverId: deal.vendorId,
+                    chatId: deal.chatId,
+                    content: `Payment Confirmed: ₹${deal.totalAmount.toLocaleString('en-IN')} for "${deal.title}". Paid via client wallet. The deal is now active.`,
+                    messageType: 'escrow_payment'
+                },
+                include: { sender: { select: { displayName: true, avatarUrl: true, username: true } } }
+            });
+
+            // Emit socket event for the system message
+            try {
+                const io = req.app.get('io');
+                if (io) {
+                    const socketResult = {
+                        ...systemMessage,
+                        sender_name: systemMessage.sender.displayName,
+                        sender_avatar: systemMessage.sender.avatarUrl,
+                        sender_username: systemMessage.sender.username,
+                    };
+                    io.to(`user_${deal.vendorId}`).emit('newMessage', socketResult);
+                }
+            } catch (_) {}
+
+            return paidDeal;
+        });
+
+        const io = req.app.get('io');
+        if (io) {
+            io.to(deal.chatId).emit('escrowUpdate', updatedDeal);
+            io.to(`user_${deal.vendorId}`).emit('escrowUpdate', updatedDeal);
+            io.to(`user_${deal.clientId}`).emit('escrowUpdate', updatedDeal);
+        }
+
+        sendUserNotification(io, req.user.id, 'Payment Successful', `Your payment of ₹${amountToDeduct.toLocaleString('en-IN')} for "${deal.title}" was successful.`, 'success', { type: 'escrow', dealId: deal.id, chatId: deal.chatId });
+        sendUserNotification(io, deal.vendorId, 'Payment Received', `A client paid ₹${amountToDeduct.toLocaleString('en-IN')} for the deal "${deal.title}".`, 'success', { type: 'escrow', dealId: deal.id, chatId: deal.chatId });
+
+        res.json(updatedDeal);
+    } catch (err) {
+        console.error('Wallet escrow payment error:', err);
+        res.status(500).json({ error: 'Failed to complete wallet payment.' });
+    }
+});
+
 // POST /api/payments/wallet/initiate - Create Razorpay order for wallet top-up
 router.post('/wallet/initiate', auth, async (req, res) => {
     try {

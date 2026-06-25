@@ -92,6 +92,14 @@ export interface AuthUser {
   userGoal?: string;
   skills?: string[];
   walletBalance?: number;
+  accountType?: string;
+  businessName?: string;
+  businessType?: string;
+  businessAddress?: string;
+  businessCity?: string;
+  businessState?: string;
+  businessPincode?: string;
+  businessLandmark?: string;
 }
 
 export interface AuthResponse {
@@ -236,12 +244,20 @@ export function updateUserProfile(
     socialLinks?: { platform: string; url: string }[];
     city?: string;
     pincode?: string;
+    profession?: string;
     phoneNumber?: string;
-    profession?: string | null;
     gender?: string;
-    age?: number | null;
+    age?: number;
     userGoal?: string;
     skills?: string[];
+    accountType?: string;
+    businessName?: string;
+    businessType?: string;
+    businessAddress?: string;
+    businessCity?: string;
+    businessState?: string;
+    businessPincode?: string;
+    businessLandmark?: string;
   }
 ): Promise<AuthUser> {
   return apiFetch<AuthUser>(`/api/users/profile/${userId}`, {
@@ -1125,6 +1141,13 @@ export interface EscrowDeal {
     username: string;
   };
   transactions: EscrowTransaction[];
+  dealListingId?: number;
+  shippingWeight?: number;
+  shippingDimensions?: string;
+  pickupAddress?: string;
+  trackingId?: string;
+  shippingStatus?: string;
+  shippingEvents?: any[];
 }
 
 export function getEscrowDeals(chatId?: string): Promise<EscrowDeal[]> {
@@ -1185,6 +1208,44 @@ export function deleteEscrowDeal(dealId: number, reason?: string): Promise<{ suc
   return apiFetch<{ success: boolean; message: string }>(`/api/escrow/${dealId}`, {
     method: "DELETE",
     body: reason ? JSON.stringify({ reason }) : undefined,
+  });
+}
+
+export function acceptDeal(shareCode: string): Promise<EscrowDeal> {
+  return apiFetch<EscrowDeal>(`/api/deals/${encodeURIComponent(shareCode)}/accept`, {
+    method: "POST",
+  });
+}
+
+export function shipEscrowDeal(
+  dealId: number,
+  data: { weight: number; dimensions: string; pickupAddress: string }
+): Promise<EscrowDeal> {
+  return apiFetch<EscrowDeal>(`/api/escrow/${dealId}/ship`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export function simulateDelivery(dealId: number): Promise<EscrowDeal> {
+  return apiFetch<EscrowDeal>(`/api/escrow/${dealId}/simulate-delivery`, {
+    method: "POST",
+  });
+}
+
+export function confirmRelease(dealId: number): Promise<EscrowDeal> {
+  return apiFetch<EscrowDeal>(`/api/escrow/${dealId}/confirm-release`, {
+    method: "POST",
+  });
+}
+
+export function submitDealReview(
+  dealId: number,
+  data: { rating: number; comment?: string; role: 'buyer' | 'seller' }
+): Promise<any> {
+  return apiFetch<any>(`/api/escrow/${dealId}/review`, {
+    method: "POST",
+    body: JSON.stringify(data),
   });
 }
 
@@ -1253,6 +1314,13 @@ export interface PaymentOrder {
 
 export function initiateEscrowPayment(dealId: number): Promise<PaymentOrder> {
   return apiFetch<PaymentOrder>("/api/payments/escrow/initiate", {
+    method: "POST",
+    body: JSON.stringify({ dealId }),
+  });
+}
+
+export function payEscrowWithWallet(dealId: number): Promise<EscrowDeal> {
+  return apiFetch<EscrowDeal>("/api/payments/escrow/wallet-pay", {
     method: "POST",
     body: JSON.stringify({ dealId }),
   });
@@ -2034,5 +2102,133 @@ export function updateCollabProject(projectId: number, data: any): Promise<Proje
   return apiFetch<ProjectListing>(`/api/collab/${projectId}`, {
     method: 'PUT',
     body: JSON.stringify(data),
+  });
+}
+
+// ============ Deal Marketplace API ============
+
+export interface DealListing {
+  id: number;
+  shareCode: string;
+  sellerId: number;
+  seller: {
+    id: number;
+    username: string;
+    displayName: string;
+    avatarUrl?: string;
+    verified?: boolean;
+    businessName?: string;
+    accountType?: string;
+  };
+  title: string;
+  description: string;
+  price: number;
+  currency: string;
+  imageUrls: string[];
+  deliveryType: string;
+  deliveryDays?: number;
+  category?: string;
+  status: string;
+  viewCount: number;
+  _count?: { inquiries: number };
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DealInquiry {
+  id: number;
+  dealId: number;
+  buyerId: number;
+  buyer: { id: number; username: string; displayName: string; avatarUrl?: string; verified?: boolean };
+  chatId?: string;
+  status: string;
+  createdAt: string;
+}
+
+export function getPublicDeals(params?: {
+  category?: string;
+  deliveryType?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  search?: string;
+  page?: number;
+  limit?: number;
+}): Promise<{ deals: DealListing[]; total: number; page: number; hasMore: boolean }> {
+  const q = new URLSearchParams();
+  if (params?.category) q.append('category', params.category);
+  if (params?.deliveryType) q.append('deliveryType', params.deliveryType);
+  if (params?.minPrice !== undefined) q.append('minPrice', String(params.minPrice));
+  if (params?.maxPrice !== undefined) q.append('maxPrice', String(params.maxPrice));
+  if (params?.search) q.append('search', params.search);
+  if (params?.page) q.append('page', String(params.page));
+  if (params?.limit) q.append('limit', String(params.limit));
+  return apiFetch(`/api/deals/public?${q.toString()}`);
+}
+
+export function getPublicDeal(shareCode: string): Promise<DealListing> {
+  return apiFetch<DealListing>(`/api/deals/${encodeURIComponent(shareCode)}`);
+}
+
+export function getMyDealListings(): Promise<DealListing[]> {
+  return apiFetch<DealListing[]>('/api/deals');
+}
+
+export function getSellerDeals(userId: number): Promise<DealListing[]> {
+  return apiFetch<DealListing[]>(`/api/deals/seller/${userId}`);
+}
+
+export function createDealListing(data: {
+  title: string;
+  description: string;
+  price: number;
+  imageUrls?: string[];
+  deliveryType?: string;
+  deliveryDays?: number;
+  category?: string;
+}): Promise<{ deal: DealListing; shareUrl: string }> {
+  return apiFetch<{ deal: DealListing; shareUrl: string }>('/api/deals', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export function updateDealListing(id: number, data: Partial<{
+  title: string; description: string; price: number;
+  imageUrls: string[]; deliveryType: string;
+  deliveryDays: number; category: string;
+}>): Promise<DealListing> {
+  return apiFetch<DealListing>(`/api/deals/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export function setDealStatus(id: number, status: 'active' | 'paused' | 'sold'): Promise<DealListing> {
+  return apiFetch<DealListing>(`/api/deals/${id}/status`, {
+    method: 'PUT',
+    body: JSON.stringify({ status }),
+  });
+}
+
+export function deleteDealListing(id: number): Promise<{ success: boolean }> {
+  return apiFetch<{ success: boolean }>(`/api/deals/${id}`, { method: 'DELETE' });
+}
+
+export function inquireDeal(shareCode: string): Promise<{ chatId: string; message: string }> {
+  return apiFetch<{ chatId: string; message: string }>(`/api/deals/${encodeURIComponent(shareCode)}/inquire`, {
+    method: 'POST',
+  });
+}
+
+export function getDealInquiries(dealId: number): Promise<DealInquiry[]> {
+  return apiFetch<DealInquiry[]>(`/api/deals/${dealId}/inquiries`);
+}
+
+export function uploadDealImage(file: File): Promise<{ imageUrl: string }> {
+  const formData = new FormData();
+  formData.append("image", file);
+  return apiFetch<{ imageUrl: string }>("/api/deals/upload", {
+    method: "POST",
+    body: formData,
   });
 }

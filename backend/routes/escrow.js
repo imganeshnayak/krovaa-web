@@ -896,4 +896,542 @@ router.delete('/:id', auth, async (req, res) => {
     }
 });
 
+// ─── AUTH: POST /api/escrow/:id/ship — Ship package (seller) ──────────────────
+
+router.post('/:id/ship', auth, async (req, res) => {
+    try {
+        const dealId = parseInt(req.params.id);
+        const { weight, dimensions, pickupAddress } = req.body;
+
+        if (!weight || !dimensions || !pickupAddress) {
+            return res.status(400).json({ error: 'Weight, dimensions, and pickup address are required.' });
+        }
+
+        const deal = await prisma.escrowDeal.findUnique({
+            where: { id: dealId }
+        });
+
+        if (!deal) {
+            return res.status(404).json({ error: 'Deal not found.' });
+        }
+
+        if (deal.vendorId !== req.user.id) {
+            return res.status(403).json({ error: 'Only the seller can update shipping information.' });
+        }
+
+        if (deal.status !== 'active' || deal.paymentStatus !== 'paid') {
+            return res.status(400).json({ error: 'Cannot ship unpaid or inactive deals.' });
+        }
+
+        const trackingId = 'AWB-' + Math.floor(1000000000 + Math.random() * 9000000000);
+        const initialEvents = [
+            {
+                status: 'label_created',
+                title: 'Shipping Label Generated',
+                description: `Label generated with tracking ID ${trackingId}.`,
+                timestamp: new Date().toISOString()
+            },
+            {
+                status: 'in_transit',
+                title: 'Package Shipped',
+                description: 'Package picked up from seller location and is in transit.',
+                timestamp: new Date().toISOString()
+            }
+        ];
+
+        const updatedDeal = await prisma.escrowDeal.update({
+            where: { id: dealId },
+            data: {
+                shippingWeight: parseFloat(weight),
+                shippingDimensions: dimensions,
+                pickupAddress: pickupAddress,
+                trackingId: trackingId,
+                shippingStatus: 'in_transit',
+                shippingEvents: initialEvents
+            },
+            include: {
+                client: {
+                    select: { id: true, displayName: true, avatarUrl: true, username: true }
+                },
+                vendor: {
+                    select: { id: true, displayName: true, avatarUrl: true, username: true }
+                },
+                transactions: true
+            }
+        });
+
+        // System message in chat
+        let systemMessage;
+        const msgContent = `📦 *Seller has shipped the package!*\nTracking ID: ${trackingId}\nCourier: Krovaa Shipping Express`;
+        if (deal.chatId.startsWith('community_')) {
+            systemMessage = await prisma.communityMessage.create({
+                data: {
+                    senderId: req.user.id,
+                    communityId: parseInt(deal.chatId.split('_')[1]),
+                    content: msgContent,
+                    messageType: 'escrow_shipped'
+                },
+                include: { sender: { select: { displayName: true, avatarUrl: true, username: true } } }
+            });
+        } else {
+            systemMessage = await prisma.message.create({
+                data: {
+                    senderId: req.user.id,
+                    receiverId: deal.clientId,
+                    chatId: deal.chatId,
+                    content: msgContent,
+                    messageType: 'escrow_shipped'
+                },
+                include: { sender: { select: { displayName: true, avatarUrl: true, username: true } } }
+            });
+        }
+
+        const io = req.app.get('io');
+        if (io) {
+            const socketResult = {
+                ...systemMessage,
+                sender_name: systemMessage.sender.displayName,
+                sender_avatar: systemMessage.sender.avatarUrl,
+                sender_username: systemMessage.sender.username,
+            };
+            io.to(`user_${deal.clientId}`).emit('newMessage', socketResult);
+            io.to(deal.chatId).emit('escrowUpdate', updatedDeal);
+            io.to(`user_${deal.clientId}`).emit('escrowUpdate', updatedDeal);
+        }
+
+        sendUserNotification(
+            io,
+            deal.clientId,
+            'Order Shipped',
+            `The seller has shipped "${deal.title}". Tracking ID: ${trackingId}`,
+            'success',
+            { type: 'escrow', dealId, chatId: deal.chatId }
+        );
+
+        res.json(updatedDeal);
+    } catch (err) {
+        console.error('Ship escrow error:', err);
+        res.status(500).json({ error: 'Failed to ship package.' });
+    }
+});
+
+// ─── AUTH: POST /api/escrow/:id/simulate-delivery — Simulate package delivery ───
+
+router.post('/:id/simulate-delivery', auth, async (req, res) => {
+    try {
+        const dealId = parseInt(req.params.id);
+
+        const deal = await prisma.escrowDeal.findUnique({
+            where: { id: dealId }
+        });
+
+        if (!deal) {
+            return res.status(404).json({ error: 'Deal not found.' });
+        }
+
+        let events = [];
+        if (deal.shippingEvents) {
+            events = Array.isArray(deal.shippingEvents) ? [...deal.shippingEvents] : JSON.parse(JSON.stringify(deal.shippingEvents));
+        }
+
+        events.push({
+            status: 'delivered',
+            title: 'Delivered',
+            description: 'Package has been successfully delivered to the destination address.',
+            timestamp: new Date().toISOString()
+        });
+
+        const updatedDeal = await prisma.escrowDeal.update({
+            where: { id: dealId },
+            data: {
+                shippingStatus: 'delivered',
+                shippingEvents: events
+            },
+            include: {
+                client: {
+                    select: { id: true, displayName: true, avatarUrl: true, username: true }
+                },
+                vendor: {
+                    select: { id: true, displayName: true, avatarUrl: true, username: true }
+                },
+                transactions: true
+            }
+        });
+
+        // System message in chat
+        let systemMessage;
+        const msgContent = `🏁 *Package Delivered!*\nThe courier reports that the package for "${deal.title}" has been delivered. Buyer, please confirm delivery to release funds.`;
+        if (deal.chatId.startsWith('community_')) {
+            systemMessage = await prisma.communityMessage.create({
+                data: {
+                    senderId: deal.vendorId,
+                    communityId: parseInt(deal.chatId.split('_')[1]),
+                    content: msgContent,
+                    messageType: 'escrow_delivered'
+                },
+                include: { sender: { select: { displayName: true, avatarUrl: true, username: true } } }
+            });
+        } else {
+            systemMessage = await prisma.message.create({
+                data: {
+                    senderId: deal.vendorId,
+                    receiverId: deal.clientId,
+                    chatId: deal.chatId,
+                    content: msgContent,
+                    messageType: 'escrow_delivered'
+                },
+                include: { sender: { select: { displayName: true, avatarUrl: true, username: true } } }
+            });
+        }
+
+        const io = req.app.get('io');
+        if (io) {
+            const socketResult = {
+                ...systemMessage,
+                sender_name: systemMessage.sender.displayName,
+                sender_avatar: systemMessage.sender.avatarUrl,
+                sender_username: systemMessage.sender.username,
+            };
+            io.to(`user_${deal.clientId}`).emit('newMessage', socketResult);
+            io.to(`user_${deal.vendorId}`).emit('newMessage', socketResult);
+            io.to(deal.chatId).emit('escrowUpdate', updatedDeal);
+            io.to(`user_${deal.clientId}`).emit('escrowUpdate', updatedDeal);
+            io.to(`user_${deal.vendorId}`).emit('escrowUpdate', updatedDeal);
+        }
+
+        sendUserNotification(
+            io,
+            deal.clientId,
+            'Order Delivered',
+            `Your package for "${deal.title}" has been delivered. Please confirm receipt.`,
+            'success',
+            { type: 'escrow', dealId, chatId: deal.chatId }
+        );
+
+        res.json(updatedDeal);
+    } catch (err) {
+        console.error('Simulate delivery error:', err);
+        res.status(500).json({ error: 'Failed to simulate delivery.' });
+    }
+});
+
+// ─── AUTH: POST /api/escrow/:id/confirm-release — Confirm and release funds (buyer) ─
+
+router.post('/:id/confirm-release', auth, async (req, res) => {
+    try {
+        const dealId = parseInt(req.params.id);
+
+        const deal = await prisma.escrowDeal.findUnique({
+            where: { id: dealId },
+            include: {
+                client: { select: { id: true, displayName: true, username: true } },
+                vendor: { select: { id: true, displayName: true, username: true } }
+            }
+        });
+
+        if (!deal) {
+            return res.status(404).json({ error: 'Deal not found.' });
+        }
+
+        if (deal.clientId !== req.user.id) {
+            return res.status(403).json({ error: 'Only the client can confirm and release payment.' });
+        }
+
+        if (deal.status !== 'active') {
+            return res.status(400).json({ error: 'Deal is not active.' });
+        }
+
+        const remainingPercent = 100 - deal.releasedPercent;
+        if (remainingPercent <= 0) {
+            return res.status(400).json({ error: 'Funds are already fully released.' });
+        }
+
+        const io = req.app.get('io');
+        let updatedDeal, vendorNet;
+
+        const result = await prisma.$transaction(async (tx) => {
+            // Find any recorded platform fee
+            const feeAgg = await tx.escrowTransaction.aggregate({
+                where: { dealId, note: 'platform_fee' },
+                _sum: { amount: true }
+            });
+            let recordedFee = (feeAgg && feeAgg._sum && feeAgg._sum.amount) ? feeAgg._sum.amount : 0;
+
+            if (recordedFee <= 0 && deal.paymentStatus === 'paid') {
+                let platformFeePercent = 0.10;
+                const setting = await tx.systemSetting.findUnique({ where: { key: 'platform_fee_percent' } });
+                if (setting) platformFeePercent = parseFloat(setting.value);
+                recordedFee = deal.totalAmount * platformFeePercent;
+            }
+
+            // Calculate remaining net funds
+            vendorNet = ((deal.totalAmount - recordedFee) * remainingPercent) / 100;
+
+            // Update escrow deal releasedPercent and status
+            const completedDeal = await tx.escrowDeal.update({
+                where: { id: dealId },
+                data: {
+                    releasedPercent: 100,
+                    status: 'completed'
+                }
+            });
+
+            // Mark DealListing as sold if it exists
+            if (deal.dealListingId) {
+                await tx.dealListing.update({
+                    where: { id: deal.dealListingId },
+                    data: { status: 'sold' }
+                });
+            }
+
+            // Create escrow transaction record
+            await tx.escrowTransaction.create({
+                data: {
+                    dealId,
+                    percent: remainingPercent,
+                    amount: vendorNet,
+                    note: 'Final release upon buyer confirmation'
+                }
+            });
+
+            // Credit vendor wallet
+            const venUp = await tx.user.update({
+                where: { id: deal.vendorId },
+                data: { walletBalance: { increment: vendorNet } }
+            });
+
+            // Log wallet transaction for vendor
+            await tx.walletTransaction.create({
+                data: {
+                    userId: deal.vendorId,
+                    type: 'escrow_release',
+                    amount: vendorNet,
+                    balance: venUp.walletBalance,
+                    reference: `deal_${dealId}`,
+                    description: `Final payment release for completed deal: ${deal.title}.`,
+                    metadata: {
+                        dealId,
+                        dealTitle: deal.title,
+                        chatId: deal.chatId,
+                        percent: remainingPercent,
+                        otherUserId: deal.clientId,
+                        otherDisplayName: deal.client.displayName
+                    }
+                }
+            });
+
+            // Log activity
+            await tx.activityLog.create({
+                data: {
+                    userId: req.user.id,
+                    action: 'Released remaining escrow payment',
+                    details: `100% - ${deal.title}`
+                }
+            });
+
+            // Create system message in chat
+            let systemMessage;
+            const msgContent = `🎉 *Deal Completed!*\nBuyer has confirmed delivery. ₹${vendorNet.toLocaleString('en-IN')} has been released to the seller's wallet.`;
+            if (deal.chatId.startsWith('community_')) {
+                systemMessage = await tx.communityMessage.create({
+                    data: {
+                        senderId: req.user.id,
+                        communityId: parseInt(deal.chatId.split('_')[1]),
+                        content: msgContent,
+                        messageType: 'escrow_completed'
+                    },
+                    include: { sender: { select: { displayName: true, avatarUrl: true, username: true } } }
+                });
+            } else {
+                systemMessage = await tx.message.create({
+                    data: {
+                        senderId: req.user.id,
+                        receiverId: deal.vendorId,
+                        chatId: deal.chatId,
+                        content: msgContent,
+                        messageType: 'escrow_completed'
+                    },
+                    include: { sender: { select: { displayName: true, avatarUrl: true, username: true } } }
+                });
+            }
+
+            if (io) {
+                const socketResult = {
+                    ...systemMessage,
+                    sender_name: systemMessage.sender.displayName,
+                    sender_avatar: systemMessage.sender.avatarUrl,
+                    sender_username: systemMessage.sender.username,
+                };
+                io.to(`user_${deal.vendorId}`).emit('newMessage', socketResult);
+            }
+
+            return completedDeal;
+        });
+
+        updatedDeal = result;
+
+        if (io) {
+            io.to(deal.chatId).emit('escrowUpdate', updatedDeal);
+            io.to(`user_${deal.vendorId}`).emit('escrowUpdate', updatedDeal);
+            io.to(`user_${deal.clientId}`).emit('escrowUpdate', updatedDeal);
+        }
+
+        sendUserNotification(
+            io,
+            deal.vendorId,
+            'Payment Received',
+            `You received ₹${vendorNet.toLocaleString('en-IN')} for "${deal.title}".`,
+            'success',
+            { type: 'wallet', dealId, chatId: deal.chatId }
+        );
+
+        sendUserNotification(
+            io,
+            deal.clientId,
+            'Deal Completed',
+            `Your deal "${deal.title}" is now fully completed.`,
+            'success',
+            { type: 'escrow', dealId, chatId: deal.chatId }
+        );
+
+        // Generate and send settlement invoice async
+        (async () => {
+            try {
+                const pdfBuffer = await buildEscrowInvoicePdf(updatedDeal, deal.client, deal.vendor, 0);
+                const uploadRes = await uploadPdfToCloudinary(pdfBuffer, `invoice_settlement_${updatedDeal.id}_${Date.now()}`);
+                
+                let invoiceMsg;
+                if (deal.chatId.startsWith('community_')) {
+                    invoiceMsg = await prisma.communityMessage.create({
+                        data: {
+                            senderId: req.user.id,
+                            communityId: parseInt(deal.chatId.split('_')[1]),
+                            content: `Settlement Invoice for Completed Deal: ${deal.title}`,
+                            messageType: 'file',
+                            attachmentUrl: uploadRes.secure_url,
+                            attachmentName: `Settlement_DL_${updatedDeal.id}.pdf`
+                        },
+                        include: { sender: { select: { displayName: true, avatarUrl: true, username: true } } }
+                    });
+                } else {
+                    invoiceMsg = await prisma.message.create({
+                        data: {
+                            senderId: req.user.id,
+                            receiverId: deal.vendorId,
+                            chatId: deal.chatId,
+                            content: `Settlement Invoice for Completed Deal: ${deal.title}`,
+                            messageType: 'file',
+                            attachmentUrl: uploadRes.secure_url,
+                            attachmentName: `Settlement_DL_${updatedDeal.id}.pdf`,
+                            isViewOnce: false
+                        },
+                        include: { sender: { select: { displayName: true, avatarUrl: true, username: true } } }
+                    });
+                }
+
+                if (io) {
+                    const maskedMsg = {
+                        ...invoiceMsg,
+                        sender_name: invoiceMsg.sender.displayName,
+                        sender_avatar: invoiceMsg.sender.avatarUrl,
+                        sender_username: invoiceMsg.sender.username,
+                    };
+                    io.to(deal.chatId).emit('newMessage', maskedMsg);
+                    if (!deal.chatId.startsWith('community_')) {
+                        io.to(`user_${deal.vendorId}`).emit('newMessage', maskedMsg);
+                    }
+                }
+            } catch (invErr) {
+                console.error('Failed to generate settlement invoice:', invErr);
+            }
+        })();
+
+        res.json(updatedDeal);
+    } catch (err) {
+        console.error('Confirm release error:', err);
+        res.status(500).json({ error: 'Failed to confirm delivery and release funds.' });
+    }
+});
+
+// ─── AUTH: POST /api/escrow/:id/review — Record review (buyer/seller) ──────────
+
+router.post('/:id/review', auth, async (req, res) => {
+    try {
+        const dealId = parseInt(req.params.id);
+        const { rating, comment, role } = req.body;
+
+        if (!rating || isNaN(Number(rating)) || Number(rating) < 1 || Number(rating) > 5) {
+            return res.status(400).json({ error: 'Valid rating between 1 and 5 is required.' });
+        }
+
+        if (role !== 'buyer' && role !== 'seller') {
+            return res.status(400).json({ error: 'Role must be either "buyer" or "seller".' });
+        }
+
+        const deal = await prisma.escrowDeal.findUnique({
+            where: { id: dealId }
+        });
+
+        if (!deal) {
+            return res.status(404).json({ error: 'Deal not found.' });
+        }
+
+        // Verify authorization based on role
+        let reviewerId, reviewedId;
+        if (role === 'buyer') {
+            if (deal.clientId !== req.user.id) {
+                return res.status(403).json({ error: 'Not authorized as the buyer.' });
+            }
+            reviewerId = deal.clientId;
+            reviewedId = deal.vendorId;
+        } else {
+            if (deal.vendorId !== req.user.id) {
+                return res.status(403).json({ error: 'Not authorized as the seller.' });
+            }
+            reviewerId = deal.vendorId;
+            reviewedId = deal.clientId;
+        }
+
+        // Check if reviewer has already reviewed for this deal
+        const existingRating = await prisma.userRating.findFirst({
+            where: {
+                escrowDealId: dealId,
+                reviewerId: reviewerId
+            }
+        });
+
+        if (existingRating) {
+            return res.status(400).json({ error: 'You have already submitted a review for this transaction.' });
+        }
+
+        // Create the rating
+        const newRating = await prisma.userRating.create({
+            data: {
+                reviewerId,
+                reviewedId,
+                rating: parseInt(rating),
+                comment: comment || '',
+                escrowDealId: dealId
+            }
+        });
+
+        // Update the reviews count on the reviewed user
+        const ratings = await prisma.userRating.findMany({
+            where: { reviewedId: reviewedId }
+        });
+
+        await prisma.user.update({
+            where: { id: reviewedId },
+            data: {
+                reviews: ratings.length
+            }
+        });
+
+        res.status(201).json(newRating);
+    } catch (err) {
+        console.error('Submit review error:', err);
+        res.status(500).json({ error: 'Failed to submit review.' });
+    }
+});
+
 export default router;

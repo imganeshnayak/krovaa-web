@@ -56,7 +56,7 @@ import {
   getBestProfiles, getGroupChats, getGroupMessages, sendGroupMessage, leaveGroupChat,
   listCommunities, getCommunity, getCommunityMessages, sendCommunityMessage, leaveCommunity, deleteCommunityHistory,
   Chat as ChatType, Message as MessageType, AuthUser,
-  BestProfileUser
+  BestProfileUser, getEscrowDeals, EscrowDeal
 } from "@/lib/api";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { socketService } from "@/lib/socket";
@@ -677,6 +677,28 @@ const ChatView = ({
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
   const highlightTimersRef = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
 
+  const [activeEscrow, setActiveEscrow] = useState<EscrowDeal | null>(null);
+
+  const fetchActiveEscrow = useCallback(() => {
+    if (!selectedChat) {
+      setActiveEscrow(null);
+      return;
+    }
+    getEscrowDeals(selectedChat.chat_id)
+      .then(deals => {
+        if (deals && deals.length > 0) {
+          setActiveEscrow(deals[0]);
+        } else {
+          setActiveEscrow(null);
+        }
+      })
+      .catch(() => setActiveEscrow(null));
+  }, [selectedChat?.chat_id]);
+
+  useEffect(() => {
+    fetchActiveEscrow();
+  }, [fetchActiveEscrow, messages.length]);
+
   const getSenderId = useCallback((msg: MessageType | LocalMessage): number | null => {
     const rawSenderId =
       msg.senderId ??
@@ -1195,7 +1217,7 @@ const ChatView = ({
                         {(selectedCommunity?.members || []).map((member) => (
                           <button
                             key={member.id}
-                            onClick={() => navigate(`/${member.user?.username}`)}
+                            onClick={() => navigate(`/${encodeURIComponent(member.user?.username ?? '')}`)}
                             className="flex flex-col items-center gap-1.5 p-2 rounded-lg hover:bg-secondary/60 transition-colors"
                             title={member.user?.displayName || member.user?.username}
                           >
@@ -1226,7 +1248,7 @@ const ChatView = ({
               </div>
             ) : !(selectedChat.isOfficial && (user?.role !== 'admin' && user?.role !== 'staff')) && (
               <div className="flex gap-1">
-                <Button variant="ghost" size="icon" onClick={() => navigate(`/${selectedChat.username}`)}>
+                <Button variant="ghost" size="icon" onClick={() => navigate(`/${encodeURIComponent(selectedChat.username)}`)}>
                   <Icon name="User" className="h-5 w-5" />
                 </Button>
                 <Button
@@ -1256,6 +1278,82 @@ const ChatView = ({
           </>
         )}
       </div>
+
+      {/* Deal Status Bar */}
+      {activeEscrow && (
+        <div 
+          onClick={() => navigate(`/deal/transaction/${activeEscrow.id}`)}
+          className="bg-violet-50/90 dark:bg-violet-950/20 border-b border-violet-100 dark:border-violet-900/30 px-4 py-2 flex items-center justify-between gap-3 cursor-pointer hover:bg-violet-100/50 dark:hover:bg-violet-950/30 transition-all shrink-0"
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="h-8 w-8 rounded-lg bg-violet-100 dark:bg-violet-900/50 flex items-center justify-center text-violet-600 dark:text-violet-400 shrink-0">
+              <Icon name="ShoppingBag" className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{activeEscrow.title}</p>
+              <p className="text-[10px] font-semibold text-violet-600 dark:text-violet-400 flex items-center gap-1.5 flex-wrap">
+                <span>₹{activeEscrow.totalAmount.toLocaleString('en-IN')}</span>
+                <span className="h-1 w-1 rounded-full bg-slate-300 dark:bg-slate-700" />
+                <span className="capitalize">{activeEscrow.status.replace('_', ' ')}</span>
+                {activeEscrow.shippingStatus && (
+                  <>
+                    <span className="h-1 w-1 rounded-full bg-slate-300 dark:bg-slate-700" />
+                    <span className="capitalize text-slate-500">{activeEscrow.shippingStatus.replace('_', ' ')}</span>
+                  </>
+                )}
+              </p>
+            </div>
+          </div>
+          <div className="shrink-0 flex items-center gap-2">
+            {activeEscrow.status === 'pending_payment' && activeEscrow.clientId === user?.id && (
+              <Button size="sm" className="h-7 text-[10px] font-bold bg-violet-600 hover:bg-violet-700 text-white rounded-lg px-2.5">
+                Pay Now
+              </Button>
+            )}
+            {activeEscrow.status === 'pending_payment' && activeEscrow.vendorId === user?.id && (
+              <Badge variant="secondary" className="h-6 text-[9px] font-bold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 rounded-lg">
+                Awaiting Payment
+              </Badge>
+            )}
+            {activeEscrow.status === 'active' && !activeEscrow.trackingId && activeEscrow.vendorId === user?.id && (
+              <Button size="sm" className="h-7 text-[10px] font-bold bg-violet-600 hover:bg-violet-700 text-white rounded-lg px-2.5">
+                Ship Package
+              </Button>
+            )}
+            {activeEscrow.status === 'active' && !activeEscrow.trackingId && activeEscrow.clientId === user?.id && (
+              <Badge variant="secondary" className="h-6 text-[9px] font-bold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 rounded-lg">
+                Awaiting Shipment
+              </Badge>
+            )}
+            {activeEscrow.status === 'active' && activeEscrow.trackingId && activeEscrow.shippingStatus === 'in_transit' && (
+              <Button size="sm" className="h-7 text-[10px] font-bold bg-violet-600 hover:bg-violet-700 text-white rounded-lg px-2.5">
+                Track Order
+              </Button>
+            )}
+            {activeEscrow.status === 'active' && activeEscrow.shippingStatus === 'delivered' && activeEscrow.clientId === user?.id && (
+              <Button size="sm" className="h-7 text-[10px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg px-2.5">
+                Confirm Receipt
+              </Button>
+            )}
+            {activeEscrow.status === 'active' && activeEscrow.shippingStatus === 'delivered' && activeEscrow.vendorId === user?.id && (
+              <Badge variant="secondary" className="h-6 text-[9px] font-bold bg-emerald-50 text-emerald-600 dark:bg-emerald-950/20 dark:text-emerald-400 rounded-lg">
+                Delivered
+              </Badge>
+            )}
+            {activeEscrow.status === 'completed' && (
+              <Badge variant="secondary" className="h-6 text-[9px] font-bold bg-emerald-50 text-emerald-600 dark:bg-emerald-950/20 dark:text-emerald-400 rounded-lg">
+                Completed
+              </Badge>
+            )}
+            {activeEscrow.status === 'cancelled' && (
+              <Badge variant="destructive" className="h-6 text-[9px] font-bold rounded-lg">
+                Cancelled
+              </Badge>
+            )}
+            <Icon name="ChevronRight" className="h-3.5 w-3.5 text-slate-400" />
+          </div>
+        </div>
+      )}
 
       {/* Messages */}
       <div className="flex-1 relative overflow-hidden min-h-0 bg-transparent" data-nocontext>
@@ -3789,25 +3887,35 @@ const ChatPage = () => {
             selectedCommunity={selectedCommunity}
           />
         ) : (
-          <ConversationList
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-            isSearching={isSearching}
-            searchResults={searchResults}
-            startChat={startChat}
-            isLoading={isLoading}
-            filteredChats={filteredChats}
-            selectedChat={selectedChat}
-            setSelectedChat={setSelectedChat}
-            user={user}
-            onLogout={handleLogout}
-            onSupport={handleSupport}
-            isMobile={isMobile}
-            isChatMuted={isChatMuted}
-            onMuteChat={muteChat}
-            onUnmuteChat={unmuteChat}
-            onDeleteChat={handleDeleteChat}
-          />
+          <div className="relative h-full flex-1 overflow-hidden">
+            <ConversationList
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              isSearching={isSearching}
+              searchResults={searchResults}
+              startChat={startChat}
+              isLoading={isLoading}
+              filteredChats={filteredChats}
+              selectedChat={selectedChat}
+              setSelectedChat={setSelectedChat}
+              user={user}
+              onLogout={handleLogout}
+              onSupport={handleSupport}
+              isMobile={isMobile}
+              isChatMuted={isChatMuted}
+              onMuteChat={muteChat}
+              onUnmuteChat={unmuteChat}
+              onDeleteChat={handleDeleteChat}
+            />
+            {/* Floating Market Button */}
+            <button
+              onClick={() => navigate('/marketplace')}
+              className="absolute bottom-6 right-6 h-14 w-14 rounded-2xl bg-[#00A4EF] text-white shadow-lg shadow-[#00A4EF]/30 flex items-center justify-center hover:bg-[#0087d1] hover:scale-105 active:scale-95 transition-all z-50"
+              title="Marketplace"
+            >
+              <Icon name="Store" className="h-6 w-6 text-white" />
+            </button>
+          </div>
         )}
         <ProfileCompletionModal />
       </div>
@@ -3817,7 +3925,7 @@ const ChatPage = () => {
   // Desktop: side-by-side
   return (
     <div className="flex h-[calc(100vh-64px)] overflow-hidden bg-[#050810]">
-      <div className="w-80 border-r border-white/5 shrink-0 h-full overflow-hidden">
+      <div className="w-80 border-r border-white/5 shrink-0 h-full overflow-hidden relative">
 
         <ConversationList
           searchQuery={searchQuery}
@@ -3838,6 +3946,15 @@ const ChatPage = () => {
           onUnmuteChat={unmuteChat}
           onDeleteChat={handleDeleteChat}
         />
+
+        {/* Floating Market Button */}
+        <button
+          onClick={() => navigate('/marketplace')}
+          className="absolute bottom-6 right-6 h-14 w-14 rounded-2xl bg-[#00A4EF] text-white shadow-lg shadow-[#00A4EF]/30 flex items-center justify-center hover:bg-[#0087d1] hover:scale-105 active:scale-95 transition-all z-50"
+          title="Marketplace"
+        >
+          <Icon name="Store" className="h-6 w-6 text-white" />
+        </button>
       </div>
       <div className="flex-1 h-full min-h-0 overflow-hidden">
         <ChatView

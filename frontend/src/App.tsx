@@ -10,6 +10,7 @@ import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/reac
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import CookieConsent from "./components/CookieConsent";
+import { Agentation } from "agentation";
 
 // Lazy-load page components
 const Landing = lazy(() => import("./pages/Landing"));
@@ -40,6 +41,10 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 const CollabDetailsPage = lazy(() => import("./pages/CollabDetailsPage"));
 const PostCollabPage = lazy(() => import("./pages/PostCollabPage"));
 const SavedJobsPage = lazy(() => import("./components/SavedJobsPage").then((module) => ({ default: module.SavedJobsPage })));
+const CreateDealPage = lazy(() => import("./pages/CreateDealPage"));
+const DealPublicPage = lazy(() => import("./pages/DealPublicPage"));
+const MarketplacePage = lazy(() => import("./pages/MarketplacePage"));
+const DealTransactionPage = lazy(() => import("./pages/DealTransactionPage"));
 
 import PublicNavbar from "./components/Navbar";
 
@@ -86,7 +91,12 @@ const PublicRoute = ({ children }: { children: ReactNode }) => {
 const ProfileRedirect = () => {
   const { username } = useParams<{ username: string }>();
 
-  return <Navigate to={`/${username}`} replace />;
+  // Only allow safe usernames to prevent open redirect / XSS via URL
+  const safeUsername = username && /^[a-zA-Z0-9_-]{1,20}$/.test(username) ? username : null;
+
+  return safeUsername
+    ? <Navigate to={`/${encodeURIComponent(safeUsername)}`} replace />
+    : <Navigate to="/404" replace />;
 };
 
 const MainContent = () => {
@@ -138,6 +148,11 @@ const MainContent = () => {
           <Route path="/blocked-users" element={<ClientRoute><BlockedUsersPage /></ClientRoute>} />
           <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
           <Route path="/admin/chats/:chatId" element={<AdminRoute><AdminChatView /></AdminRoute>} />
+          {/* Deal Marketplace */}
+          <Route path="/marketplace" element={<ClientRoute><MarketplacePage /></ClientRoute>} />
+          <Route path="/deal/create" element={<ClientRoute><CreateDealPage /></ClientRoute>} />
+          <Route path="/deal/:shareCode" element={<DealPublicPage />} />
+          <Route path="/deal/transaction/:escrowDealId" element={<ClientRoute><DealTransactionPage /></ClientRoute>} />
           {/* Legal Pages */}
           <Route path="/terms" element={<Terms />} />
           <Route path="/privacy" element={<Privacy />} />
@@ -171,6 +186,7 @@ const App = () => (
             <BrowserRouter>
               <MainContent />
                 <CookieConsent />
+                {process.env.NODE_ENV === "development" && <Agentation />}
             </BrowserRouter>
           </TooltipProvider>
       </AuthProvider>

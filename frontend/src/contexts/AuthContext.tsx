@@ -113,7 +113,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const register = async (username: string, email: string, password: string, displayName: string | undefined, otp: string, profession?: string) => {
     setIsLoading(true);
     try {
-      const response = await apiRegister({ username, email, password, display_name: displayName, otp, profession });
+      const response = await apiRegister({
+        username, email, password,
+        display_name: displayName, otp, profession,
+      });
       setToken(response.token || "cookie_session");
       setUser(response.user);
       persistSession(response.token || "cookie_session", response.user);

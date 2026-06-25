@@ -81,6 +81,16 @@ model User {
   monthlyTransferUsed  Float     @default(0) @map("monthly_transfer_used")
   lastTransferResetDay DateTime? @map("last_transfer_reset_day")
 
+  // ── Business account fields ────────────────────────────────────────────────
+  accountType          String?   @default("individual") @map("account_type")
+  businessName         String?   @map("business_name")
+  businessType         String?   @map("business_type")
+  businessAddress      String?   @map("business_address")
+  businessCity         String?   @map("business_city")
+  businessState        String?   @map("business_state")
+  businessPincode      String?   @map("business_pincode")
+  businessLandmark     String?   @map("business_landmark")
+
   // ── App-specific fields (not on web) ──────────────────────────────────────
   location String @default("")
   jobsDone Int    @default(0) @map("jobs_done")
@@ -154,6 +164,10 @@ model User {
   ratingsGiven        UserRating[]            @relation("ReviewerUserRatings")
   ratingsReceived     UserRating[]            @relation("ReviewedUserRatings")
   verificationRequest AppVerificationRequest?
+
+  // ── Deal Marketplace relations ─────────────────────────────────────────────
+  sellerDealListings   DealListing[]  @relation("SellerDealListings")
+  buyerDealInquiries   DealInquiry[]  @relation("BuyerDealInquiries")
 
   @@map("users")
 }
@@ -261,6 +275,15 @@ model EscrowDeal {
   teamId            Int?                @map("team_id")
   splitConfig       Json?               @map("split_config")
   transactions      EscrowTransaction[]
+  dealListingId     Int?                @map("deal_listing_id")
+  dealListing       DealListing?        @relation(fields: [dealListingId], references: [id])
+  shippingWeight    Float?              @map("shipping_weight")
+  shippingDimensions String?            @map("shipping_dimensions")
+  pickupAddress     String?             @map("pickup_address")
+  trackingId        String?             @map("tracking_id")
+  shippingStatus    String?             @map("shipping_status")
+  shippingEvents    Json?               @default("[]") @map("shipping_events")
+  ratings           UserRating[]
 
   @@map("escrow_deals")
 }
@@ -1019,6 +1042,8 @@ model UserRating {
   updatedAt  DateTime @updatedAt @map("updated_at")
   reviewer   User     @relation("ReviewerUserRatings", fields: [reviewerId], references: [id], onDelete: Cascade)
   reviewed   User     @relation("ReviewedUserRatings", fields: [reviewedId], references: [id], onDelete: Cascade)
+  escrowDealId Int?     @map("escrow_deal_id")
+  escrowDeal   EscrowDeal? @relation(fields: [escrowDealId], references: [id])
 
   @@unique([reviewerId, reviewedId])
   @@index([reviewedId])
@@ -1137,4 +1162,48 @@ model SavedProjectListing {
 
   @@unique([userId, projectId])
   @@map("saved_project_listings")
+}
+
+// ─── DEAL MARKETPLACE ─────────────────────────────────────────────────────────
+
+model DealListing {
+  id           Int           @id @default(autoincrement())
+  shareCode    String        @unique @map("share_code")
+  sellerId     Int           @map("seller_id")
+  seller       User          @relation("SellerDealListings", fields: [sellerId], references: [id], onDelete: Cascade)
+
+  title        String
+  description  String
+  price        Float
+  currency     String        @default("INR")
+  imageUrls    Json          @default("[]") @map("image_urls")
+  deliveryType String        @default("shipping") @map("delivery_type")
+  deliveryDays Int?          @map("delivery_days")
+  category     String?
+
+  status       String        @default("active")
+  viewCount    Int           @default(0) @map("view_count")
+
+  inquiries    DealInquiry[]
+  escrowDeals  EscrowDeal[]
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  @@index([sellerId])
+  @@index([status, createdAt(sort: Desc)])
+  @@map("deal_listings")
+}
+
+model DealInquiry {
+  id        Int         @id @default(autoincrement())
+  dealId    Int         @map("deal_id")
+  deal      DealListing @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  buyerId   Int         @map("buyer_id")
+  buyer     User        @relation("BuyerDealInquiries", fields: [buyerId], references: [id], onDelete: Cascade)
+  chatId    String?     @map("chat_id")
+  status    String      @default("inquired")
+  createdAt DateTime    @default(now()) @map("created_at")
+
+  @@unique([dealId, buyerId])
+  @@map("deal_inquiries")
 }

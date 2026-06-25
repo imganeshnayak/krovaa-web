@@ -190,7 +190,7 @@ const JobDetailsPage = () => {
                         className="rounded-xl border-slate-200 text-xs font-semibold gap-1.5 hover:text-[#00A4EF] hover:border-[#00A4EF]/30"
                       >
                         <Share2 className="h-3.5 w-3.5" />
-                        Share Job
+                        
                       </Button>
                       <JobSaveButton jobId={job.id} className="p-1" />
                     </div>
@@ -373,7 +373,7 @@ const JobDetailsPage = () => {
                           {/* Top row: Profile & Bid Amount */}
                           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                             <div className="flex items-center gap-3">
-                              <a href={`/profile/${app.user.username}`} className="flex items-center gap-3 group shrink-0">
+                              <a href={`/profile/${encodeURIComponent(app.user.username)}`} className="flex items-center gap-3 group shrink-0">
                                 <div className="h-11 w-11 rounded-full bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center shrink-0">
                                   {app.user.avatarUrl ? (
                                     <img src={app.user.avatarUrl} alt={app.user.displayName || app.user.username} className="h-full w-full object-cover" />
@@ -487,7 +487,7 @@ const JobDetailsPage = () => {
 
                 {/* Inline Client Credentials Context */}
                 <div className="space-y-4">
-                  <a href={`/profile/${job.postedBy.username}`} className="flex items-center gap-3 group">
+                  <a href={`/profile/${encodeURIComponent(job.postedBy.username)}`} className="flex items-center gap-3 group">
                     <div className="h-11 w-11 rounded-full bg-slate-50 border border-slate-200 overflow-hidden flex items-center justify-center shrink-0">
                       {job.postedBy.avatarUrl ? (
                         <img 

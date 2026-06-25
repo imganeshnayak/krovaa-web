@@ -200,7 +200,7 @@ const CollabDetailsPage = () => {
               {/* Creator Card */}
               <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 border-b border-slate-100 pb-2">Project Visionary</p>
-                <a href={`/profile/${project.creator?.username}`} className="flex items-center gap-3 group">
+                <a href={`/profile/${encodeURIComponent(project.creator?.username ?? '')}`} className="flex items-center gap-3 group">
                   <div className="h-12 w-12 rounded-full bg-slate-50 border border-slate-200 overflow-hidden flex items-center justify-center shrink-0">
                     {project.creator?.avatarUrl ? (
                       <img src={project.creator.avatarUrl} alt={project.creator.displayName} className="h-full w-full object-cover" />

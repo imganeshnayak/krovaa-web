@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Compass, Paperclip, Plus, ArrowUpRight, MapPin, Briefcase, IndianRupee, Search, Filter, List, Share2, Bookmark, Users, LayoutGrid, ChevronDown } from "lucide-react";
 import { getJobs, Job } from "../lib/api";
 import { useAuth } from "@/contexts/AuthContext";
@@ -36,6 +36,10 @@ const formatPostedAgo = (createdAt: string) => {
 const ExplorePage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get("tab");
+  const initialTab = (tabParam === "jobs" || tabParam === "collab") ? tabParam : "collab";
+
   const [jobs, setJobs] = useState<Job[]>([]);
   const [visibleJobs, setVisibleJobs] = useState<Job[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -49,7 +53,13 @@ const ExplorePage = () => {
   const loaderRef = useRef<HTMLDivElement | null>(null);
 
   // Collab Engine State
-  const [activeTab, setActiveTab] = useState<"jobs" | "collab">("collab");
+  const [activeTab, setActiveTab] = useState<"jobs" | "collab">(initialTab);
+
+  useEffect(() => {
+    if (tabParam === "jobs" || tabParam === "collab") {
+      setActiveTab(tabParam);
+    }
+  }, [tabParam]);
   const [collabProjects, setCollabProjects] = useState<ProjectListing[]>([]);
   const [isCollabLoading, setIsCollabLoading] = useState(false);
   const [sharingCollab, setSharingCollab] = useState<ProjectListing | null>(null);
@@ -130,9 +140,7 @@ const ExplorePage = () => {
   };
 
   useEffect(() => {
-    if (activeTab === "collab") {
-      loadCollabProjects();
-    }
+    if (activeTab === "collab") loadCollabProjects();
   }, [activeTab]);
 
   const loadMore = useCallback(() => {
@@ -165,88 +173,89 @@ const ExplorePage = () => {
       
       {/* Premium Dashboard Header Banner */}
       <div className="mb-8 border-b border-slate-100 pb-6">
-        <div className="flex items-center gap-2 text-[#00A4EF]">
-          <Compass className="h-4 w-4" />
-          <span className="text-xs font-bold uppercase tracking-[0.2em]">Explore Matrix</span>
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <Compass className="h-6 w-6 text-[#00A4EF] shrink-0" />
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight whitespace-nowrap">Explore</h1>
+          </div>
+          <button 
+            onClick={() => navigate('/my-listings')} 
+            className="p-2 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200 transition-colors shrink-0"
+            title="My Listings"
+          >
+            <LayoutGrid className="w-5 h-5" />
+          </button>
         </div>
-        <div className="mt-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Explore Matrix</h1>
+
+        {/* Filter Panel */}
+        <div className="mt-6 p-2 bg-slate-50 border border-slate-200/80 rounded-2xl shadow-inner flex flex-col md:flex-row md:items-center gap-2">
           
-          <div className="flex items-center gap-3">
-            <div className="flex bg-slate-100 p-1 rounded-xl shrink-0">
-              <button
-                onClick={() => setActiveTab("jobs")}
-                className={`px-6 py-2 text-xs font-bold uppercase tracking-wider rounded-lg transition-all ${
-                  activeTab === "jobs" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
-                }`}
-              >
-                Standard Jobs
-              </button>
-              <button
-                onClick={() => setActiveTab("collab")}
-                className={`px-6 py-2 text-xs font-bold uppercase tracking-wider rounded-lg transition-all ${
-                  activeTab === "collab" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
-                }`}
-              >
-                Group Jobs
-              </button>
-            </div>
-            
-            <button 
-              onClick={() => navigate('/my-listings')} 
-              className="p-2 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200 transition-colors"
-              title="My Listings"
+          {/* Tab Toggle — dropdown */}
+          <div className="relative flex items-center bg-white border border-slate-200/60 rounded-xl shadow-sm shrink-0">
+            <List className="absolute left-3.5 h-3.5 w-3.5 text-slate-600 pointer-events-none" />
+            <select
+              value={activeTab}
+              onChange={(e) => {
+                const newTab = e.target.value as "jobs" | "collab";
+                setActiveTab(newTab);
+                setSearchParams((prev) => {
+                  const next = new URLSearchParams(prev);
+                  next.set("tab", newTab);
+                  return next;
+                });
+              }}
+              className="h-11 w-full rounded-xl pl-10 pr-8 text-xs font-bold tracking-wide text-slate-600 bg-transparent uppercase outline-none appearance-none cursor-pointer"
+              aria-label="Job type"
             >
-              <LayoutGrid className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-
-        {/* Clean, Non-Splitting Responsive Filter Panel Wrapper */}
-        <div className="mt-6 p-2 bg-slate-50 border border-slate-200/80 rounded-2xl shadow-inner grid gap-2 grid-cols-1 md:flex md:items-center">
-          
-          {/* Main Keyword Engine Input */}
-          <div className="relative flex-1 flex items-center bg-white border border-slate-200/60 rounded-xl shadow-sm">
-            <Search className="absolute left-3.5 h-4 w-4 text-slate-600 pointer-events-none" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search roles, companies, or keywords..."
-              className="h-11 w-full rounded-xl pl-10 pr-4 text-sm text-slate-800 bg-transparent outline-none transition focus:ring-2 focus:ring-[#00A4EF]/10"
-            />
+              <option value="jobs">Standard Jobs</option>
+              <option value="collab">Group Jobs</option>
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-3.5 h-3.5 w-3.5 text-slate-600" />
           </div>
 
-          {/* Subordinate Option Selectors Box */}
-          <div className="grid grid-cols-2 gap-2 md:flex md:items-center shrink-0">
-            {/* Quick Context Location Box */}
-            <div className="relative md:w-44 flex items-center bg-white border border-slate-200/60 rounded-xl shadow-sm">
-              <MapPin className="absolute left-3.5 h-4 w-4 text-slate-600 pointer-events-none" />
+          {/* Right side filters — right aligned */}
+          <div className="flex flex-1 flex-col md:flex-row md:items-center gap-2 md:ml-auto">
+            {/* Search */}
+            <div className="relative flex-1 flex items-center bg-white border border-slate-200/60 rounded-xl shadow-sm">
+              <Search className="absolute left-3.5 h-4 w-4 text-slate-600 pointer-events-none" />
               <input
                 type="text"
-                value={locationFilter}
-                onChange={(e) => setLocationFilter(e.target.value)}
-                placeholder="Location..."
-                className="h-11 w-full rounded-xl pl-10 pr-4 text-sm text-slate-800 bg-transparent outline-none"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search roles, companies, or keywords..."
+                className="h-11 w-full rounded-xl pl-10 pr-4 text-sm text-slate-800 bg-transparent outline-none transition focus:ring-2 focus:ring-[#00A4EF]/10"
               />
             </div>
 
-            {/* Workplace Alignment Dropdown Field */}
-            <div className="relative md:w-40 flex items-center bg-white border border-slate-200/60 rounded-xl shadow-sm">
-              <Filter className="absolute left-3.5 h-3.5 w-3.5 text-slate-600 pointer-events-none" />
-              <select
-                value={selectedMode}
-                onChange={(e) => setSelectedMode(e.target.value)}
-                className="h-11 w-full rounded-xl pl-10 pr-8 text-xs font-bold tracking-wide text-slate-600 bg-transparent uppercase outline-none appearance-none cursor-pointer"
-                aria-label="Filter by mode"
-              >
-                {modes.map((mode) => (
-                  <option key={mode} value={mode}>
-                    {mode === "all" ? "All Modes" : mode}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-3.5 h-3.5 w-3.5 text-slate-600" />
+            {/* Location + Mode */}
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="relative flex-1 md:w-44 flex items-center bg-white border border-slate-200/60 rounded-xl shadow-sm">
+                <MapPin className="absolute left-3.5 h-4 w-4 text-slate-600 pointer-events-none" />
+                <input
+                  type="text"
+                  value={locationFilter}
+                  onChange={(e) => setLocationFilter(e.target.value)}
+                  placeholder="Location..."
+                  className="h-11 w-full rounded-xl pl-10 pr-4 text-sm text-slate-800 bg-transparent outline-none"
+                />
+              </div>
+
+              <div className="relative flex-1 md:w-40 flex items-center bg-white border border-slate-200/60 rounded-xl shadow-sm">
+                <Filter className="absolute left-3.5 h-3.5 w-3.5 text-slate-600 pointer-events-none" />
+                <select
+                  value={selectedMode}
+                  onChange={(e) => setSelectedMode(e.target.value)}
+                  className="h-11 w-full rounded-xl pl-10 pr-8 text-xs font-bold tracking-wide text-slate-600 bg-transparent uppercase outline-none appearance-none cursor-pointer"
+                  aria-label="Filter by mode"
+                >
+                  {modes.map((mode) => (
+                    <option key={mode} value={mode}>
+                      {mode === "all" ? "All Modes" : mode}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-3.5 h-3.5 w-3.5 text-slate-600" />
+              </div>
             </div>
           </div>
 
@@ -365,6 +374,8 @@ const ExplorePage = () => {
            </div>
         )
       )}
+
+
 
       {/* Infinite Scroll Sensor Boundary */}
       <div ref={loaderRef} className="mt-8 h-4" aria-hidden="true" />
