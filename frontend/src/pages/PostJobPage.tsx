@@ -122,7 +122,7 @@ const PostJobPage = () => {
 
             <Button 
               className="w-full sm:w-auto rounded-xl bg-slate-950 text-white font-semibold text-xs h-11 px-6 hover:bg-slate-800"
-              onClick={() => navigate('/jobs')}
+              onClick={() => navigate('/my-listings')}
             >
               Return to Job Listings
             </Button>

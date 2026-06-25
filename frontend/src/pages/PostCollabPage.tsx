@@ -164,7 +164,7 @@ export default function PostCollabPage() {
         attachments
       });
       toast({ title: "Blueprint Deployed!", description: "Your collab project is now live in the auction hub." });
-      navigate("/explore");
+      navigate("/my-listings?tab=collabs");
     } catch (err) {
       toast({ title: "Deployment Failed", description: err instanceof Error ? err.message : "Unknown error", variant: "destructive" });
     } finally {

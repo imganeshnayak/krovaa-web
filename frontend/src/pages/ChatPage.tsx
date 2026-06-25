@@ -464,7 +464,7 @@ const ConversationList = ({
               <Avatar className="h-12 w-12 shrink-0">
                 <AvatarImage src={chat.avatar_url} loading="lazy" />
                 <AvatarFallback className="bg-muted text-muted-foreground">
-                  {chat.display_name[0]}
+                  {(chat.display_name || chat.username || '?')[0].toUpperCase()}
                 </AvatarFallback>
               </Avatar>
 
@@ -1175,13 +1175,13 @@ const ChatView = ({
               >
                 <Avatar className="h-10 w-10">
                   <AvatarImage src={selectedCommunity.creator?.avatarUrl} loading="lazy" />
-                  <AvatarFallback>{selectedCommunity.name?.[0]?.toUpperCase() || selectedChat.display_name[0]}</AvatarFallback>
+                  <AvatarFallback>{selectedCommunity.name?.[0]?.toUpperCase() || (selectedChat.display_name || selectedChat.username || '?')[0].toUpperCase()}</AvatarFallback>
                 </Avatar>
               </div>
             ) : (
               <Avatar className="h-10 w-10">
                 <AvatarImage src={selectedChat.avatar_url} loading="lazy" />
-                <AvatarFallback>{selectedChat.display_name[0]}</AvatarFallback>
+                <AvatarFallback>{(selectedChat.display_name || selectedChat.username || '?')[0].toUpperCase()}</AvatarFallback>
               </Avatar>
             )}
 
@@ -3819,7 +3819,7 @@ const ChatPage = () => {
   }, [navigate]);
 
   const filteredChats = chats.filter((c) =>
-    c.display_name.toLowerCase().includes(searchQuery.toLowerCase())
+    (c.display_name || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const handleDeleteChat = useCallback(async (chatId: string) => {

@@ -67,17 +67,17 @@ const ExplorePage = () => {
   // Custom FAB state
   const [isFabOpen, setIsFabOpen] = useState(false);
 
+
+
   const filteredCollabProjects = useMemo(() => {
-    return collabProjects.filter(project => !user || project.creatorId !== user.id);
-  }, [collabProjects, user]);
+    return collabProjects;
+  }, [collabProjects]);
 
   const filteredJobs = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
     const normalizedLocation = locationFilter.trim().toLowerCase();
 
     return jobs.filter((job) => {
-      const notOwn = !user || !job.postedById || job.postedById !== user.id;
-
       const matchesSearch = !normalizedQuery
         || job.title.toLowerCase().includes(normalizedQuery)
         || job.company.toLowerCase().includes(normalizedQuery)
@@ -89,9 +89,9 @@ const ExplorePage = () => {
       const matchesLocation = !normalizedLocation
         || job.location.toLowerCase().includes(normalizedLocation);
 
-      return notOwn && matchesSearch && matchesMode && matchesLocation;
+      return matchesSearch && matchesMode && matchesLocation;
     });
-  }, [jobs, locationFilter, searchQuery, selectedMode, user]);
+  }, [jobs, locationFilter, searchQuery, selectedMode]);
 
   const modes = useMemo(() => {
     const allModes = new Set(jobs.map((job) => job.mode.toLowerCase()));

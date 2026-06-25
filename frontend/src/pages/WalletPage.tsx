@@ -123,26 +123,6 @@ const WalletPage = () => {
                     <Wallet className="h-8 w-8 text-[#00A4EF]" />
                     My Wallet
                 </h1>
-                <div className="flex items-center gap-2">
-                    <Button
-                        onClick={() => navigate("/wallet/pay")}
-                        variant="outline"
-                        className="border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-xl flex items-center gap-1.5 font-semibold text-sm h-10 px-4"
-                    >
-                        <QrCode className="h-4 w-4 text-[#00A4EF]" />
-                        Scan & Pay
-                    </Button>
-                    <Button
-                        asChild
-                        variant="outline"
-                        className="border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-xl h-10 w-10 p-0 flex items-center justify-center"
-                        aria-label="Share wallet QR"
-                    >
-                        <Link to={`/wallet/pay/${encodeURIComponent(shareId)}`}>
-                            <Share2 className="h-4 w-4" />
-                        </Link>
-                    </Button>
-                </div>
             </div>
 
             {/* Balance Card */}
@@ -158,20 +138,37 @@ const WalletPage = () => {
                                 Minimum payout threshold: ₹500.00
                             </p>
                         </div>
-                        <div className="flex flex-row gap-2.5 shrink-0">
+                        <div className="flex flex-row gap-6 items-center justify-center sm:justify-start shrink-0 w-full sm:w-auto">
+                            {/* Add Money Button */}
                             <Button
                                 variant="outline"
-                                className="border-[#00A4EF]/30 text-[#00A4EF] hover:bg-[#00A4EF]/10 rounded-xl px-5 h-11 font-semibold transition-all duration-200 active:scale-[0.97]"
+                                className="border-[#00A4EF]/30 text-[#00A4EF] hover:bg-[#00A4EF]/10 rounded-xl w-11 h-11 p-0 flex items-center justify-center transition-all duration-200 active:scale-[0.97] shrink-0"
                                 onClick={() => setIsAddMoneyOpen(true)}
+                                title="Add Money"
+                                aria-label="Add Money"
                             >
-                                <Plus className="w-4 h-4 mr-1.5 shrink-0" /> Add Money
+                                <Plus className="w-5 h-5 shrink-0" />
                             </Button>
+
+                            {/* Send Money Button */}
                             <Button
-                                onClick={() => setIsPayoutOpen(true)}
-                                disabled={balance < 500}
-                                className="bg-[#00A4EF] hover:bg-[#00A4EF]/90 text-white rounded-xl px-5 h-11 font-semibold transition-all duration-200 active:scale-[0.97] disabled:opacity-50"
+                                variant="outline"
+                                className="border-[#00A4EF]/30 text-[#00A4EF] hover:bg-[#00A4EF]/10 rounded-xl w-11 h-11 p-0 flex items-center justify-center transition-all duration-200 active:scale-[0.97] shrink-0"
+                                onClick={() => navigate("/wallet/pay")}
+                                title="Send Money"
+                                aria-label="Send Money"
                             >
-                                Request Payout
+                                <ArrowUpRight className="w-5 h-5 shrink-0" />
+                            </Button>
+
+                            {/* Receive Payments Button */}
+                            <Button
+                                onClick={() => navigate("/wallet/pay/" + encodeURIComponent(shareId))}
+                                className="bg-[#00A4EF] hover:bg-[#00A4EF]/90 text-white rounded-xl w-11 h-11 p-0 flex items-center justify-center transition-all duration-200 active:scale-[0.97] shrink-0"
+                                title="Receive Payments"
+                                aria-label="Receive Payments"
+                            >
+                                <ArrowDownLeft className="w-5 h-5 shrink-0" />
                             </Button>
                         </div>
                     </div>
@@ -467,12 +464,23 @@ const WalletPage = () => {
                     </Card>
                 </TabsContent>
 
-                {/* Payouts Tab */}
                 <TabsContent value="payouts" className="mt-3">
                     <Card className="rounded-2xl border-slate-200/60 shadow-sm overflow-hidden bg-white">
                         <CardHeader className="pb-4 border-b border-slate-100/80">
-                            <CardTitle className="text-base font-bold text-slate-800">Payout Requests</CardTitle>
-                            <CardDescription className="text-xs text-slate-400">Status of your withdrawal requests</CardDescription>
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <CardTitle className="text-base font-bold text-slate-800">Payout Requests</CardTitle>
+                                    <CardDescription className="text-xs text-slate-400">Status of your withdrawal requests</CardDescription>
+                                </div>
+                                <Button
+                                    onClick={() => setIsPayoutOpen(true)}
+                                    disabled={balance < 500}
+                                    size="sm"
+                                    className="bg-[#00A4EF] hover:bg-[#00A4EF]/90 text-white rounded-lg px-4 h-8 text-xs font-semibold"
+                                >
+                                    Request Payout
+                                </Button>
+                            </div>
                         </CardHeader>
                         <CardContent className="p-6">
                             <ScrollArea className="h-[400px] pr-4">

@@ -1,5 +1,6 @@
+
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowLeft, Edit3, Trash2, Eye, Users, IndianRupee, Briefcase, MapPin, Clock, AlertTriangle, X, LayoutGrid, Layers, Loader2, History, Bookmark, MoreVertical, Plus, ShoppingBag, Copy, Check, PauseCircle, PlayCircle } from "lucide-react";
 import { getMyJobs, deleteJob, MyJob, updateJob, getMyCollabProjects, ProjectListing, deleteCollabProject, updateCollabProject, getMyDealListings, deleteDealListing, setDealStatus, DealListing } from "../lib/api";
@@ -34,7 +35,10 @@ export default function MyListingsPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const isBusiness = user?.accountType === "business";
-  const [activeTab, setActiveTab] = useState("jobs");
+  const [searchParams] = useSearchParams();
+  const tabParam = searchParams.get("tab");
+  const [activeTab, setActiveTab] = useState(tabParam === "collabs" || tabParam === "deals" ? tabParam : "jobs");
+
   const [showHistory, setShowHistory] = useState(false);
   
   // Data State Line
