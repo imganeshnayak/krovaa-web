@@ -41,6 +41,7 @@ import savedJobsRoutes from './routes/savedJobs.js';
 import userPreferencesRoutes from './routes/userPreferences.js';
 import collabRoutes from './routes/collab.js';
 import dealsRoutes from './routes/deals.js';
+import { initCronJobs } from './services/cronService.js';
 import setupSocket from './socket/chat.js';
 
 const app = express();
@@ -239,6 +240,7 @@ app.get('/api/health', async (req, res) => {
 // Socket.IO
 setupSocket(io);
 app.set('io', io);
+initCronJobs(io);
 
 // Start server
 const PORT = process.env.PORT || 5000;

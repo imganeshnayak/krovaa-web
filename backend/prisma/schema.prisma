@@ -283,6 +283,10 @@ model EscrowDeal {
   trackingId        String?             @map("tracking_id")
   shippingStatus    String?             @map("shipping_status")
   shippingEvents    Json?               @default("[]") @map("shipping_events")
+  shiprocketOrderId    String?          @map("shiprocket_order_id")
+  shiprocketShipmentId String?          @map("shiprocket_shipment_id")
+  shiprocketAwbCode    String?          @map("shiprocket_awb_code")
+  shippingLabelUrl     String?          @map("shipping_label_url")
   ratings           UserRating[]
 
   @@map("escrow_deals")
@@ -1180,6 +1184,9 @@ model DealListing {
   deliveryType String        @default("shipping") @map("delivery_type")
   deliveryDays Int?          @map("delivery_days")
   category     String?
+  shippingWeight     Float?        @map("shipping_weight")
+  shippingDimensions String?       @map("shipping_dimensions")
+  pickupAddress      String?       @map("pickup_address")
 
   status       String        @default("active")
   viewCount    Int           @default(0) @map("view_count")

@@ -3,6 +3,8 @@ import { PrismaClient } from '@prisma/client';
 import { auth } from '../middleware/auth.js';
 import { sendUserNotification } from './notifications.js';
 import { buildEscrowInvoicePdf, uploadPdfToCloudinary } from '../services/invoiceService.js';
+import multer from 'multer';
+import { generateAWB, requestPickup, generateLabel, createOrderFromDeal } from '../services/shiprocketService.js';
 
 const prisma = new PrismaClient();
 const router = express.Router();
@@ -923,7 +925,43 @@ router.post('/:id/ship', auth, async (req, res) => {
             return res.status(400).json({ error: 'Cannot ship unpaid or inactive deals.' });
         }
 
-        const trackingId = 'AWB-' + Math.floor(1000000000 + Math.random() * 9000000000);
+        let shipmentId = deal.shiprocketShipmentId;
+
+        // Fallback: If Shiprocket order wasn't created during payment for some reason, create it now
+        if (!shipmentId) {
+            const orderResult = await createOrderFromDeal(dealId);
+            if (!orderResult || !orderResult.shipment_id) {
+                return res.status(500).json({ error: 'Failed to create Shiprocket order. Ensure buyer has a valid address.' });
+            }
+            shipmentId = orderResult.shipment_id.toString();
+        }
+
+        let trackingId = null;
+        let labelUrl = null;
+
+        try {
+            // 1. Generate AWB
+            const awbResult = await generateAWB(shipmentId);
+            trackingId = awbResult?.response?.data?.awb_code;
+
+            // 2. Request Pickup
+            if (trackingId) {
+                await requestPickup(shipmentId);
+            }
+
+            // 3. Generate Label
+            const labelResult = await generateLabel(shipmentId);
+            labelUrl = labelResult?.label_url;
+
+        } catch (shiprocketErr) {
+            console.error('Shiprocket API error during dispatch:', shiprocketErr);
+            return res.status(500).json({ error: 'Shiprocket API error: ' + shiprocketErr.message });
+        }
+
+        if (!trackingId) {
+            return res.status(500).json({ error: 'Failed to generate AWB from Shiprocket.' });
+        }
+
         const initialEvents = [
             {
                 status: 'label_created',
@@ -932,9 +970,9 @@ router.post('/:id/ship', auth, async (req, res) => {
                 timestamp: new Date().toISOString()
             },
             {
-                status: 'in_transit',
-                title: 'Package Shipped',
-                description: 'Package picked up from seller location and is in transit.',
+                status: 'pickup_scheduled',
+                title: 'Pickup Scheduled',
+                description: 'Pickup requested from seller location.',
                 timestamp: new Date().toISOString()
             }
         ];
@@ -946,7 +984,9 @@ router.post('/:id/ship', auth, async (req, res) => {
                 shippingDimensions: dimensions,
                 pickupAddress: pickupAddress,
                 trackingId: trackingId,
-                shippingStatus: 'in_transit',
+                shiprocketAwbCode: trackingId,
+                shippingLabelUrl: labelUrl,
+                shippingStatus: 'pickup_scheduled',
                 shippingEvents: initialEvents
             },
             include: {
@@ -1012,106 +1052,6 @@ router.post('/:id/ship', auth, async (req, res) => {
     } catch (err) {
         console.error('Ship escrow error:', err);
         res.status(500).json({ error: 'Failed to ship package.' });
-    }
-});
-
-// ─── AUTH: POST /api/escrow/:id/simulate-delivery — Simulate package delivery ───
-
-router.post('/:id/simulate-delivery', auth, async (req, res) => {
-    try {
-        const dealId = parseInt(req.params.id);
-
-        const deal = await prisma.escrowDeal.findUnique({
-            where: { id: dealId }
-        });
-
-        if (!deal) {
-            return res.status(404).json({ error: 'Deal not found.' });
-        }
-
-        let events = [];
-        if (deal.shippingEvents) {
-            events = Array.isArray(deal.shippingEvents) ? [...deal.shippingEvents] : JSON.parse(JSON.stringify(deal.shippingEvents));
-        }
-
-        events.push({
-            status: 'delivered',
-            title: 'Delivered',
-            description: 'Package has been successfully delivered to the destination address.',
-            timestamp: new Date().toISOString()
-        });
-
-        const updatedDeal = await prisma.escrowDeal.update({
-            where: { id: dealId },
-            data: {
-                shippingStatus: 'delivered',
-                shippingEvents: events
-            },
-            include: {
-                client: {
-                    select: { id: true, displayName: true, avatarUrl: true, username: true }
-                },
-                vendor: {
-                    select: { id: true, displayName: true, avatarUrl: true, username: true }
-                },
-                transactions: true
-            }
-        });
-
-        // System message in chat
-        let systemMessage;
-        const msgContent = `🏁 *Package Delivered!*\nThe courier reports that the package for "${deal.title}" has been delivered. Buyer, please confirm delivery to release funds.`;
-        if (deal.chatId.startsWith('community_')) {
-            systemMessage = await prisma.communityMessage.create({
-                data: {
-                    senderId: deal.vendorId,
-                    communityId: parseInt(deal.chatId.split('_')[1]),
-                    content: msgContent,
-                    messageType: 'escrow_delivered'
-                },
-                include: { sender: { select: { displayName: true, avatarUrl: true, username: true } } }
-            });
-        } else {
-            systemMessage = await prisma.message.create({
-                data: {
-                    senderId: deal.vendorId,
-                    receiverId: deal.clientId,
-                    chatId: deal.chatId,
-                    content: msgContent,
-                    messageType: 'escrow_delivered'
-                },
-                include: { sender: { select: { displayName: true, avatarUrl: true, username: true } } }
-            });
-        }
-
-        const io = req.app.get('io');
-        if (io) {
-            const socketResult = {
-                ...systemMessage,
-                sender_name: systemMessage.sender.displayName,
-                sender_avatar: systemMessage.sender.avatarUrl,
-                sender_username: systemMessage.sender.username,
-            };
-            io.to(`user_${deal.clientId}`).emit('newMessage', socketResult);
-            io.to(`user_${deal.vendorId}`).emit('newMessage', socketResult);
-            io.to(deal.chatId).emit('escrowUpdate', updatedDeal);
-            io.to(`user_${deal.clientId}`).emit('escrowUpdate', updatedDeal);
-            io.to(`user_${deal.vendorId}`).emit('escrowUpdate', updatedDeal);
-        }
-
-        sendUserNotification(
-            io,
-            deal.clientId,
-            'Order Delivered',
-            `Your package for "${deal.title}" has been delivered. Please confirm receipt.`,
-            'success',
-            { type: 'escrow', dealId, chatId: deal.chatId }
-        );
-
-        res.json(updatedDeal);
-    } catch (err) {
-        console.error('Simulate delivery error:', err);
-        res.status(500).json({ error: 'Failed to simulate delivery.' });
     }
 });
 

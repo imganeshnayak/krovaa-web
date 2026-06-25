@@ -1148,6 +1148,11 @@ export interface EscrowDeal {
   trackingId?: string;
   shippingStatus?: string;
   shippingEvents?: any[];
+  shippingLabelUrl?: string;
+  shiprocketAwbCode?: string;
+  shiprocketShipmentId?: string;
+  deliveryType?: string;
+  dealPrice?: number;
 }
 
 export function getEscrowDeals(chatId?: string): Promise<EscrowDeal[]> {

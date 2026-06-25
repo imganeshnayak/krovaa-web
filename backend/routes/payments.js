@@ -6,6 +6,7 @@ import { sendUserNotification } from './notifications.js';
 import { sendSubscriptionSuccessArtifacts } from '../services/subscriptionFulfillment.js';
 import { buildWalletInvoicePdf } from '../services/invoiceService.js';
 import { sendWalletInvoiceEmail } from '../services/emailService.js';
+import { createOrderFromDeal } from '../services/shiprocketService.js';
 
 const prisma = new PrismaClient();
 const router = express.Router();
@@ -226,6 +227,11 @@ router.post('/escrow/wallet-pay', auth, async (req, res) => {
             io.to(deal.chatId).emit('escrowUpdate', updatedDeal);
             io.to(`user_${deal.vendorId}`).emit('escrowUpdate', updatedDeal);
             io.to(`user_${deal.clientId}`).emit('escrowUpdate', updatedDeal);
+        }
+        
+        // Auto-create Shiprocket Order in background
+        if (updatedDeal.status === 'active') {
+            createOrderFromDeal(updatedDeal.id).catch(err => console.error("Auto-order creation failed:", err));
         }
 
         sendUserNotification(io, req.user.id, 'Payment Successful', `Your payment of ₹${amountToDeduct.toLocaleString('en-IN')} for "${deal.title}" was successful.`, 'success', { type: 'escrow', dealId: deal.id, chatId: deal.chatId });
@@ -651,6 +657,9 @@ router.post('/verify', auth, async (req, res) => {
                         };
                         io.to(`user_${deal.vendorId}`).emit('newMessage', socketResult);
                     }
+                    
+                    // Auto-create Shiprocket Order in background
+                    createOrderFromDeal(deal.id).catch(err => console.error("Auto-order creation failed:", err));
 
                 } else if (type === 'verification') {
                     await tx.verificationRequest.update({
@@ -812,6 +821,10 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
                             where: { id: deal.id },
                             data: { razorpayPaymentId: paymentId, paymentStatus: 'paid', paidAmount: deal.totalAmount, status: 'active' }
                         });
+                        
+                        // Auto-create Shiprocket Order in background
+                        createOrderFromDeal(deal.id).catch(err => console.error("Auto-order creation failed:", err));
+
                         // Record platform fee transaction for accounting
                         let platformFeePercent = 0.10; // Default
                         const feeSetting = await tx.systemSetting.findUnique({ where: { key: 'platform_fee_percent' } });

@@ -4,6 +4,7 @@ import { PrismaClient } from '@prisma/client';
 import { auth } from '../middleware/auth.js';
 import cloudinary from '../config/cloudinary.js';
 import multer from 'multer';
+import { checkServiceability } from '../services/shiprocketService.js';
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -173,12 +174,16 @@ router.post('/', auth, async (req, res) => {
             return res.status(403).json({ error: 'Only business accounts can create deal listings. Please complete your business profile first.' });
         }
 
-        const { title, description, price, imageUrls = [], deliveryType = 'shipping', deliveryDays, category } = req.body;
+        const { title, description, price, imageUrls = [], deliveryType = 'shipping', deliveryDays, category, shippingWeight, shippingDimensions, pickupAddress } = req.body;
 
         if (!title?.trim()) return res.status(400).json({ error: 'Title is required.' });
         if (!description?.trim()) return res.status(400).json({ error: 'Description is required.' });
         if (!price || isNaN(Number(price)) || Number(price) <= 0) {
             return res.status(400).json({ error: 'A valid price is required.' });
+        }
+
+        if (deliveryType === 'shipping' && (!shippingWeight || !shippingDimensions || !pickupAddress)) {
+            return res.status(400).json({ error: 'Shipping weight, dimensions, and pickup address are required for shipping.' });
         }
 
         const shareCode = generateShareCode();
@@ -194,6 +199,9 @@ router.post('/', auth, async (req, res) => {
                 deliveryType,
                 deliveryDays: deliveryDays ? Number(deliveryDays) : null,
                 category: category?.trim() || null,
+                shippingWeight: shippingWeight ? parseFloat(shippingWeight) : null,
+                shippingDimensions: shippingDimensions?.trim() || null,
+                pickupAddress: pickupAddress?.trim() || null,
             },
             select: DEAL_SELECT,
         });
@@ -216,7 +224,7 @@ router.put('/:id', auth, async (req, res) => {
         if (!existing) return res.status(404).json({ error: 'Deal not found.' });
         if (existing.sellerId !== req.user.id) return res.status(403).json({ error: 'Not your deal.' });
 
-        const { title, description, price, imageUrls, deliveryType, deliveryDays, category } = req.body;
+        const { title, description, price, imageUrls, deliveryType, deliveryDays, category, shippingWeight, shippingDimensions, pickupAddress } = req.body;
 
         const updated = await prisma.dealListing.update({
             where: { id: dealId },
@@ -228,6 +236,9 @@ router.put('/:id', auth, async (req, res) => {
                 ...(deliveryType ? { deliveryType } : {}),
                 ...(deliveryDays !== undefined ? { deliveryDays: deliveryDays ? Number(deliveryDays) : null } : {}),
                 ...(category !== undefined ? { category: category?.trim() || null } : {}),
+                ...(shippingWeight !== undefined ? { shippingWeight: shippingWeight ? parseFloat(shippingWeight) : null } : {}),
+                ...(shippingDimensions !== undefined ? { shippingDimensions: shippingDimensions?.trim() || null } : {}),
+                ...(pickupAddress !== undefined ? { pickupAddress: pickupAddress?.trim() || null } : {}),
             },
             select: DEAL_SELECT,
         });
@@ -386,6 +397,40 @@ router.post('/:shareCode/accept', auth, async (req, res) => {
         });
 
         if (!escrowDeal) {
+            // Calculate Shipping
+            let shippingFee = 0;
+            if (deal.deliveryType === 'shipping') {
+                const buyer = await prisma.user.findUnique({ where: { id: buyerId } });
+                if (!buyer.pincode) {
+                    return res.status(400).json({ error: 'Please add a delivery pincode in your settings before buying a shipped item.' });
+                }
+                
+                try {
+                    // Extract origin pincode from seller's pickupAddress if possible, or assume a default format.
+                    // For now, we'll try to extract a 6 digit number from pickupAddress.
+                    const pincodeMatch = deal.pickupAddress?.match(/\b\d{6}\b/);
+                    const originPincode = pincodeMatch ? pincodeMatch[0] : '110001'; // Default if not found
+
+                    const serviceability = await checkServiceability({
+                        pickup_postcode: originPincode,
+                        delivery_postcode: buyer.pincode,
+                        weight: deal.shippingWeight || 1.0,
+                        cod: 0
+                    });
+
+                    if (serviceability.status === 200 && serviceability.data.available_courier_companies?.length > 0) {
+                        shippingFee = serviceability.data.available_courier_companies[0].rate;
+                    } else {
+                        return res.status(400).json({ error: 'Delivery is not serviceable to your pincode.' });
+                    }
+                } catch (shippingErr) {
+                    console.error('Shipping calculation error:', shippingErr);
+                    return res.status(500).json({ error: 'Failed to calculate shipping cost.' });
+                }
+            }
+
+            const totalAmount = deal.price + shippingFee;
+
             // Create a new EscrowDeal in pending_payment status
             escrowDeal = await prisma.escrowDeal.create({
                 data: {
@@ -393,8 +438,8 @@ router.post('/:shareCode/accept', auth, async (req, res) => {
                     clientId: buyerId,
                     vendorId: deal.sellerId,
                     title: deal.title,
-                    description: deal.description,
-                    totalAmount: deal.price,
+                    description: deal.description + (shippingFee > 0 ? `\n\nIncludes ₹${shippingFee} shipping fee.` : ''),
+                    totalAmount: totalAmount,
                     status: 'pending_payment',
                     paymentStatus: 'pending',
                     dealListingId: deal.id

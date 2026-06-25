@@ -213,4 +213,78 @@ async function handlePayoutRejected(payout) {
     await handlePayoutFailed(payout);
 }
 
+/**
+ * POST /webhooks/shiprocket - Shiprocket Tracking Webhook
+ * Handles real-time shipping updates from Shiprocket
+ */
+router.post('/shiprocket', async (req, res) => {
+    try {
+        const { awb, current_status, scans, shipment_id } = req.body;
+        console.log(`\n📨 Received Shiprocket webhook for AWB: ${awb}, Status: ${current_status}`);
+
+        if (!awb || !current_status) {
+            return res.status(400).json({ error: 'Invalid payload' });
+        }
+
+        const deal = await prisma.escrowDeal.findFirst({
+            where: { shiprocketAwbCode: awb }
+        });
+
+        if (!deal) {
+            console.log(`⚠️  No deal found for AWB: ${awb}`);
+            return res.status(200).json({ received: true });
+        }
+
+        const newEvent = {
+            status: current_status.toLowerCase().replace(/ /g, '_'),
+            title: current_status,
+            description: scans && scans.length > 0 ? scans[0].activity : `Status updated to ${current_status}`,
+            timestamp: new Date().toISOString()
+        };
+
+        const existingEvents = deal.shippingEvents ? (Array.isArray(deal.shippingEvents) ? deal.shippingEvents : JSON.parse(deal.shippingEvents)) : [];
+        const updatedEvents = [...existingEvents, newEvent];
+
+        let internalStatus = deal.shippingStatus;
+
+        // Map Shiprocket status to our internal status
+        const statusMap = {
+            'delivered': 'delivered',
+            'rto delivered': 'rto',
+            'rto initiated': 'rto',
+            'shipped': 'in_transit',
+            'in transit': 'in_transit',
+            'out for delivery': 'out_for_delivery'
+        };
+
+        const lowerStatus = current_status.toLowerCase();
+        if (statusMap[lowerStatus]) {
+            internalStatus = statusMap[lowerStatus];
+        }
+
+        const updatedDeal = await prisma.escrowDeal.update({
+            where: { id: deal.id },
+            data: {
+                shippingStatus: internalStatus,
+                shippingEvents: updatedEvents
+            }
+        });
+
+        // If delivered, send notification
+        if (internalStatus === 'delivered' && deal.shippingStatus !== 'delivered') {
+            const io = req.app.get('io');
+            if (io) {
+                io.to(deal.chatId).emit('escrowUpdate', updatedDeal);
+                io.to(`user_${deal.clientId}`).emit('escrowUpdate', updatedDeal);
+                io.to(`user_${deal.vendorId}`).emit('escrowUpdate', updatedDeal);
+            }
+        }
+
+        res.json({ received: true });
+    } catch (err) {
+        console.error('Shiprocket webhook error:', err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
 export default router;

@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { 
   getEscrowDeal, payEscrowWithWallet, initiateEscrowPayment, 
-  verifyPayment, shipEscrowDeal, simulateDelivery, 
+  verifyPayment, shipEscrowDeal, 
   confirmRelease, submitDealReview, EscrowDeal, getCurrentUser
 } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { FileText } from "lucide-react";
 
 export default function DealTransactionPage() {
   const { escrowDealId } = useParams<{ escrowDealId: string }>();
@@ -166,19 +167,6 @@ export default function DealTransactionPage() {
     }
   };
 
-  const handleSimulateDelivery = async () => {
-    if (!deal) return;
-    setIsActioning(true);
-    try {
-      const updated = await simulateDelivery(deal.id);
-      setDeal(updated);
-      toast.success("Delivery simulated successfully!");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Simulation failed.");
-    } finally {
-      setIsActioning(false);
-    }
-  };
 
   const handleConfirmRelease = async () => {
     if (!deal) return;
@@ -388,6 +376,12 @@ export default function DealTransactionPage() {
                       <span className="text-slate-500">Secure Escrow Protection Fee</span>
                       <span className="font-semibold text-emerald-600">FREE</span>
                     </div>
+                    {deal.description?.match(/Includes ₹(\d+(?:\.\d+)?) shipping fee/i) && (
+                      <div className="flex justify-between border-t border-slate-100 dark:border-slate-800 pt-2.5 mt-2.5">
+                        <span className="text-slate-500">Shipping Fee</span>
+                        <span className="font-semibold text-slate-900 dark:text-white">₹{Number(deal.description.match(/Includes ₹(\d+(?:\.\d+)?) shipping fee/i)?.[1] || 0).toLocaleString('en-IN')}</span>
+                      </div>
+                    )}
                     <div className="border-t border-slate-100 dark:border-slate-800 pt-2.5 flex justify-between font-bold text-base">
                       <span className="text-slate-900 dark:text-white font-extrabold">Total Amount</span>
                       <span className="text-violet-600 dark:text-violet-400">₹{deal.totalAmount.toLocaleString('en-IN')}</span>
@@ -582,26 +576,19 @@ export default function DealTransactionPage() {
                   </div>
                 </div>
 
-                {/* DEV SIMULATOR BUTTON */}
-                {deal.shippingStatus === "in_transit" && (
-                  <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 p-3.5 rounded-xl space-y-2 mt-4">
-                    <div className="flex items-center gap-1.5 text-xs text-amber-800 dark:text-amber-400 font-bold">
-                      <Sparkles className="h-4 w-4" />
-                      <span>Developer / Test Mode Helper</span>
-                    </div>
-                    <p className="text-[10px] text-amber-700 dark:text-amber-500">
-                      Simulate courier delivery update. Marks shipping status as delivered immediately to verify Buyer Release flow.
-                    </p>
+                {isSeller && deal.shippingLabelUrl && (
+                  <div className="pt-2">
                     <Button 
-                      onClick={handleSimulateDelivery}
-                      disabled={isActioning}
+                      onClick={() => window.open(deal.shippingLabelUrl, '_blank')}
                       variant="outline"
-                      className="w-full h-8 text-[11px] font-bold border-amber-200 bg-amber-100 hover:bg-amber-200 hover:border-amber-300 text-amber-900 rounded-lg transition-all"
+                      className="w-full h-10 border-violet-200 text-violet-700 bg-violet-50 hover:bg-violet-100 font-bold gap-2 text-xs"
                     >
-                      {isActioning ? "Updating..." : "⚡ Simulate Delivery"}
+                      <FileText className="h-4 w-4" />
+                      Download Shipping Label
                     </Button>
                   </div>
                 )}
+
 
                 {/* Buyer Confirm Receipt CTA */}
                 {deal.shippingStatus === "delivered" && isBuyer && (
