@@ -124,14 +124,7 @@ const WalletPage = () => {
                     My Wallet
                 </h1>
                 <div className="flex items-center gap-2">
-                    <Button
-                        onClick={() => navigate("/wallet/pay")}
-                        variant="outline"
-                        className="border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-xl flex items-center gap-1.5 font-semibold text-sm h-10 px-4"
-                    >
-                        <QrCode className="h-4 w-4 text-[#00A4EF]" />
-                        Scan & Pay
-                    </Button>
+
                     <Button
                         asChild
                         variant="outline"

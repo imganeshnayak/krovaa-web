@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { JobPreferencesForm } from "@/components/JobPreferencesForm";
+import { AddressForm } from "@/components/AddressForm";
 
 const SettingsPage = () => {
     const { user, logout } = useAuth();
@@ -293,6 +294,14 @@ const SettingsPage = () => {
                                     <JobPreferencesForm />
                                 </AccordionContent>
                             </AccordionItem>
+
+                            <AccordionItem value="address">
+                                <AccordionTrigger>Delivery Address</AccordionTrigger>
+                                <AccordionContent className="space-y-4">
+                                    <AddressForm />
+                                </AccordionContent>
+                            </AccordionItem>
+
 
 
                             <AccordionItem value="about">
