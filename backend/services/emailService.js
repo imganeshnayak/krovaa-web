@@ -170,7 +170,7 @@ https://krovaa.com`;
   `;
 
   await transporter.sendMail({
-    from: `"Krovaa Security" <noreply@krovaa.com>`,
+    from: `"Krovaa Security" <${process.env.EMAIL_USER || 'noreply@krovaa.com'}>`,
     to: email,
     replyTo: 'support@krovaa.com',
     subject,
@@ -212,15 +212,13 @@ https://krovaa.com`;
   `;
 
   await transporter.sendMail({
-    from: `"Krovaa Security" <noreply@krovaa.com>`,
+    from: `"Krovaa Security" <${process.env.EMAIL_USER || 'noreply@krovaa.com'}>`,
     to: email,
     replyTo: 'support@krovaa.com',
     subject,
     text,
     html,
   });
-
-
 
   console.log(`Password reset OTP sent to ${email}`);
 }
@@ -327,7 +325,7 @@ export async function sendSubscriptionReceiptEmail(email, details) {
   `;
 
   await transporter.sendMail({
-    from: `"Krovaa Billing" <${senderEmail}>`,
+    from: `"Krovaa Billing" <${process.env.EMAIL_USER || senderEmail}>`,
     to: email,
     replyTo: 'support@krovaa.com',
     subject,
