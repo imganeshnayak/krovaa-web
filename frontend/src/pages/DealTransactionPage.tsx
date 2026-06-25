@@ -388,20 +388,7 @@ export default function DealTransactionPage() {
                     </div>
                   </div>
 
-                  <div className="bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-900 p-3 rounded-xl flex items-center justify-between text-xs font-medium">
-                    <span className="text-slate-500 flex items-center gap-1.5"><Wallet className="h-4 w-4 text-slate-400" /> Wallet Balance:</span>
-                    <span className="font-bold text-slate-800 dark:text-slate-200">₹{walletBalance.toLocaleString('en-IN')}</span>
-                  </div>
-
                   <div className="space-y-2.5 pt-2">
-                    <Button 
-                      onClick={handleWalletPayment}
-                      disabled={isActioning || walletBalance < deal.totalAmount}
-                      className="w-full h-12 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold gap-2 text-sm"
-                    >
-                      <Wallet className="h-4 w-4" />
-                      {isActioning ? "Processing..." : `Pay ₹${deal.totalAmount.toLocaleString('en-IN')} via Wallet`}
-                    </Button>
                     <Button 
                       onClick={handleRazorpayPayment}
                       disabled={isActioning}
@@ -410,11 +397,6 @@ export default function DealTransactionPage() {
                       <CreditCard className="h-4 w-4" />
                       Pay via Razorpay / Cards / UPI
                     </Button>
-                    {walletBalance < deal.totalAmount && (
-                      <p className="text-[10px] text-center text-amber-600 font-medium flex items-center justify-center gap-1">
-                        <AlertCircle className="h-3 w-3" /> Insufficient wallet balance for wallet checkout. Top up or pay via card.
-                      </p>
-                    )}
                   </div>
                 </div>
               )}

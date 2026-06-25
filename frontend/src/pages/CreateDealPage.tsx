@@ -37,6 +37,9 @@ export default function CreateDealPage() {
   const [price, setPrice] = useState("");
   const [deliveryType, setDeliveryType] = useState("shipping");
   const [deliveryDays, setDeliveryDays] = useState("");
+  const [shippingWeight, setShippingWeight] = useState("");
+  const [shippingDimensions, setShippingDimensions] = useState("");
+  const [pickupAddress, setPickupAddress] = useState("");
   const [category, setCategory] = useState("");
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -85,7 +88,23 @@ export default function CreateDealPage() {
   const isStepValid = () => {
     if (step === 1) return title.trim().length > 0 && description.trim().length > 0;
     if (step === 2) return true;
-    if (step === 3) return price !== "" && !isNaN(Number(price)) && Number(price) > 0;
+    if (step === 3) {
+      const isPriceValid = price !== "" && !isNaN(Number(price)) && Number(price) > 0;
+      if (!isPriceValid) return false;
+      if (deliveryType === "shipping") {
+        return (
+          shippingWeight.trim().length > 0 &&
+          !isNaN(Number(shippingWeight)) &&
+          Number(shippingWeight) > 0 &&
+          shippingDimensions.trim().length > 0 &&
+          pickupAddress.trim().length > 0
+        );
+      }
+      if (deliveryType === "pickup") {
+        return pickupAddress.trim().length > 0;
+      }
+      return true;
+    }
     return true;
   };
 
@@ -108,6 +127,25 @@ export default function CreateDealPage() {
       setError("Please enter a valid price greater than ₹0.");
       return;
     }
+    if (deliveryType === "shipping") {
+      if (!shippingWeight || isNaN(Number(shippingWeight)) || Number(shippingWeight) <= 0) {
+        setError("Please enter a valid shipping weight.");
+        return;
+      }
+      if (!shippingDimensions.trim()) {
+        setError("Please enter shipping dimensions.");
+        return;
+      }
+      if (!pickupAddress.trim()) {
+        setError("Please enter a pickup address.");
+        return;
+      }
+    } else if (deliveryType === "pickup") {
+      if (!pickupAddress.trim()) {
+        setError("Please enter a pickup address.");
+        return;
+      }
+    }
 
     setIsLoading(true);
     try {
@@ -116,9 +154,12 @@ export default function CreateDealPage() {
         description: description.trim(),
         price: Number(price),
         imageUrls: uploadedImages,
+        category: category || undefined,
         deliveryType,
         deliveryDays: deliveryDays ? Number(deliveryDays) : undefined,
-        category: category || undefined,
+        shippingWeight: deliveryType === "shipping" ? Number(shippingWeight) : undefined,
+        shippingDimensions: deliveryType === "shipping" ? shippingDimensions.trim() : undefined,
+        pickupAddress: (deliveryType === "shipping" || deliveryType === "pickup") ? pickupAddress.trim() : undefined,
       });
       setShareUrl(result.shareUrl);
       setDealShareCode(result.deal.shareCode);
@@ -366,46 +407,110 @@ export default function CreateDealPage() {
               </div>
 
               <div className="space-y-2">
-                <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">Delivery Type</Label>
+                <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">Delivery Method *</Label>
                 <div className="grid grid-cols-3 gap-2">
-                  {DELIVERY_TYPES.map(dt => (
+                  {DELIVERY_TYPES.map(t => (
                     <button
-                      key={dt.value}
+                      key={t.value}
                       type="button"
-                      onClick={() => setDeliveryType(dt.value)}
+                      onClick={() => {
+                        setDeliveryType(t.value);
+                        setError("");
+                      }}
                       className={cn(
-                        "px-3 py-2.5 rounded-xl border text-xs font-semibold transition-all",
-                        deliveryType === dt.value
-                          ? "border-[#00A4EF] bg-[#E6F6FE] text-[#007BB5]"
-                          : "border-slate-200 text-slate-600 hover:border-slate-300"
+                        "py-3 px-2 rounded-xl border text-xs font-bold transition-all flex flex-col items-center justify-center gap-1.5",
+                        deliveryType === t.value
+                          ? "border-[#00A4EF] bg-[#00A4EF]/5 text-[#00A4EF]"
+                          : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
                       )}
                     >
-                      {dt.label}
+                      {t.label}
                     </button>
                   ))}
                 </div>
               </div>
 
               {deliveryType === "shipping" && (
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                    Estimated Delivery (days)
-                  </Label>
-                  <Input
-                    type="number"
-                    min="1"
-                    max="60"
-                    value={deliveryDays}
-                    onChange={e => setDeliveryDays(e.target.value)}
-                    placeholder="e.g. 5"
-                    className="h-11 text-sm"
-                  />
+                <div className="space-y-4 p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Weight (kg) *</Label>
+                      <Input
+                        type="number"
+                        step="0.1"
+                        min="0.1"
+                        value={shippingWeight}
+                        onChange={e => setShippingWeight(e.target.value)}
+                        placeholder="e.g. 0.5"
+                        className="h-10 text-xs"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Dimensions (cm) *</Label>
+                      <Input
+                        type="text"
+                        value={shippingDimensions}
+                        onChange={e => setShippingDimensions(e.target.value)}
+                        placeholder="L x W x H (e.g. 15x10x5)"
+                        className="h-10 text-xs"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Pickup Address *</Label>
+                    <Textarea
+                      value={pickupAddress}
+                      onChange={e => setPickupAddress(e.target.value)}
+                      placeholder="Enter the complete address where the courier will pick up the package (include Pincode)"
+                      rows={3}
+                      className="text-xs resize-none"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Estimated Delivery Days</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={deliveryDays}
+                      onChange={e => setDeliveryDays(e.target.value)}
+                      placeholder="e.g. 5"
+                      className="h-10 text-xs"
+                    />
+                  </div>
                 </div>
               )}
 
               {deliveryType === "pickup" && (
-                <div className="p-3 rounded-lg bg-amber-50 border border-amber-200">
-                  <p className="text-[11px] text-amber-700 font-medium">Buyers will pick up from your business address on file.</p>
+                <div className="space-y-3 p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Pickup Location *</Label>
+                    <Textarea
+                      value={pickupAddress}
+                      onChange={e => setPickupAddress(e.target.value)}
+                      placeholder="Specify the address or location details where the buyer can pick up the item."
+                      rows={3}
+                      className="text-xs resize-none"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {deliveryType === "digital" && (
+                <div className="space-y-3 p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Delivery Time (Days)</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={deliveryDays}
+                      onChange={e => setDeliveryDays(e.target.value)}
+                      placeholder="e.g. 1"
+                      className="h-10 text-xs"
+                    />
+                    <p className="text-[10px] text-slate-400">Specify how many days it will take to deliver the digital assets / details.</p>
+                  </div>
                 </div>
               )}
             </>

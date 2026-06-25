@@ -1,10 +1,14 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ShieldCheck, Truck, Package, Laptop, MapPin, Star, CheckCircle, Share2, Copy, Check, MessageCircle, IndianRupee, Clock, Tag } from "lucide-react";
-import { getPublicDeal, inquireDeal, DealListing, acceptDeal } from "@/lib/api";
+import { ShieldCheck, Truck, Package, Laptop, MapPin, Star, CheckCircle, Share2, Copy, Check, MessageCircle, IndianRupee, Clock, Tag, Home, Phone } from "lucide-react";
+import { getPublicDeal, inquireDeal, DealListing, acceptDeal, updateUserProfile } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 const DELIVERY_ICONS: Record<string, React.ReactNode> = {
   shipping: <Truck className="h-4 w-4" />,
@@ -29,7 +33,7 @@ const formatDate = (dateStr: string) => {
 export default function DealPublicPage() {
   const { shareCode } = useParams<{ shareCode: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
 
   const [deal, setDeal] = useState<DealListing | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -38,6 +42,22 @@ export default function DealPublicPage() {
   const [isAccepting, setIsAccepting] = useState(false);
   const [copied, setCopied] = useState(false);
   const [selectedImage, setSelectedImage] = useState(0);
+
+  // Address dialog states for shipping delivery type
+  const [isAddressDialogOpen, setIsAddressDialogOpen] = useState(false);
+  const [addressPincode, setAddressPincode] = useState("");
+  const [addressCity, setAddressCity] = useState("");
+  const [addressPhone, setAddressPhone] = useState("");
+  const [addressLocation, setAddressLocation] = useState("");
+  const [isSavingAddress, setIsSavingAddress] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      setAddressPincode(user.pincode || "");
+      setAddressCity(user.city || "");
+      setAddressPhone(user.phoneNumber || "");
+    }
+  }, [user]);
 
   useEffect(() => {
     if (!shareCode) return;
@@ -93,6 +113,44 @@ export default function DealPublicPage() {
     }
   };
 
+  const executeAcceptDeal = async () => {
+    setIsAccepting(true);
+    try {
+      const escrowDeal = await acceptDeal(shareCode!);
+      toast.success("Deal accepted! Redirecting to secure transaction checkout.");
+      navigate(`/deal/transaction/${escrowDeal.id}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to accept deal.");
+    } finally {
+      setIsAccepting(false);
+    }
+  };
+
+  const handleSaveAddressAndBuy = async () => {
+    if (!user || !deal) return;
+    if (!addressPincode.trim() || !addressCity.trim() || !addressPhone.trim()) {
+      toast.error("Please fill in all required fields.");
+      return;
+    }
+    setIsSavingAddress(true);
+    try {
+      await updateUserProfile(user.id, {
+        pincode: addressPincode.trim(),
+        city: addressCity.trim(),
+        phoneNumber: addressPhone.trim(),
+        ...(addressLocation.trim() ? { location: addressLocation.trim() } : {})
+      });
+      await refreshUser();
+      setIsAddressDialogOpen(false);
+      toast.success("Delivery details saved!");
+      await executeAcceptDeal();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save address.");
+    } finally {
+      setIsSavingAddress(false);
+    }
+  };
+
   const handleAcceptDeal = async () => {
     if (!deal || !shareCode) return;
     if (!user) {
@@ -103,16 +161,13 @@ export default function DealPublicPage() {
       toast.info("This is your own deal listing.");
       return;
     }
-    setIsAccepting(true);
-    try {
-      const escrowDeal = await acceptDeal(shareCode);
-      toast.success("Deal accepted! Redirecting to secure transaction checkout.");
-      navigate(`/deal/transaction/${escrowDeal.id}`);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to accept deal.");
-    } finally {
-      setIsAccepting(false);
+
+    if (deal.deliveryType === "shipping" && (!user.pincode || !user.city || !user.phoneNumber)) {
+      setIsAddressDialogOpen(true);
+      return;
     }
+
+    await executeAcceptDeal();
   };
 
   const handleShare = () => {
@@ -217,8 +272,8 @@ export default function DealPublicPage() {
           </div>
 
           <div className="flex items-center gap-1.5 mt-2">
-            <IndianRupee className="h-5 w-5 text-violet-600" />
-            <span className="text-2xl font-black text-violet-700">{formatPrice(deal.price)}</span>
+            <IndianRupee className="h-5 w-5 text-[#00A4EF]" />
+            <span className="text-2xl font-black text-[#00A4EF]">{formatPrice(deal.price)}</span>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 mt-3">
@@ -308,18 +363,19 @@ export default function DealPublicPage() {
                   onClick={handleChatToBuy}
                   disabled={isInquiring || isAccepting}
                   variant="outline"
-                  className="h-13 px-4 font-bold border-slate-200 hover:bg-slate-50 text-slate-700 rounded-2xl gap-2 shrink-0"
+                  className="flex-1 h-13 font-bold border-slate-200 hover:bg-slate-50 text-slate-700 rounded-2xl gap-2 text-xs"
                   title="Chat with Seller"
                 >
-                  <MessageCircle className="h-5 w-5" />
+                  <MessageCircle className="h-4 w-4" />
+                  Chat to Buy
                 </Button>
                 <Button
                   onClick={handleAcceptDeal}
                   disabled={isInquiring || isAccepting}
-                  className="flex-1 h-13 text-sm font-extrabold bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white rounded-2xl shadow-lg shadow-violet-200 gap-2"
+                  className="flex-1 h-13 text-xs font-extrabold bg-[#00A4EF] hover:bg-[#0087d1] text-white rounded-2xl shadow-lg shadow-[#00A4EF]/20 gap-2"
                 >
-                  <ShieldCheck className="h-5 w-5" />
-                  {isAccepting ? "Accepting..." : "Accept Deal & Buy"}
+                  <ShieldCheck className="h-4 w-4" />
+                  {isAccepting ? "Accepting..." : "Accept & Buy"}
                 </Button>
               </div>
               <p className="text-center text-[10px] text-slate-400">
@@ -329,6 +385,90 @@ export default function DealPublicPage() {
           )}
         </div>
       </div>
+
+      {/* Address Prompt Dialog */}
+      <Dialog open={isAddressDialogOpen} onOpenChange={setIsAddressDialogOpen}>
+        <DialogContent className="max-w-md bg-white rounded-3xl border-0 shadow-2xl p-6" onInteractOutside={e => e.preventDefault()}>
+          <DialogTitle className="text-lg font-extrabold text-slate-900 flex items-center gap-2">
+            <Home className="h-5 w-5 text-[#00A4EF]" />
+            Enter Delivery Details
+          </DialogTitle>
+          <p className="text-xs text-slate-500">
+            Please provide your delivery information to check courier serviceability and calculate shipping costs.
+          </p>
+
+          <div className="space-y-4 py-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Pincode *</Label>
+                <Input
+                  type="text"
+                  maxLength={6}
+                  value={addressPincode}
+                  onChange={e => setAddressPincode(e.target.value.replace(/\D/g, ""))}
+                  placeholder="e.g. 110001"
+                  className="h-10 text-xs font-mono"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">City *</Label>
+                <Input
+                  type="text"
+                  value={addressCity}
+                  onChange={e => setAddressCity(e.target.value)}
+                  placeholder="e.g. New Delhi"
+                  className="h-10 text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Phone Number *</Label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                <Input
+                  type="tel"
+                  maxLength={10}
+                  value={addressPhone}
+                  onChange={e => setAddressPhone(e.target.value.replace(/\D/g, ""))}
+                  placeholder="10-digit mobile number"
+                  className="h-10 pl-9 text-xs font-mono"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Complete Address (Street, House No.)</Label>
+              <Textarea
+                value={addressLocation}
+                onChange={e => setAddressLocation(e.target.value)}
+                placeholder="Flat / House no., building, street, area details"
+                rows={3}
+                className="text-xs resize-none"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 pt-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsAddressDialogOpen(false)}
+              className="h-10 text-xs font-semibold"
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleSaveAddressAndBuy}
+              disabled={isSavingAddress || isAccepting}
+              className="h-10 text-xs font-bold bg-[#00A4EF] hover:bg-[#0087d1] text-white"
+            >
+              {isSavingAddress ? "Saving..." : "Save & Continue"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

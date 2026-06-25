@@ -1723,11 +1723,11 @@ const ChatView = ({
                                     navigate(`/escrow?chatId=${selectedChat.chat_id}`);
                                   }}
                                   className={`w-full py-2 rounded-lg text-[12px] font-semibold tracking-wide border transition-all flex items-center justify-center gap-1.5 active:scale-[0.98] ${(msg.messageType === 'escrow_released' || msg.message_type === 'escrow_released')
-                                    ? "border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10"
-                                    : "border-white/10 text-white/70 hover:bg-white/5"
+                                    ? "border-emerald-500/30 text-[#0b8c62] hover:bg-emerald-500/10"
+                                    : "border-[#00a4ef]/30 text-black hover:bg-black/5"
                                     }`}
                                 >
-                                  View Details <Icon name="ArrowLeft" className="h-3.5 w-3.5 rotate-180" />
+                                  View Details <Icon name="ArrowLeft" className="h-3.5 w-3.5 rotate-180 text-black" />
                                 </button>
                               )}
                             </div>
