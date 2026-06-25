@@ -1283,15 +1283,15 @@ const ChatView = ({
       {activeEscrow && (
         <div 
           onClick={() => navigate(`/deal/transaction/${activeEscrow.id}`)}
-          className="bg-violet-50/90 dark:bg-violet-950/20 border-b border-violet-100 dark:border-violet-900/30 px-4 py-2 flex items-center justify-between gap-3 cursor-pointer hover:bg-violet-100/50 dark:hover:bg-violet-950/30 transition-all shrink-0"
+          className="bg-sky-50/90 dark:bg-sky-950/20 border-b border-sky-100 dark:border-sky-900/30 px-4 py-2 flex items-center justify-between gap-3 cursor-pointer hover:bg-sky-100/50 dark:hover:bg-sky-950/30 transition-all shrink-0"
         >
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="h-8 w-8 rounded-lg bg-violet-100 dark:bg-violet-900/50 flex items-center justify-center text-violet-600 dark:text-violet-400 shrink-0">
+            <div className="h-8 w-8 rounded-lg bg-sky-50 dark:bg-sky-950/50 flex items-center justify-center text-[#00A4EF] dark:text-sky-400 shrink-0">
               <Icon name="ShoppingBag" className="h-4 w-4" />
             </div>
             <div className="min-w-0">
               <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{activeEscrow.title}</p>
-              <p className="text-[10px] font-semibold text-violet-600 dark:text-violet-400 flex items-center gap-1.5 flex-wrap">
+              <p className="text-[10px] font-semibold text-[#00A4EF] dark:text-sky-400 flex items-center gap-1.5 flex-wrap">
                 <span>₹{activeEscrow.totalAmount.toLocaleString('en-IN')}</span>
                 <span className="h-1 w-1 rounded-full bg-slate-300 dark:bg-slate-700" />
                 <span className="capitalize">{activeEscrow.status.replace('_', ' ')}</span>
@@ -1306,7 +1306,7 @@ const ChatView = ({
           </div>
           <div className="shrink-0 flex items-center gap-2">
             {activeEscrow.status === 'pending_payment' && activeEscrow.clientId === user?.id && (
-              <Button size="sm" className="h-7 text-[10px] font-bold bg-violet-600 hover:bg-violet-700 text-white rounded-lg px-2.5">
+              <Button size="sm" className="h-7 text-[10px] font-bold bg-[#00A4EF] hover:bg-[#0087d1] text-white rounded-lg px-2.5">
                 Pay Now
               </Button>
             )}
@@ -1316,7 +1316,7 @@ const ChatView = ({
               </Badge>
             )}
             {activeEscrow.status === 'active' && !activeEscrow.trackingId && activeEscrow.vendorId === user?.id && (
-              <Button size="sm" className="h-7 text-[10px] font-bold bg-violet-600 hover:bg-violet-700 text-white rounded-lg px-2.5">
+              <Button size="sm" className="h-7 text-[10px] font-bold bg-[#00A4EF] hover:bg-[#0087d1] text-white rounded-lg px-2.5">
                 Ship Package
               </Button>
             )}
@@ -1326,7 +1326,7 @@ const ChatView = ({
               </Badge>
             )}
             {activeEscrow.status === 'active' && activeEscrow.trackingId && activeEscrow.shippingStatus === 'in_transit' && (
-              <Button size="sm" className="h-7 text-[10px] font-bold bg-violet-600 hover:bg-violet-700 text-white rounded-lg px-2.5">
+              <Button size="sm" className="h-7 text-[10px] font-bold bg-[#00A4EF] hover:bg-[#0087d1] text-white rounded-lg px-2.5">
                 Track Order
               </Button>
             )}

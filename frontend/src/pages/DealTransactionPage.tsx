@@ -206,7 +206,7 @@ export default function DealTransactionPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center gap-4">
-        <RefreshCw className="h-8 w-8 animate-spin text-violet-600" />
+        <RefreshCw className="h-8 w-8 animate-spin text-[#00A4EF]" />
         <p className="text-sm font-medium text-slate-500">Loading secure transaction...</p>
       </div>
     );
@@ -295,7 +295,7 @@ export default function DealTransactionPage() {
         {/* Deal Overview Card */}
         <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3.5">
-            <div className="h-12 w-12 rounded-2xl bg-violet-100 dark:bg-violet-900/50 flex items-center justify-center text-violet-600 dark:text-violet-400 shrink-0">
+            <div className="h-12 w-12 rounded-2xl bg-sky-50 dark:bg-sky-950/50 flex items-center justify-center text-[#00A4EF] dark:text-sky-400 shrink-0">
               <Box className="h-6 w-6" />
             </div>
             <div className="min-w-0">
@@ -308,9 +308,9 @@ export default function DealTransactionPage() {
           <div className="flex items-center justify-between md:justify-end gap-5 border-t md:border-t-0 border-slate-100 dark:border-slate-800 pt-3.5 md:pt-0">
             <div>
               <p className="text-[10px] uppercase font-bold text-slate-400">Escrow Value</p>
-              <p className="text-xl font-black text-violet-600 dark:text-violet-400">₹{deal.totalAmount.toLocaleString('en-IN')}</p>
+              <p className="text-xl font-black text-[#00A4EF] dark:text-sky-400">₹{deal.totalAmount.toLocaleString('en-IN')}</p>
             </div>
-            <Badge className="bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-50 rounded-xl px-3 py-1 font-bold text-xs uppercase dark:bg-violet-950/30 dark:text-violet-400 dark:border-violet-900/50">
+            <Badge className="bg-sky-50 text-[#00A4EF] border border-sky-100 hover:bg-sky-50 rounded-xl px-3 py-1 font-bold text-xs uppercase dark:bg-sky-950/30 dark:text-sky-400 dark:border-sky-900/50">
               {stepTitle}
             </Badge>
           </div>
@@ -328,13 +328,13 @@ export default function DealTransactionPage() {
                     isCompleted 
                       ? "bg-emerald-500 text-white shadow-sm" 
                       : isActive 
-                        ? "bg-violet-600 text-white ring-4 ring-violet-100 dark:ring-violet-950" 
+                        ? "bg-[#00A4EF] text-white ring-4 ring-sky-100 dark:ring-sky-950" 
                         : "bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-600"
                   }`}>
                     {isCompleted ? <Check className="h-4 w-4" /> : s.num}
                   </div>
                   <span className={`text-xs font-bold transition-colors ${
-                    isActive ? "text-violet-600 dark:text-violet-400" : isCompleted ? "text-slate-800 dark:text-slate-300" : "text-slate-400 dark:text-slate-600"
+                    isActive ? "text-[#00A4EF] dark:text-sky-400" : isCompleted ? "text-slate-800 dark:text-slate-300" : "text-slate-400 dark:text-slate-600"
                   }`}>{s.label}</span>
                   {idx < steps.length - 1 && (
                     <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-800 ml-1" />
@@ -352,7 +352,7 @@ export default function DealTransactionPage() {
           {deal.status === "pending_payment" && (
             <div className="p-6 md:p-8 space-y-6">
               <div className="text-center max-w-md mx-auto space-y-2.5">
-                <div className="h-14 w-14 rounded-full bg-violet-50 dark:bg-violet-950/30 flex items-center justify-center text-violet-600 dark:text-violet-400 mx-auto">
+                <div className="h-14 w-14 rounded-full bg-sky-50 dark:bg-sky-950/30 flex items-center justify-center text-[#00A4EF] dark:text-sky-400 mx-auto">
                   <CreditCard className="h-6 w-6" />
                 </div>
                 <h3 className="text-lg font-bold text-slate-900 dark:text-white">Secure Escrow Deposit</h3>
@@ -384,7 +384,7 @@ export default function DealTransactionPage() {
                     )}
                     <div className="border-t border-slate-100 dark:border-slate-800 pt-2.5 flex justify-between font-bold text-base">
                       <span className="text-slate-900 dark:text-white font-extrabold">Total Amount</span>
-                      <span className="text-violet-600 dark:text-violet-400">₹{deal.totalAmount.toLocaleString('en-IN')}</span>
+                      <span className="text-[#00A4EF] dark:text-sky-400">₹{deal.totalAmount.toLocaleString('en-IN')}</span>
                     </div>
                   </div>
 
@@ -392,7 +392,7 @@ export default function DealTransactionPage() {
                     <Button 
                       onClick={handleRazorpayPayment}
                       disabled={isActioning}
-                      className="w-full h-12 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-bold gap-2 text-sm shadow-md shadow-violet-200 dark:shadow-none"
+                      className="w-full h-12 rounded-xl bg-[#00A4EF] hover:bg-[#0087d1] text-white font-bold gap-2 text-sm shadow-md shadow-sky-200 dark:shadow-none"
                     >
                       <CreditCard className="h-4 w-4" />
                       Pay via Razorpay / Cards / UPI
@@ -407,7 +407,7 @@ export default function DealTransactionPage() {
           {deal.status === "active" && !deal.trackingId && (
             <div className="p-6 md:p-8 space-y-6">
               <div className="text-center max-w-md mx-auto space-y-2.5">
-                <div className="h-14 w-14 rounded-full bg-violet-50 dark:bg-violet-950/30 flex items-center justify-center text-violet-600 dark:text-violet-400 mx-auto">
+                <div className="h-14 w-14 rounded-full bg-sky-50 dark:bg-sky-950/30 flex items-center justify-center text-[#00A4EF] dark:text-sky-400 mx-auto">
                   <Package className="h-6 w-6" />
                 </div>
                 <h3 className="text-lg font-bold text-slate-900 dark:text-white">Prepare Shipment</h3>
@@ -444,7 +444,7 @@ export default function DealTransactionPage() {
                       id="dimensions" 
                       value={shippingDimensions} 
                       onChange={(e) => setShippingDimensions(e.target.value)}
-                      className="w-full h-10 px-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500"
+                      className="w-full h-10 px-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm outline-none focus:ring-2 focus:ring-[#00A4EF]"
                     >
                       <option value="Small (15x15x10 cm)">Small Envelope/Box (15x15x10 cm)</option>
                       <option value="Medium (30x30x20 cm)">Medium Package (30x30x20 cm)</option>
@@ -466,7 +466,7 @@ export default function DealTransactionPage() {
                   <Button 
                     type="submit" 
                     disabled={isActioning}
-                    className="w-full h-12 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-bold gap-2 text-sm mt-3"
+                    className="w-full h-12 rounded-xl bg-[#00A4EF] hover:bg-[#0087d1] text-white font-bold gap-2 text-sm mt-3"
                   >
                     <Truck className="h-4 w-4" />
                     {isActioning ? "Generating..." : "Generate Label & Ship"}
@@ -480,7 +480,7 @@ export default function DealTransactionPage() {
           {deal.status === "active" && deal.trackingId && (
             <div className="p-6 md:p-8 space-y-6">
               <div className="text-center max-w-md mx-auto space-y-2">
-                <div className="h-14 w-14 rounded-full bg-violet-50 dark:bg-violet-950/30 flex items-center justify-center text-violet-600 dark:text-violet-400 mx-auto">
+                <div className="h-14 w-14 rounded-full bg-sky-50 dark:bg-sky-950/30 flex items-center justify-center text-[#00A4EF] dark:text-sky-400 mx-auto">
                   <Truck className="h-6 w-6 animate-pulse" />
                 </div>
                 <h3 className="text-lg font-bold text-slate-900 dark:text-white">
@@ -517,7 +517,7 @@ export default function DealTransactionPage() {
                   </div>
                   <div className="text-right">
                     <span className="text-[10px] uppercase font-bold text-slate-400">Courier Partner</span>
-                    <p className="text-sm font-bold text-violet-600 dark:text-violet-400 mt-0.5">Krovaa Courier Express</p>
+                    <p className="text-sm font-bold text-[#00A4EF] dark:text-sky-400 mt-0.5">Krovaa Courier Express</p>
                   </div>
                 </div>
 
@@ -540,7 +540,7 @@ export default function DealTransactionPage() {
                       <div key={idx} className="flex gap-3 text-xs items-start">
                         <div className="relative flex flex-col items-center">
                           <div className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 z-10 ${
-                            e.status === 'delivered' ? 'bg-emerald-500 text-white' : 'bg-violet-500 text-white'
+                            e.status === 'delivered' ? 'bg-emerald-500 text-white' : 'bg-[#00A4EF] text-white'
                           }`}>
                             {e.status === 'delivered' ? <Check className="h-3 w-3" /> : <Box className="h-2.5 w-2.5" />}
                           </div>
@@ -563,7 +563,7 @@ export default function DealTransactionPage() {
                     <Button 
                       onClick={() => window.open(deal.shippingLabelUrl, '_blank')}
                       variant="outline"
-                      className="w-full h-10 border-violet-200 text-violet-700 bg-violet-50 hover:bg-violet-100 font-bold gap-2 text-xs"
+                      className="w-full h-10 border-sky-200 text-[#00A4EF] bg-sky-50 hover:bg-sky-100 font-bold gap-2 text-xs"
                     >
                       <FileText className="h-4 w-4" />
                       Download Shipping Label
@@ -600,7 +600,7 @@ export default function DealTransactionPage() {
           {deal.status === "completed" && !hasUserRated && (
             <div className="p-6 md:p-8 space-y-6">
               <div className="text-center max-w-md mx-auto space-y-2">
-                <div className="h-14 w-14 rounded-full bg-violet-50 dark:bg-violet-950/30 flex items-center justify-center text-violet-600 dark:text-violet-400 mx-auto">
+                <div className="h-14 w-14 rounded-full bg-sky-50 dark:bg-sky-950/30 flex items-center justify-center text-[#00A4EF] dark:text-sky-400 mx-auto">
                   <Star className="h-6 w-6 text-amber-400" />
                 </div>
                 <h3 className="text-lg font-bold text-slate-900 dark:text-white">Rate the Transaction</h3>
@@ -649,7 +649,7 @@ export default function DealTransactionPage() {
                 <Button 
                   type="submit" 
                   disabled={isActioning}
-                  className="w-full h-11 bg-violet-600 hover:bg-violet-700 text-white rounded-xl font-bold text-sm transition-all"
+                  className="w-full h-11 bg-[#00A4EF] hover:bg-[#0087d1] text-white rounded-xl font-bold text-sm transition-all"
                 >
                   {isActioning ? "Submitting..." : "Submit Review & Finish"}
                 </Button>
@@ -673,7 +673,7 @@ export default function DealTransactionPage() {
               {/* Receipt Summary block */}
               <div className="max-w-md mx-auto border border-slate-200 dark:border-slate-800 rounded-3xl p-5 space-y-4 text-left bg-slate-50/50 dark:bg-slate-900/50">
                 <div className="flex items-center gap-2 text-xs font-extrabold text-slate-400 uppercase tracking-wide">
-                  <Sparkles className="h-4 w-4 text-violet-500" />
+                  <Sparkles className="h-4 w-4 text-[#00A4EF]" />
                   <span>TRANSACTION RECEIPT</span>
                 </div>
                 
@@ -684,7 +684,7 @@ export default function DealTransactionPage() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-400">Total Price</span>
-                    <span className="font-black text-violet-600">₹{deal.totalAmount.toLocaleString('en-IN')}</span>
+                    <span className="font-black text-[#00A4EF]">₹{deal.totalAmount.toLocaleString('en-IN')}</span>
                   </div>
                   {isSeller && (
                     <div className="flex justify-between">
