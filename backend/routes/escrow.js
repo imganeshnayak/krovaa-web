@@ -73,7 +73,8 @@ router.get('/:id', auth, async (req, res) => {
                 },
                 transactions: {
                     orderBy: { createdAt: 'asc' }
-                }
+                },
+                ratings: true
             }
         });
 

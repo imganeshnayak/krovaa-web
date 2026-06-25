@@ -604,14 +604,14 @@ export default function MyListingsPage() {
                 <ShoppingBag className="h-8 w-8 text-slate-300 mb-3" />
                 <h3 className="text-sm font-bold text-slate-800">No Deal Listings Yet</h3>
                 <p className="text-xs text-slate-400 mt-1 mb-5">Create a deal and share the link anywhere to attract buyers.</p>
-                <Button size="sm" onClick={() => navigate("/deal/create")} className="bg-gradient-to-r from-violet-600 to-purple-600 text-white hover:from-violet-700 hover:to-purple-700 font-bold px-4 h-9 rounded-xl shadow">
+                <Button size="sm" onClick={() => navigate("/deal/create")} className="bg-[#00A4EF] hover:bg-[#0087d1] text-white font-bold px-4 h-9 rounded-xl shadow">
                   + Create Deal
                 </Button>
               </div>
             ) : (
               <div className="space-y-3">
                 {myDeals.map(deal => (
-                  <div key={deal.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs hover:border-violet-200 transition-colors">
+                  <div key={deal.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs hover:border-[#00A4EF]/30 transition-colors">
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -623,8 +623,8 @@ export default function MyListingsPage() {
                           }`}>{deal.status}</span>
                         </div>
                         <div className="flex items-center gap-1 mt-1">
-                          <IndianRupee className="h-3.5 w-3.5 text-violet-600" />
-                          <span className="text-sm font-black text-violet-700">{Number(deal.price).toLocaleString('en-IN')}</span>
+                          <IndianRupee className="h-3.5 w-3.5 text-[#00A4EF]" />
+                          <span className="text-sm font-black text-[#00A4EF]">{Number(deal.price).toLocaleString('en-IN')}</span>
                           <span className="text-[11px] text-slate-400 ml-2">· {deal.deliveryType}</span>
                           {deal.category && <span className="text-[11px] text-slate-400">· {deal.category}</span>}
                         </div>
@@ -675,7 +675,7 @@ export default function MyListingsPage() {
                 <Button
                   size="sm"
                   onClick={() => navigate("/deal/create")}
-                  className="w-full h-9 text-xs font-bold border-2 border-dashed border-violet-300 text-violet-600 bg-violet-50 hover:bg-violet-100 rounded-xl"
+                  className="w-full h-9 text-xs font-bold border-2 border-dashed border-sky-300 text-[#00A4EF] bg-sky-50 hover:bg-sky-100 rounded-xl"
                   variant="outline"
                 >
                   + Create Another Deal

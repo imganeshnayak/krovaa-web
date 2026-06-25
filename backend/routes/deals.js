@@ -182,9 +182,6 @@ router.post('/', auth, async (req, res) => {
             return res.status(400).json({ error: 'A valid price is required.' });
         }
 
-        if (deliveryType === 'shipping' && (!shippingWeight || !shippingDimensions || !pickupAddress)) {
-            return res.status(400).json({ error: 'Shipping weight, dimensions, and pickup address are required for shipping.' });
-        }
 
         const shareCode = generateShareCode();
 

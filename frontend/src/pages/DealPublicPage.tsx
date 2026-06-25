@@ -237,7 +237,7 @@ export default function DealPublicPage() {
                   key={i}
                   onClick={() => setSelectedImage(i)}
                   className={`shrink-0 h-14 w-14 rounded-xl overflow-hidden border-2 transition-all ${
-                    selectedImage === i ? "border-violet-500" : "border-transparent"
+                    selectedImage === i ? "border-[#00A4EF]" : "border-transparent"
                   }`}
                 >
                   <img src={img} alt="" className="w-full h-full object-cover" />
@@ -247,7 +247,7 @@ export default function DealPublicPage() {
           )}
         </div>
       ) : (
-        <div className="mb-5 h-48 rounded-3xl bg-gradient-to-br from-violet-100 to-purple-100 flex items-center justify-center relative">
+        <div className="mb-5 h-48 rounded-3xl bg-gradient-to-br from-sky-100 to-blue-100 flex items-center justify-center relative">
           <span className="text-6xl">🛍️</span>
           <button
             onClick={handleShare}
@@ -316,7 +316,7 @@ export default function DealPublicPage() {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5">
               <p
-                className="text-sm font-bold text-slate-900 truncate cursor-pointer hover:text-violet-600 transition-colors"
+                className="text-sm font-bold text-slate-900 truncate cursor-pointer hover:text-[#00A4EF] transition-colors"
                 onClick={() => navigate(`/${encodeURIComponent(deal.seller.username)}`)}
               >
                 {deal.seller.displayName}
@@ -327,7 +327,7 @@ export default function DealPublicPage() {
             </div>
             <p className="text-[11px] text-slate-500 truncate">@{deal.seller.username}</p>
             {deal.seller.businessName && (
-              <p className="text-[11px] text-violet-600 font-semibold">{deal.seller.businessName}</p>
+              <p className="text-[11px] text-[#00A4EF] font-semibold">{deal.seller.businessName}</p>
             )}
           </div>
           <Star className="h-4 w-4 text-amber-400 shrink-0" />

@@ -114,7 +114,7 @@ const MarketplacePage = () => {
         </div>
       ) : deals.length === 0 ? (
         <div className="rounded-[2rem] border border-dashed border-slate-200 bg-slate-50/30 p-16 text-center text-sm text-slate-500">
-          No deals found. Try adjusting your filters or {user?.accountType === "business" && <button onClick={() => navigate('/deal/create')} className="text-violet-600 font-semibold underline">create one</button>}.
+          No deals found. Try adjusting your filters or {user?.accountType === "business" && <button onClick={() => navigate('/deal/create')} className="text-[#00A4EF] font-semibold underline">create one</button>}.
         </div>
       ) : (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -174,16 +174,27 @@ const MarketplacePage = () => {
                 </div>
 
                 {/* CTA */}
-                <button
-                  onClick={e => { 
-                    e.stopPropagation(); 
-                    handleInquire(deal.shareCode, deal.id); 
-                  }}
-                  disabled={inquiringId === deal.id}
-                  className="w-full py-2.5 rounded-xl text-xs font-bold bg-[#00A4EF] text-white hover:bg-[#0087d1] transition-all disabled:opacity-60 shadow-sm shadow-[#00A4EF]/10"
-                >
-                  {inquiringId === deal.id ? "Opening..." : "Chat to Buy"}
-                </button>
+                <div className="flex gap-2 w-full mt-auto">
+                  <button
+                    onClick={e => { 
+                      e.stopPropagation(); 
+                      handleInquire(deal.shareCode, deal.id); 
+                    }}
+                    disabled={inquiringId === deal.id}
+                    className="flex-1 py-2.5 rounded-xl text-xs font-bold border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 transition-all disabled:opacity-60"
+                  >
+                    {inquiringId === deal.id ? "Opening..." : "Chat"}
+                  </button>
+                  <button
+                    onClick={e => {
+                      e.stopPropagation();
+                      navigate(`/deal/${deal.shareCode}`);
+                    }}
+                    className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-[#00A4EF] text-white hover:bg-[#0087d1] transition-all"
+                  >
+                    Buy Now
+                  </button>
+                </div>
               </div>
             </article>
           ))}

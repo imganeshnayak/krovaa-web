@@ -429,7 +429,7 @@ export default function DealTransactionPage() {
                       id="weight" 
                       value={shippingWeight} 
                       onChange={(e) => setShippingWeight(e.target.value)}
-                      className="w-full h-10 px-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500"
+                      className="w-full h-10 px-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm outline-none focus:ring-2 focus:ring-[#00A4EF]"
                     >
                       <option value="0.5">Lightweight (Up to 0.5 kg)</option>
                       <option value="1.0">Medium (Up to 1.0 kg)</option>
