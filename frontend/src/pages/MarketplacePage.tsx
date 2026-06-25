@@ -13,7 +13,6 @@ const MarketplacePage = () => {
   const [dealsLoading, setDealsLoading] = useState(true);
   const [dealsSearch, setDealsSearch] = useState("");
   const [dealsCategory, setDealsCategory] = useState("");
-  const [dealsDelivery, setDealsDelivery] = useState("");
   const [inquiringId, setInquiringId] = useState<number | null>(null);
 
   const loadDeals = async () => {
@@ -22,7 +21,6 @@ const MarketplacePage = () => {
       const data = await getPublicDeals({
         search: dealsSearch || undefined,
         category: dealsCategory || undefined,
-        deliveryType: dealsDelivery || undefined,
         limit: 24
       });
       setDeals(data.deals);
@@ -35,7 +33,7 @@ const MarketplacePage = () => {
 
   useEffect(() => {
     loadDeals();
-  }, [dealsSearch, dealsCategory, dealsDelivery]);
+  }, [dealsSearch, dealsCategory]);
 
   const handleInquire = async (shareCode: string, dealId: number) => {
     if (!user) {
@@ -104,21 +102,6 @@ const MarketplacePage = () => {
             <ChevronDown className="pointer-events-none absolute right-3 h-3.5 w-3.5 text-slate-600" />
           </div>
 
-          {/* Delivery Type Dropdown */}
-          <div className="relative flex items-center bg-white border border-slate-200/60 rounded-xl shadow-sm min-w-[130px]">
-            <select 
-              value={dealsDelivery} 
-              onChange={e => setDealsDelivery(e.target.value)} 
-              className="h-11 w-full rounded-xl pl-4 pr-8 text-xs font-semibold text-slate-600 bg-transparent outline-none appearance-none cursor-pointer"
-              aria-label="Delivery type"
-            >
-              <option value="">All Delivery</option>
-              <option value="shipping">🚚 Shipping</option>
-              <option value="digital">💻 Digital</option>
-              <option value="pickup">📍 Pickup</option>
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-3 h-3.5 w-3.5 text-slate-600" />
-          </div>
 
         </div>
       </div>
