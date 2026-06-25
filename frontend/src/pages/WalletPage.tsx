@@ -123,6 +123,7 @@ const WalletPage = () => {
                     <Wallet className="h-8 w-8 text-[#00A4EF]" />
                     My Wallet
                 </h1>
+<<<<<<< HEAD
                 <Button
                     onClick={() => navigate("/wallet/pay")}
                     variant="outline"
@@ -131,6 +132,21 @@ const WalletPage = () => {
                     <QrCode className="h-4 w-4 text-[#00A4EF]" />
                     Scan & Pay
                 </Button>
+=======
+                <div className="flex items-center gap-2">
+
+                    <Button
+                        asChild
+                        variant="outline"
+                        className="border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-xl h-10 w-10 p-0 flex items-center justify-center"
+                        aria-label="Share wallet QR"
+                    >
+                        <Link to={`/wallet/pay/${encodeURIComponent(shareId)}`}>
+                            <Share2 className="h-4 w-4" />
+                        </Link>
+                    </Button>
+                </div>
+>>>>>>> eca3ac8c07f2f779eddf3bcf3ce242fa29e40c6f
             </div>
 
             {/* Balance Card */}
