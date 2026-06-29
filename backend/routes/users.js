@@ -713,7 +713,15 @@ router.get('/profile/:id', auth, async (req, res) => {
                 gender: true,
                 age: true,
                 userGoal: true,
-                skills: true
+                skills: true,
+                accountType: true,
+                businessName: true,
+                businessType: true,
+                businessAddress: true,
+                businessCity: true,
+                businessState: true,
+                businessPincode: true,
+                businessLandmark: true
             },
         });
 

@@ -5,10 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { MapPin, Pencil } from 'lucide-react';
 
 export function AddressForm() {
   const { user, refreshUser } = useAuth();
   const [saving, setSaving] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   const [address, setAddress] = useState('');
   const [city, setCity] = useState('');
   const [state, setState] = useState('');
@@ -23,6 +25,13 @@ export function AddressForm() {
       setState(user.businessState || '');
       setPincode(user.businessPincode || user.pincode || '');
       setLandmark(user.businessLandmark || '');
+      
+      // If no address is saved at all, default to edit mode
+      if (!user.businessAddress && !user.businessCity && !user.businessState) {
+        setIsEditing(true);
+      } else {
+        setIsEditing(false);
+      }
     }
   }, [user]);
 
@@ -40,6 +49,7 @@ export function AddressForm() {
       });
 
       await refreshUser();
+      setIsEditing(false);
 
       toast({
         title: 'Address saved',
@@ -59,6 +69,34 @@ export function AddressForm() {
 
   if (!user) {
     return null;
+  }
+
+  if (!isEditing) {
+    return (
+      <div className="space-y-4">
+        <div className="p-4 bg-white border rounded-lg shadow-sm">
+          <div className="flex items-start justify-between">
+            <div className="flex items-start gap-3">
+              <MapPin className="h-5 w-5 text-muted-foreground mt-0.5" />
+              <div className="space-y-1">
+                <p className="font-medium text-sm text-foreground">{user.businessAddress}</p>
+                <p className="text-sm text-muted-foreground">
+                  {user.businessCity && user.businessState ? `${user.businessCity}, ${user.businessState}` : user.businessCity || user.businessState}
+                  {user.businessPincode && ` - ${user.businessPincode}`}
+                </p>
+                {user.businessLandmark && (
+                  <p className="text-sm text-muted-foreground">Landmark: {user.businessLandmark}</p>
+                )}
+              </div>
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => setIsEditing(true)}>
+              <Pencil className="h-4 w-4 mr-2" />
+              Edit
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -111,7 +149,12 @@ export function AddressForm() {
         </div>
       </div>
 
-      <div className="flex justify-end pt-2">
+      <div className="flex justify-end gap-2 pt-2">
+        {(user.businessAddress || user.businessCity || user.businessState) && (
+          <Button variant="outline" onClick={() => setIsEditing(false)}>
+            Cancel
+          </Button>
+        )}
         <Button
           onClick={handleSave}
           disabled={saving}
