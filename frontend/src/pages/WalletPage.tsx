@@ -20,6 +20,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Info, Plus, Share2, Send, QrCode } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { initiateWalletTopup, verifyPayment } from "@/lib/api";
 
 import { Input } from "@/components/ui/input";
@@ -126,7 +127,18 @@ const WalletPage = () => {
             </div>
 
             {/* Balance Card */}
-            <Card className="bg-gradient-to-br from-[#00A4EF]/8 to-[#00A4EF]/3 border-gray-200/60 rounded-2xl shadow-sm overflow-hidden bg-white">
+            <TooltipProvider>
+            <Card className="bg-gradient-to-br from-[#00A4EF]/8 to-[#00A4EF]/3 border-gray-200/60 rounded-2xl shadow-sm overflow-hidden bg-white relative">
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <button className="absolute top-6 right-6 md:top-8 md:right-8 text-slate-400 hover:text-slate-600 transition-colors">
+                            <Info className="h-5 w-5" />
+                        </button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                        <p className="text-xs font-semibold">Minimum payout threshold: ₹500.00</p>
+                    </TooltipContent>
+                </Tooltip>
                 <CardHeader className="p-6 md:p-8">
                     <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Available Balance</CardTitle>
                     <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
@@ -134,46 +146,44 @@ const WalletPage = () => {
                             <div className="text-4xl md:text-5xl font-black tracking-tight text-[#00A4EF]">
                                 {formatCurrency(balance)}
                             </div>
-                            <p className="text-xs text-slate-400 font-medium">
-                                Minimum payout threshold: ₹500.00
-                            </p>
                         </div>
                         <div className="flex flex-row gap-6 items-center justify-center sm:justify-start shrink-0 w-full sm:w-auto">
                             {/* Add Money Button */}
                             <Button
                                 variant="outline"
-                                className="border-[#00A4EF]/30 text-[#00A4EF] hover:bg-[#00A4EF]/10 rounded-xl w-11 h-11 p-0 flex items-center justify-center transition-all duration-200 active:scale-[0.97] shrink-0"
+                                className="border-[#00A4EF]/30 text-[#00A4EF] hover:bg-[#00A4EF]/10 rounded-xl w-14 h-14 sm:w-12 sm:h-12 p-0 flex items-center justify-center transition-all duration-200 active:scale-[0.97] shrink-0"
                                 onClick={() => setIsAddMoneyOpen(true)}
                                 title="Add Money"
                                 aria-label="Add Money"
                             >
-                                <Plus className="w-5 h-5 shrink-0" />
+                                <Plus className="w-6 h-6 sm:w-5 sm:h-5 shrink-0" />
                             </Button>
 
                             {/* Send Money Button */}
                             <Button
                                 variant="outline"
-                                className="border-[#00A4EF]/30 text-[#00A4EF] hover:bg-[#00A4EF]/10 rounded-xl w-11 h-11 p-0 flex items-center justify-center transition-all duration-200 active:scale-[0.97] shrink-0"
+                                className="border-[#00A4EF]/30 text-[#00A4EF] hover:bg-[#00A4EF]/10 rounded-xl w-14 h-14 sm:w-12 sm:h-12 p-0 flex items-center justify-center transition-all duration-200 active:scale-[0.97] shrink-0"
                                 onClick={() => navigate("/wallet/pay")}
                                 title="Send Money"
                                 aria-label="Send Money"
                             >
-                                <ArrowUpRight className="w-5 h-5 shrink-0" />
+                                <ArrowUpRight className="w-6 h-6 sm:w-5 sm:h-5 shrink-0" />
                             </Button>
 
                             {/* Receive Payments Button */}
                             <Button
                                 onClick={() => navigate("/wallet/pay/" + encodeURIComponent(shareId))}
-                                className="bg-[#00A4EF] hover:bg-[#00A4EF]/90 text-white rounded-xl w-11 h-11 p-0 flex items-center justify-center transition-all duration-200 active:scale-[0.97] shrink-0"
+                                className="bg-[#00A4EF] hover:bg-[#00A4EF]/90 text-white rounded-xl w-14 h-14 sm:w-12 sm:h-12 p-0 flex items-center justify-center transition-all duration-200 active:scale-[0.97] shrink-0"
                                 title="Receive Payments"
                                 aria-label="Receive Payments"
                             >
-                                <ArrowDownLeft className="w-5 h-5 shrink-0" />
+                                <ArrowDownLeft className="w-6 h-6 sm:w-5 sm:h-5 shrink-0" />
                             </Button>
                         </div>
                     </div>
                 </CardHeader>
             </Card>
+            </TooltipProvider>
 
             {/* Add Money Dialog */}
             <Dialog open={isAddMoneyOpen} onOpenChange={setIsAddMoneyOpen}>

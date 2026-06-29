@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Store, Search, Plus, IndianRupee, LayoutGrid, ChevronDown } from "lucide-react";
+import { Store, Search, Plus, IndianRupee, LayoutGrid, ChevronDown, Share2 } from "lucide-react";
 import { getPublicDeals, DealListing, inquireDeal } from "../lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -144,16 +144,34 @@ const MarketplacePage = () => {
 
               {/* Info */}
               <div className="p-5 flex flex-col flex-1 gap-4">
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900 tracking-tight line-clamp-1 group-hover:text-[#00A4EF] transition-colors">
-                    {deal.title}
-                  </h3>
-                  <div className="flex items-center gap-1 mt-1">
-                    <IndianRupee className="h-3.5 w-3.5 text-slate-500" />
-                    <span className="text-base font-black text-slate-800">
-                      {Number(deal.price).toLocaleString('en-IN')}
-                    </span>
+                <div className="flex justify-between items-start gap-2">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-sm font-bold text-slate-900 tracking-tight line-clamp-1 group-hover:text-[#00A4EF] transition-colors">
+                      {deal.title}
+                    </h3>
+                    <div className="flex items-center gap-1 mt-1">
+                      <IndianRupee className="h-3.5 w-3.5 text-slate-500" />
+                      <span className="text-base font-black text-slate-800">
+                        {Number(deal.price).toLocaleString('en-IN')}
+                      </span>
+                    </div>
                   </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const url = `${window.location.origin}/deal/${deal.shareCode}`;
+                      if (navigator.share) {
+                        navigator.share({ title: deal.title, url }).catch(console.error);
+                      } else {
+                        navigator.clipboard.writeText(url);
+                        alert("Link copied to clipboard!");
+                      }
+                    }}
+                    className="p-2 -mt-1.5 -mr-1.5 text-slate-400 hover:text-[#00A4EF] hover:bg-[#00A4EF]/10 rounded-full transition-colors shrink-0"
+                    title="Share product"
+                  >
+                    <Share2 className="w-4 h-4" />
+                  </button>
                 </div>
 
                 {/* Seller */}

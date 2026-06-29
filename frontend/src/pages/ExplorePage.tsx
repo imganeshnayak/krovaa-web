@@ -70,14 +70,17 @@ const ExplorePage = () => {
 
 
   const filteredCollabProjects = useMemo(() => {
-    return collabProjects;
-  }, [collabProjects]);
+    if (!user) return collabProjects;
+    return collabProjects.filter(p => p.creatorId !== user.id);
+  }, [collabProjects, user]);
 
   const filteredJobs = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
     const normalizedLocation = locationFilter.trim().toLowerCase();
 
     return jobs.filter((job) => {
+      if (user && job.postedById === user.id) return false;
+
       const matchesSearch = !normalizedQuery
         || job.title.toLowerCase().includes(normalizedQuery)
         || job.company.toLowerCase().includes(normalizedQuery)
@@ -91,7 +94,7 @@ const ExplorePage = () => {
 
       return matchesSearch && matchesMode && matchesLocation;
     });
-  }, [jobs, locationFilter, searchQuery, selectedMode]);
+  }, [jobs, locationFilter, searchQuery, selectedMode, user]);
 
   const modes = useMemo(() => {
     const allModes = new Set(jobs.map((job) => job.mode.toLowerCase()));

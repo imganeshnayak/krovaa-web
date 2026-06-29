@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ShieldCheck, Truck, Package, Laptop, MapPin, Star, CheckCircle, Share2, Copy, Check, MessageCircle, IndianRupee, Clock, Tag } from "lucide-react";
+import { ShieldCheck, Truck, Package, Laptop, MapPin, Star, CheckCircle, Share2, Copy, Check, MessageCircle, IndianRupee, Clock, Tag, ChevronLeft } from "lucide-react";
 import { getPublicDeal, inquireDeal, DealListing, acceptDeal } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -154,6 +154,17 @@ export default function DealPublicPage() {
 
   return (
     <div className="max-w-xl mx-auto px-4 pt-4 pb-48">
+      {/* Top Navigation */}
+      <div className="flex items-center mb-4">
+        <button
+          onClick={() => navigate(-1)}
+          className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center hover:bg-slate-200 transition-colors"
+          aria-label="Go back"
+        >
+          <ChevronLeft className="h-6 w-6 text-slate-700" />
+        </button>
+      </div>
+
       {/* Image section */}
       {images.length > 0 ? (
         <div className="space-y-2 mb-5">
@@ -182,7 +193,7 @@ export default function DealPublicPage() {
                   key={i}
                   onClick={() => setSelectedImage(i)}
                   className={`shrink-0 h-14 w-14 rounded-xl overflow-hidden border-2 transition-all ${
-                    selectedImage === i ? "border-violet-500" : "border-transparent"
+                    selectedImage === i ? "border-[#00A4EF]" : "border-transparent"
                   }`}
                 >
                   <img src={img} alt="" className="w-full h-full object-cover" />
@@ -192,7 +203,7 @@ export default function DealPublicPage() {
           )}
         </div>
       ) : (
-        <div className="mb-5 h-48 rounded-3xl bg-gradient-to-br from-violet-100 to-purple-100 flex items-center justify-center relative">
+        <div className="mb-5 h-48 rounded-3xl bg-gradient-to-br from-slate-50 to-blue-50/50 flex items-center justify-center relative">
           <span className="text-6xl">🛍️</span>
           <button
             onClick={handleShare}
@@ -217,8 +228,8 @@ export default function DealPublicPage() {
           </div>
 
           <div className="flex items-center gap-1.5 mt-2">
-            <IndianRupee className="h-5 w-5 text-violet-600" />
-            <span className="text-2xl font-black text-violet-700">{formatPrice(deal.price)}</span>
+            <IndianRupee className="h-5 w-5 text-slate-500" />
+            <span className="text-2xl font-black text-slate-800">{formatPrice(deal.price)}</span>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 mt-3">
@@ -261,18 +272,18 @@ export default function DealPublicPage() {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5">
               <p
-                className="text-sm font-bold text-slate-900 truncate cursor-pointer hover:text-violet-600 transition-colors"
+                className="text-sm font-bold text-slate-900 truncate cursor-pointer hover:text-[#00A4EF] transition-colors"
                 onClick={() => navigate(`/${encodeURIComponent(deal.seller.username)}`)}
               >
                 {deal.seller.displayName}
               </p>
               {deal.seller.verified && (
-                <CheckCircle className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                <CheckCircle className="h-3.5 w-3.5 text-[#00A4EF] shrink-0" />
               )}
             </div>
             <p className="text-[11px] text-slate-500 truncate">@{deal.seller.username}</p>
             {deal.seller.businessName && (
-              <p className="text-[11px] text-violet-600 font-semibold">{deal.seller.businessName}</p>
+              <p className="text-[11px] text-[#00A4EF] font-semibold">{deal.seller.businessName}</p>
             )}
           </div>
           <Star className="h-4 w-4 text-amber-400 shrink-0" />
@@ -308,18 +319,18 @@ export default function DealPublicPage() {
                   onClick={handleChatToBuy}
                   disabled={isInquiring || isAccepting}
                   variant="outline"
-                  className="h-13 px-4 font-bold border-slate-200 hover:bg-slate-50 text-slate-700 rounded-2xl gap-2 shrink-0"
-                  title="Chat with Seller"
+                  className="flex-1 h-13 text-sm font-bold border-slate-200 hover:bg-slate-50 text-slate-700 rounded-2xl gap-2"
                 >
                   <MessageCircle className="h-5 w-5" />
+                  {isInquiring ? "Opening..." : "Chat"}
                 </Button>
                 <Button
                   onClick={handleAcceptDeal}
                   disabled={isInquiring || isAccepting}
-                  className="flex-1 h-13 text-sm font-extrabold bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white rounded-2xl shadow-lg shadow-violet-200 gap-2"
+                  className="flex-[1.5] h-13 text-sm font-extrabold bg-[#00A4EF] hover:bg-[#0087d1] text-white rounded-2xl shadow-lg shadow-[#00A4EF]/20 gap-2"
                 >
                   <ShieldCheck className="h-5 w-5" />
-                  {isAccepting ? "Accepting..." : "Accept Deal & Buy"}
+                  {isAccepting ? "Accepting..." : "Accept & Buy"}
                 </Button>
               </div>
               <p className="text-center text-[10px] text-slate-400">

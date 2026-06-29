@@ -238,7 +238,7 @@ export default function ProjectAuctionCard({
 
           <div className="flex items-center gap-2">
             {project.status === 'AUCTION_ACTIVE' && isCreator && (
-              <Button size="sm" onClick={(e) => { e.stopPropagation(); onReviewClick(project); }} className="bg-slate-900 text-white hover:bg-slate-800 font-bold h-8 text-xs px-4 shadow-xs rounded-xl">
+              <Button size="sm" onClick={(e) => { e.stopPropagation(); onReviewClick(project); }} className="bg-[#00A4EF] text-white hover:bg-[#0087d1] font-bold h-8 text-xs px-4 shadow-xs rounded-xl shadow-[#00A4EF]/10">
                 Review Bids
               </Button>
             )}
