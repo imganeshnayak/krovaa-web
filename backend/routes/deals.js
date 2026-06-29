@@ -182,9 +182,6 @@ router.post('/', auth, async (req, res) => {
             return res.status(400).json({ error: 'A valid price is required.' });
         }
 
-        if (deliveryType === 'shipping' && (!shippingWeight || !shippingDimensions || !pickupAddress)) {
-            return res.status(400).json({ error: 'Shipping weight, dimensions, and pickup address are required for shipping.' });
-        }
 
         const shareCode = generateShareCode();
 
@@ -447,8 +444,8 @@ router.post('/:shareCode/accept', auth, async (req, res) => {
             });
 
             // Create a system message in the chat
-            const buyer = await prisma.user.findUnique({ where: { id: buyerId }, select: { displayName: true, username: true } });
-            const buyerName = buyer?.displayName || buyer?.username || 'Buyer';
+            const buyerInfo = await prisma.user.findUnique({ where: { id: buyerId }, select: { displayName: true, username: true } });
+            const buyerName = buyerInfo?.displayName || buyerInfo?.username || 'Buyer';
             const priceStr = `₹${Number(deal.price).toLocaleString('en-IN')}`;
             const systemMessage = `🛍️ *${buyerName}* accepted the deal *${deal.title}* (${priceStr}).\n\nComplete payment to secure the deal.`;
 

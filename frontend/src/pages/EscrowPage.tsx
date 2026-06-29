@@ -763,108 +763,119 @@ const EscrowPage = () => {
                           </div>
                         )}
 
-                        {/* Release button - only for client and active deals */}
-                        {isClient && deal.status === "active" && deal.releasedPercent < 100 && (
-                          <Dialog open={selectedDeal === deal.id} onOpenChange={(open) => !open && setSelectedDeal(null)}>
-                            <DialogTrigger asChild>
-                              <Button className="w-full" onClick={() => setSelectedDeal(deal.id)}>
-                                Release Payment
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent className="bg-card border-border sm:max-w-[425px] w-[95vw] max-h-[90vh] overflow-y-auto">
-                              <DialogHeader>
-                                <DialogTitle className="text-card-foreground">Release Payment</DialogTitle>
-                              </DialogHeader>
-                              <div className="space-y-4">
-                                <div>
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <Label className="text-card-foreground">Release Method</Label>
-                                    <div className="ml-auto flex items-center gap-2">
-                                      <button
-                                        className={`px-3 py-1 rounded-md border ${!releaseByAmount ? 'border-primary bg-primary/10' : 'border-border'}`}
-                                        onClick={() => { setReleaseByAmount(false); setReleaseAmount(""); }}
-                                      >
-                                        By %
-                                      </button>
-                                      <button
-                                        className={`px-3 py-1 rounded-md border ${releaseByAmount ? 'border-primary bg-primary/10' : 'border-border'}`}
-                                        onClick={() => { setReleaseByAmount(true); setReleasePercent(""); }}
-                                      >
-                                        By Amount
-                                      </button>
-                                    </div>
-                                  </div>
+                        {deal.dealListingId ? (
+                          <Button 
+                            className="w-full bg-[#00A4EF] hover:bg-[#0087d1] text-white font-bold rounded-xl"
+                            onClick={() => navigate(`/deal/transaction/${deal.id}`)}
+                          >
+                            {isClient ? "Track & View Delivery" : "Prepare Shipment"}
+                          </Button>
+                        ) : (
+                          <>
+                            {/* Release button - only for client and active deals */}
+                            {isClient && deal.status === "active" && deal.releasedPercent < 100 && (
+                              <Dialog open={selectedDeal === deal.id} onOpenChange={(open) => !open && setSelectedDeal(null)}>
+                                <DialogTrigger asChild>
+                                  <Button className="w-full" onClick={() => setSelectedDeal(deal.id)}>
+                                    Release Payment
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent className="bg-card border-border sm:max-w-[425px] w-[95vw] max-h-[90vh] overflow-y-auto">
+                                  <DialogHeader>
+                                    <DialogTitle className="text-card-foreground">Release Payment</DialogTitle>
+                                  </DialogHeader>
+                                  <div className="space-y-4">
+                                    <div>
+                                      <div className="flex items-center gap-2 mb-2">
+                                        <Label className="text-card-foreground">Release Method</Label>
+                                        <div className="ml-auto flex items-center gap-2">
+                                          <button
+                                            className={`px-3 py-1 rounded-md border ${!releaseByAmount ? 'border-primary bg-primary/10' : 'border-border'}`}
+                                            onClick={() => { setReleaseByAmount(false); setReleaseAmount(""); }}
+                                          >
+                                            By %
+                                          </button>
+                                          <button
+                                            className={`px-3 py-1 rounded-md border ${releaseByAmount ? 'border-primary bg-primary/10' : 'border-border'}`}
+                                            onClick={() => { setReleaseByAmount(true); setReleasePercent(""); }}
+                                          >
+                                            By Amount
+                                          </button>
+                                        </div>
+                                      </div>
 
-                                  {!releaseByAmount ? (
+                                      {!releaseByAmount ? (
+                                        <div>
+                                          <Label className="text-card-foreground">Percentage to Release</Label>
+                                          <Input
+                                            className="mt-1.5 bg-secondary border-border"
+                                            type="number"
+                                            min="1"
+                                            max={100 - deal.releasedPercent}
+                                            placeholder={`Max ${(100 - deal.releasedPercent).toFixed(1)}%`}
+                                            value={releasePercent}
+                                            onChange={(e) => setReleasePercent(e.target.value)}
+                                          />
+                                        </div>
+                                      ) : (
+                                        <div>
+                                          <Label className="text-card-foreground">Amount to Release (₹)</Label>
+                                          <Input
+                                            className="mt-1.5 bg-secondary border-border"
+                                            type="number"
+                                            min="1"
+                                            step="0.01"
+                                            max={netTotal * (1 - deal.releasedPercent / 100)}
+                                            placeholder={`Max ${formatCurrency(netTotal * (1 - deal.releasedPercent / 100))}`}
+                                            value={releaseAmount}
+                                            onChange={(e) => setReleaseAmount(e.target.value)}
+                                          />
+                                        </div>
+                                      )}
+                                    </div>
                                     <div>
-                                      <Label className="text-card-foreground">Percentage to Release</Label>
+                                      <Label className="text-card-foreground">Note</Label>
                                       <Input
                                         className="mt-1.5 bg-secondary border-border"
-                                        type="number"
-                                        min="1"
-                                        max={100 - deal.releasedPercent}
-                                        placeholder={`Max ${(100 - deal.releasedPercent).toFixed(1)}%`}
-                                        value={releasePercent}
-                                        onChange={(e) => setReleasePercent(e.target.value)}
+                                        placeholder="Milestone completed..."
+                                        value={releaseNote}
+                                        onChange={(e) => setReleaseNote(e.target.value)}
                                       />
                                     </div>
-                                  ) : (
-                                    <div>
-                                      <Label className="text-card-foreground">Amount to Release (₹)</Label>
-                                      <Input
-                                        className="mt-1.5 bg-secondary border-border"
-                                        type="number"
-                                        min="1"
-                                        step="0.01"
-                                        max={netTotal * (1 - deal.releasedPercent / 100)}
-                                        placeholder={`Max ${formatCurrency(netTotal * (1 - deal.releasedPercent / 100))}`}
-                                        value={releaseAmount}
-                                        onChange={(e) => setReleaseAmount(e.target.value)}
-                                      />
-                                    </div>
-                                  )}
-                                </div>
-                                <div>
-                                  <Label className="text-card-foreground">Note</Label>
-                                  <Input
-                                    className="mt-1.5 bg-secondary border-border"
-                                    placeholder="Milestone completed..."
-                                    value={releaseNote}
-                                    onChange={(e) => setReleaseNote(e.target.value)}
-                                  />
-                                </div>
-                                <Button className="w-full" onClick={() => handleRelease(deal.id)} disabled={isReleasing}>
-                                  {isReleasing ? "Releasing..." : "Confirm Release"}
+                                    <Button className="w-full" onClick={() => handleRelease(deal.id)} disabled={isReleasing}>
+                                      {isReleasing ? "Releasing..." : "Confirm Release"}
+                                    </Button>
+                                  </div>
+                                </DialogContent>
+                              </Dialog>
+                            )}
+
+                            {/* Payment button - for pending_payment deals */}
+                            {isClient && deal.status === "pending_payment" && deal.paymentStatus !== "paid" && (
+                              <div className="flex gap-2">
+                                <Button className="flex-1 bg-primary" onClick={() => handlePayForDeal(deal)} disabled={isCreating}>
+                                  {isCreating ? "Processing..." : "Complete Payment"}
+                                </Button>
+                                <Button variant="outline" className="border-[#E74C3C] text-[#E74C3C] hover:bg-[#E74C3C]/10" onClick={() => handleDeleteDeal(deal.id, false)} disabled={isCreating}>
+                                  Delete
                                 </Button>
                               </div>
-                            </DialogContent>
-                          </Dialog>
-                        )}
+                            )}
 
-                        {/* Payment button - for pending_payment deals */}
-                        {isClient && deal.status === "pending_payment" && deal.paymentStatus !== "paid" && (
-                          <div className="flex gap-2">
-                            <Button className="flex-1 bg-primary" onClick={() => handlePayForDeal(deal)} disabled={isCreating}>
-                              {isCreating ? "Processing..." : "Complete Payment"}
-                            </Button>
-                            <Button variant="outline" className="border-[#E74C3C] text-[#E74C3C] hover:bg-[#E74C3C]/10" onClick={() => handleDeleteDeal(deal.id, false)} disabled={isCreating}>
-                              Delete
-                            </Button>
-                          </div>
-                        )}
-
-                        {/* Cancel & Refund button - for active deals */}
-                        {isClient && deal.status === "active" && (
-                          <div className="mt-4 pt-4 border-t border-border">
-                            <Button
-                              variant="ghost"
-                              className="w-full text-muted-foreground hover:text-coral hover:bg-coral/10 text-xs"
-                              onClick={() => handleDeleteDeal(deal.id, true)}
-                              disabled={isCreating}
-                            >
-                              Cancel & Refund Remaining
-                            </Button>
-                          </div>
+                            {/* Cancel & Refund button - for active deals */}
+                            {isClient && deal.status === "active" && (
+                              <div className="mt-4 pt-4 border-t border-border">
+                                <Button
+                                  variant="ghost"
+                                  className="w-full text-muted-foreground hover:text-coral hover:bg-coral/10 text-xs"
+                                  onClick={() => handleDeleteDeal(deal.id, true)}
+                                  disabled={isCreating}
+                                >
+                                  Cancel & Refund Remaining
+                                </Button>
+                              </div>
+                            )}
+                          </>
                         )}
                       </CardContent>
                     </Card>

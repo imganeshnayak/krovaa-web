@@ -37,6 +37,9 @@ export default function CreateDealPage() {
   const [price, setPrice] = useState("");
   const [deliveryType, setDeliveryType] = useState("shipping");
   const [deliveryDays, setDeliveryDays] = useState("");
+  const [shippingWeight, setShippingWeight] = useState("");
+  const [shippingDimensions, setShippingDimensions] = useState("");
+  const [pickupAddress, setPickupAddress] = useState("");
   const [category, setCategory] = useState("");
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -116,9 +119,8 @@ export default function CreateDealPage() {
         description: description.trim(),
         price: Number(price),
         imageUrls: uploadedImages,
-        deliveryType,
-        deliveryDays: deliveryDays ? Number(deliveryDays) : undefined,
         category: category || undefined,
+        deliveryType: "shipping",
       });
       setShareUrl(result.shareUrl);
       setDealShareCode(result.deal.shareCode);
@@ -364,50 +366,6 @@ export default function CreateDealPage() {
                   />
                 </div>
               </div>
-
-              <div className="space-y-2">
-                <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">Delivery Type</Label>
-                <div className="grid grid-cols-3 gap-2">
-                  {DELIVERY_TYPES.map(dt => (
-                    <button
-                      key={dt.value}
-                      type="button"
-                      onClick={() => setDeliveryType(dt.value)}
-                      className={cn(
-                        "px-3 py-2.5 rounded-xl border text-xs font-semibold transition-all",
-                        deliveryType === dt.value
-                          ? "border-[#00A4EF] bg-[#E6F6FE] text-[#007BB5]"
-                          : "border-slate-200 text-slate-600 hover:border-slate-300"
-                      )}
-                    >
-                      {dt.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {deliveryType === "shipping" && (
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                    Estimated Delivery (days)
-                  </Label>
-                  <Input
-                    type="number"
-                    min="1"
-                    max="60"
-                    value={deliveryDays}
-                    onChange={e => setDeliveryDays(e.target.value)}
-                    placeholder="e.g. 5"
-                    className="h-11 text-sm"
-                  />
-                </div>
-              )}
-
-              {deliveryType === "pickup" && (
-                <div className="p-3 rounded-lg bg-amber-50 border border-amber-200">
-                  <p className="text-[11px] text-amber-700 font-medium">Buyers will pick up from your business address on file.</p>
-                </div>
-              )}
             </>
           )}
         </motion.div>

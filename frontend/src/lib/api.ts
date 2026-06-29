@@ -41,6 +41,17 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
         localStorage.removeItem("authUser");
         window.location.href = "/login?error=" + encodeURIComponent(errorMessage);
       }
+
+      // Handle authentication expiry / invalid token globally
+      if (res.status === 401 && (
+        errorMessage.toLowerCase().includes("invalid token") || 
+        errorMessage.toLowerCase().includes("access denied") || 
+        errorMessage.toLowerCase().includes("please authenticate")
+      )) {
+        localStorage.removeItem("authToken");
+        localStorage.removeItem("authUser");
+        window.location.href = "/login?error=" + encodeURIComponent("Session expired. Please log in again.");
+      }
     } catch (e) {
       // Not JSON, use raw text
     }
@@ -2190,6 +2201,9 @@ export function createDealListing(data: {
   deliveryType?: string;
   deliveryDays?: number;
   category?: string;
+  shippingWeight?: number;
+  shippingDimensions?: string;
+  pickupAddress?: string;
 }): Promise<{ deal: DealListing; shareUrl: string }> {
   return apiFetch<{ deal: DealListing; shareUrl: string }>('/api/deals', {
     method: 'POST',
@@ -2201,6 +2215,8 @@ export function updateDealListing(id: number, data: Partial<{
   title: string; description: string; price: number;
   imageUrls: string[]; deliveryType: string;
   deliveryDays: number; category: string;
+  shippingWeight: number; shippingDimensions: string;
+  pickupAddress: string;
 }>): Promise<DealListing> {
   return apiFetch<DealListing>(`/api/deals/${id}`, {
     method: 'PUT',
