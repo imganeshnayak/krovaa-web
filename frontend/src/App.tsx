@@ -22,7 +22,7 @@ const PostsPage = lazy(() => import("./pages/PostsPage"));
 const ExplorePage = lazy(() => import("./pages/ExplorePage"));
 const PostJobPage = lazy(() => import("./pages/PostJobPage"));
 const JobDetailsPage = lazy(() => import("./pages/JobDetailsPage"));
-const MyListingsPage = lazy(() => import("./pages/MyListingsPage"));
+const SellerDashboard = lazy(() => import("./pages/SellerDashboard"));
 const EscrowPage = lazy(() => import("./pages/EscrowPage"));
 const WalletPage = lazy(() => import("./pages/WalletPage"));
 const WalletPayPage = lazy(() => import("./pages/WalletPayPage"));
@@ -44,6 +44,7 @@ const SavedJobsPage = lazy(() => import("./components/SavedJobsPage").then((modu
 const CreateDealPage = lazy(() => import("./pages/CreateDealPage"));
 const DealPublicPage = lazy(() => import("./pages/DealPublicPage"));
 const MarketplacePage = lazy(() => import("./pages/MarketplacePage"));
+const TrackOrderPage = lazy(() => import("./pages/TrackOrderPage"));
 const DealTransactionPage = lazy(() => import("./pages/DealTransactionPage"));
 
 import PublicNavbar from "./components/Navbar";
@@ -135,7 +136,8 @@ const MainContent = () => {
           <Route path="/post-collab" element={<ClientRoute><PostCollabPage /></ClientRoute>} />
           <Route path="/jobs/:jobId" element={<JobDetailsPage />} />
           <Route path="/saved-jobs" element={<ClientRoute><SavedJobsPage /></ClientRoute>} />
-          <Route path="/my-listings" element={<ClientRoute><MyListingsPage /></ClientRoute>} />
+          <Route path="/seller/dashboard" element={<ClientRoute><SellerDashboard /></ClientRoute>} />
+          <Route path="/my-listings" element={<Navigate to="/seller/dashboard" replace />} />
           {/* Own profile - requires login */}
           <Route path="/profile" element={<ClientRoute><ProfilePage /></ClientRoute>} />
           {/* Legacy /profile/:username -> redirect to /:username */}
@@ -150,6 +152,8 @@ const MainContent = () => {
           <Route path="/admin/chats/:chatId" element={<AdminRoute><AdminChatView /></AdminRoute>} />
           {/* Deal Marketplace */}
           <Route path="/marketplace" element={<ClientRoute><MarketplacePage /></ClientRoute>} />
+          <Route path="/track" element={<TrackOrderPage />} />
+          <Route path="/track/:trackingId" element={<TrackOrderPage />} />
           <Route path="/deal/create" element={<ClientRoute><CreateDealPage /></ClientRoute>} />
           <Route path="/deal/:shareCode" element={<DealPublicPage />} />
           <Route path="/deal/transaction/:escrowDealId" element={<ClientRoute><DealTransactionPage /></ClientRoute>} />

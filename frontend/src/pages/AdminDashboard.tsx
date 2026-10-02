@@ -74,10 +74,14 @@ import {
   createAd,
   updateAd,
   deleteAd,
-  pushAdNotification
+  pushAdNotification,
+  getAdminProducts,
+  getAdminDeliveries,
+  decideEscrowReturn,
+  refundEscrowReturn
 } from "@/lib/api";
 
-type AdminTab = "overview" | "users" | "chats" | "escrow" | "activity" | "reports" | "verifications" | "payouts" | "broadcast" | "settings" | "staff";
+type AdminTab = "overview" | "users" | "chats" | "escrow" | "activity" | "reports" | "verifications" | "payouts" | "broadcast" | "settings" | "staff" | "products" | "deliveries";
 
 const AdminDashboard = () => {
   const { toast } = useToast();
@@ -139,6 +143,10 @@ const AdminDashboard = () => {
   const [adFilePreview, setAdFilePreview] = useState<string | null>(null);
   const [isSavingAd, setIsSavingAd] = useState(false);
 
+  // --- Products & Deliveries State ---
+  const [products, setProducts] = useState<any[]>([]);
+  const [deliveries, setDeliveries] = useState<any[]>([]);
+
 
   const adminPermissions = [
     { id: "users", label: "Users Management" },
@@ -150,7 +158,9 @@ const AdminDashboard = () => {
     { id: "activity", label: "Activity Logs" },
     { id: "broadcast", label: "Broadcast Notifications" },
     { id: "settings", label: "System Settings" },
-    { id: "staff", label: "Staff Management" }
+    { id: "staff", label: "Staff Management" },
+    { id: "products", label: "Products" },
+    { id: "deliveries", label: "Delivery Addresses" },
   ];
 
   useEffect(() => {
@@ -219,6 +229,12 @@ const AdminDashboard = () => {
       } else if (activeTab === "staff") {
         const staffData = await getAdminStaff();
         setStaffList(staffData);
+      } else if (activeTab === "products") {
+        const data = await getAdminProducts({ search: searchQuery, limit: 20 });
+        setProducts(data.products);
+      } else if (activeTab === "deliveries") {
+        const data = await getAdminDeliveries({ search: searchQuery, limit: 20 });
+        setDeliveries(data.deliveries);
       }
     } catch (err) {
       toast({
@@ -461,6 +477,31 @@ const AdminDashboard = () => {
     logout();
     navigate("/login");
   };
+  const handleReturnDecision = async (dealId: number, approved: boolean) => {
+    try {
+      let note = "";
+      if (!approved) {
+        note = prompt("Enter reason for rejection:") || "";
+        if (!note) return;
+      }
+      await decideEscrowReturn(dealId, { approved, adminNote: note });
+      toast({ title: "Success", description: `Return ${approved ? 'approved' : 'rejected'} successfully.` });
+      loadData();
+    } catch (err) {
+      toast({ title: "Error", description: err instanceof Error ? err.message : "Failed to process decision", variant: "destructive" });
+    }
+  };
+
+  const handleReturnRefund = async (dealId: number, destination: "wallet" | "razorpay") => {
+    try {
+      if (!confirm(`Are you sure you want to refund to ${destination}? Platform fee will be deducted.`)) return;
+      await refundEscrowReturn(dealId, destination);
+      toast({ title: "Success", description: "Refund processed successfully." });
+      loadData();
+    } catch (err) {
+      toast({ title: "Error", description: err instanceof Error ? err.message : "Failed to process refund", variant: "destructive" });
+    }
+  };
 
   const tabs = [
     { id: "overview" as const, label: "Overview", icon: TrendingUp },
@@ -474,6 +515,8 @@ const AdminDashboard = () => {
     { id: "broadcast" as const, label: "Broadcast", icon: Bell, permission: "broadcast" },
     { id: "settings" as const, label: "Settings", icon: Settings, permission: "settings" },
     { id: "staff" as const, label: "Staff", icon: UserCheck, permission: "staff" },
+    { id: "products" as const, label: "Products", icon: Zap, permission: "products" },
+    { id: "deliveries" as const, label: "Deliveries", icon: Send, permission: "deliveries" },
   ].filter(tab => {
     if (!user) return false;
     if (user.role === "admin") return true;
@@ -598,7 +641,15 @@ const AdminDashboard = () => {
                         <>
                           <SelectItem value="active">Active</SelectItem>
                           <SelectItem value="suspended">Suspended</SelectItem>
-                          {activeTab === "escrow" && <SelectItem value="completed">Completed</SelectItem>}
+                          {activeTab === "escrow" && (
+                            <>
+                              <SelectItem value="completed">Completed</SelectItem>
+                              <SelectItem value="return_requested">Return Requested</SelectItem>
+                              <SelectItem value="return_approved">Return Approved</SelectItem>
+                              <SelectItem value="return_received">Return Received</SelectItem>
+                              <SelectItem value="refunded">Refunded</SelectItem>
+                            </>
+                          )}
                         </>
                       )}
                     </SelectContent>
@@ -1138,6 +1189,50 @@ const AdminDashboard = () => {
                                 </div>
                               </div>
                             </div>
+                            {deal.returnRefund && (
+                              <div className="md:col-span-2 space-y-4 pt-4 border-t border-border/50">
+                                <div>
+                                  <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                                    <ShieldAlert className="h-3 w-3" /> Return Request Details
+                                  </h4>
+                                  <div className="bg-rose-50 dark:bg-rose-950/20 rounded-xl p-4 border border-rose-100 dark:border-rose-900/30">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                      <div>
+                                        <p className="text-[10px] uppercase font-bold text-rose-400 mb-1">Reason</p>
+                                        <p className="text-xs text-rose-950 dark:text-rose-100">{deal.returnRefund.reason}</p>
+                                        {deal.returnRefund.adminNote && (
+                                          <div className="mt-2">
+                                            <p className="text-[10px] uppercase font-bold text-rose-400 mb-1">Admin Note</p>
+                                            <p className="text-xs italic text-rose-800 dark:text-rose-200">{deal.returnRefund.adminNote}</p>
+                                          </div>
+                                        )}
+                                      </div>
+                                      <div>
+                                        <p className="text-[10px] uppercase font-bold text-rose-400 mb-1">Video Proof</p>
+                                        <a href={deal.returnRefund.videoUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-bold text-rose-600 hover:text-rose-700 bg-rose-100 dark:bg-rose-900/40 px-2 py-1 rounded">
+                                          <Film className="h-3 w-3" /> View Video
+                                        </a>
+                                      </div>
+                                    </div>
+                                    
+                                    {deal.shippingStatus === 'return_requested' && (
+                                      <div className="flex gap-2 mt-4 pt-3 border-t border-rose-200 dark:border-rose-900/30">
+                                        <Button onClick={() => handleReturnDecision(deal.id, true)} className="bg-emerald-600 hover:bg-emerald-700 h-8 text-xs">Approve Return</Button>
+                                        <Button onClick={() => handleReturnDecision(deal.id, false)} variant="destructive" className="h-8 text-xs">Reject Return</Button>
+                                      </div>
+                                    )}
+
+                                    {deal.shippingStatus === 'return_received' && (
+                                      <div className="flex gap-2 mt-4 pt-3 border-t border-rose-200 dark:border-rose-900/30 items-center">
+                                        <span className="text-xs font-bold text-rose-600 dark:text-rose-400 mr-2">Process Refund:</span>
+                                        <Button onClick={() => handleReturnRefund(deal.id, 'wallet')} className="bg-[#00A4EF] hover:bg-[#0087d1] h-8 text-xs">Refund to Wallet</Button>
+                                        <Button onClick={() => handleReturnRefund(deal.id, 'razorpay')} variant="outline" className="h-8 text-xs text-[#00A4EF] border-[#00A4EF]">Refund to Razorpay</Button>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
                       )}
@@ -1955,6 +2050,82 @@ const AdminDashboard = () => {
                     ))
                   )}
                 </div>
+              </div>
+            )}
+
+            {activeTab === "products" && (
+              <div className="space-y-3">
+                {products.length === 0 ? (
+                  <Card className="bg-card border-border">
+                    <CardContent className="py-10 text-center text-muted-foreground">No products found.</CardContent>
+                  </Card>
+                ) : products.map((product) => (
+                  <Card key={product.id} className="bg-card border-border">
+                    <CardContent className="py-3 px-4">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-card-foreground truncate">{product.title}</p>
+                          <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-xs text-muted-foreground">
+                            <span>by @{product.seller?.username}</span>
+                            <span>•</span>
+                            <span>{product.category}</span>
+                            <span>•</span>
+                            <span>{product.deliveryType}</span>
+                            {product.deliveryDays && <><span>•</span><span>{product.deliveryDays}d delivery</span></>}
+                            <span>•</span>
+                            <span>{product._count?.inquiries ?? 0} inquiries</span>
+                            <span>•</span>
+                            <span>{product.viewCount} views</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-sm font-semibold text-card-foreground">
+                            {product.currency === 'INR' ? '₹' : product.currency}{Number(product.price).toLocaleString('en-IN')}
+                          </span>
+                          <Badge variant={product.status === 'active' ? 'default' : 'secondary'} className="text-[10px]">
+                            {product.status}
+                          </Badge>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+
+            {activeTab === "deliveries" && (
+              <div className="space-y-3">
+                {deliveries.length === 0 ? (
+                  <Card className="bg-card border-border">
+                    <CardContent className="py-10 text-center text-muted-foreground">No delivery addresses found.</CardContent>
+                  </Card>
+                ) : deliveries.map((d) => (
+                  <Card key={d.id} className="bg-card border-border">
+                    <CardContent className="py-3 px-4">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-card-foreground">{d.fullName}</p>
+                            <Badge variant="secondary" className="text-[10px]">{d.addressType}</Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                            {d.addressLine1}{d.addressLine2 ? `, ${d.addressLine2}` : ''}
+                          </p>
+                          <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-xs text-muted-foreground">
+                            <span>{d.city}, {d.state} — {d.pincode}</span>
+                            <span>•</span>
+                            <span>📞 {d.phoneNumber}</span>
+                            {d.buyer && <><span>•</span><span>@{d.buyer.username}</span></>}
+                            {d.escrowDeals?.[0] && <><span>•</span><span className="truncate max-w-[160px]">Deal: {d.escrowDeals[0].title}</span></>}
+                          </div>
+                        </div>
+                        <div className="text-xs text-muted-foreground shrink-0">
+                          {new Date(d.createdAt).toLocaleDateString('en-IN')}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
             )}
           </ScrollArea>

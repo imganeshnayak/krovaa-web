@@ -651,7 +651,13 @@ const EscrowPage = () => {
           </button>
         </div>
 
-        {deals.filter(d => activeTab === "active" ? (d.status === "active" || d.status === "pending_payment") : (d.status === "completed" || d.status === "cancelled")).length === 0 ? (
+        {deals.filter(d => {
+          const isCancelled = d.status === "cancelled" || 
+                              d.shippingStatus === "cancelled" || 
+                              d.shippingStatus === "cancelled_by_shiprocket" || 
+                              d.shippingStatus === "cancelled_by_seller";
+          return activeTab === "active" ? ((d.status === "active" || d.status === "pending_payment") && !isCancelled) : (d.status === "completed" || isCancelled);
+        }).length === 0 ? (
           <Card className="bg-card border-border">
             <CardContent className="pt-12 pb-12 text-center">
               <div className="bg-secondary/30 h-16 w-16 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -669,7 +675,13 @@ const EscrowPage = () => {
           <ScrollArea className="h-[calc(100vh-280px)]">
             <div className="space-y-4">
               {deals
-                .filter(d => activeTab === "active" ? (d.status === "active" || d.status === "pending_payment") : (d.status === "completed" || d.status === "cancelled"))
+                .filter(d => {
+                  const isCancelled = d.status === "cancelled" || 
+                                      d.shippingStatus === "cancelled" || 
+                                      d.shippingStatus === "cancelled_by_shiprocket" || 
+                                      d.shippingStatus === "cancelled_by_seller";
+                  return activeTab === "active" ? ((d.status === "active" || d.status === "pending_payment") && !isCancelled) : (d.status === "completed" || isCancelled);
+                })
                 .map((deal) => {
                   const isClient = deal.clientId === user?.id;
                   const otherParty = isClient ? deal.vendor : deal.client;

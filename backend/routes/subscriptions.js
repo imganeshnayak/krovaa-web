@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { auth } from '../middleware/auth.js';
 import { createOrder } from '../config/razorpay.js';
 import { sendSubscriptionSuccessArtifacts } from '../services/subscriptionFulfillment.js';
+import { applyWalletDelta } from '../utils/walletOps.js';
 
 const prisma = new PrismaClient();
 const router = express.Router();
@@ -277,10 +278,7 @@ router.post('/wallet', auth, async (req, res) => {
     const billingCycle = isAnnual ? 'annual' : 'monthly';
 
     const updatedUser = await prisma.$transaction(async (tx) => {
-      const updated = await tx.user.update({
-        where: { id: req.user.id },
-        data: { walletBalance: { decrement: amount } }
-      });
+      const updated = await applyWalletDelta(tx, req.user.id, -amount);
 
       await tx.walletTransaction.create({
         data: {

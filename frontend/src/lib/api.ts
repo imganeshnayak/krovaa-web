@@ -2,6 +2,10 @@ import { apiUrl } from "./config";
 
 // src/lib/api.ts
 
+// Global flag to prevent redirect loops during explicit logout
+export let isLoggingOut = false;
+export const setIsLoggingOut = (value: boolean) => { isLoggingOut = value; };
+
 export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const headers: Record<string, string> = {
     ...(options?.headers as Record<string, string> || {}),
@@ -35,22 +39,26 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
       const errorJson = JSON.parse(errorText);
       errorMessage = errorJson.error || errorText;
 
-      // Handle account suspension/banned globally
-      if (res.status === 403 && (errorMessage.toLowerCase().includes("suspended") || errorMessage.toLowerCase().includes("banned"))) {
-        localStorage.removeItem("authToken");
-        localStorage.removeItem("authUser");
-        window.location.href = "/login?error=" + encodeURIComponent(errorMessage);
-      }
+      // Only perform hard redirects if we are not actively logging out 
+      // and not already on the login page (prevents redirect loops/flickering)
+      if (!isLoggingOut && window.location.pathname !== '/login') {
+        // Handle account suspension/banned globally
+        if (res.status === 403 && (errorMessage.toLowerCase().includes("suspended") || errorMessage.toLowerCase().includes("banned"))) {
+          localStorage.removeItem("authToken");
+          localStorage.removeItem("authUser");
+          window.location.href = "/login?error=" + encodeURIComponent(errorMessage);
+        }
 
-      // Handle authentication expiry / invalid token globally
-      if (res.status === 401 && (
-        errorMessage.toLowerCase().includes("invalid token") || 
-        errorMessage.toLowerCase().includes("access denied") || 
-        errorMessage.toLowerCase().includes("please authenticate")
-      )) {
-        localStorage.removeItem("authToken");
-        localStorage.removeItem("authUser");
-        window.location.href = "/login?error=" + encodeURIComponent("Session expired. Please log in again.");
+        // Handle authentication expiry / invalid token globally
+        if (res.status === 401 && (
+          errorMessage.toLowerCase().includes("invalid token") || 
+          errorMessage.toLowerCase().includes("access denied") || 
+          errorMessage.toLowerCase().includes("please authenticate")
+        )) {
+          localStorage.removeItem("authToken");
+          localStorage.removeItem("authUser");
+          window.location.href = "/login?error=" + encodeURIComponent("Session expired. Please log in again.");
+        }
       }
     } catch (e) {
       // Not JSON, use raw text
@@ -60,6 +68,7 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
     err.status = res.status;
     throw err;
   }
+
 
   const contentType = (res.headers.get('content-type') || '').toLowerCase();
   if (contentType.includes('application/json')) {
@@ -149,10 +158,17 @@ export function loginWithTelegram(data: any): Promise<AuthResponse> {
   });
 }
 
-export function logoutUser(): Promise<{ success: boolean }> {
-  return apiFetch<{ success: boolean }>("/api/auth/logout", {
-    method: "POST",
-  });
+export async function logoutUser(): Promise<{ success: boolean }> {
+  setIsLoggingOut(true);
+  try {
+    const res = await apiFetch<{ success: boolean }>("/api/auth/logout", {
+      method: "POST",
+    });
+    return res;
+  } finally {
+    // Reset flag after a short delay to allow soft navigations to finish
+    setTimeout(() => setIsLoggingOut(false), 2000);
+  }
 }
 
 export function getCurrentUser(): Promise<AuthUser> {
@@ -242,6 +258,13 @@ export function getUserRatings(userId: number): Promise<{ ratings: any[] }> {
 
 export function getAllUsers(): Promise<AuthUser[]> {
   return apiFetch<AuthUser[]>("/api/users");
+}
+
+export function updatePickupLocation(userId: number, data: { businessAddress: string; businessCity: string; businessState: string; businessPincode: string; businessLandmark?: string; contactName?: string; contactEmail?: string; contactPhone?: string; }): Promise<any> {
+  return apiFetch(`/api/users/${userId}/pickup-location`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
 }
 
 export function updateUserProfile(
@@ -463,6 +486,13 @@ export function joinCommunity(id: number): Promise<any> {
 export function leaveCommunity(id: number): Promise<any> {
   return apiFetch(`/api/communities/${id}/leave`, { method: 'POST' });
 }
+
+export const setEscrowShippingAddress = async (id: number, addressId: number) => {
+  return apiFetch(`/api/escrow/${id}/set-address`, {
+    method: 'POST',
+    body: JSON.stringify({ addressId }),
+  });
+};
 
 export function deleteCommunity(id: number): Promise<any> {
   return apiFetch(`/api/communities/${id}`, { method: 'DELETE' });
@@ -1164,6 +1194,37 @@ export interface EscrowDeal {
   shiprocketShipmentId?: string;
   deliveryType?: string;
   dealPrice?: number;
+  shippingAddressId?: number;
+  shippingAddress?: OrderAddress;
+  ratings?: any[];
+  returnRefund?: {
+    id: number;
+    reason: string;
+    videoUrl: string;
+    status: string;
+    returnTrackingId?: string;
+    adminNote?: string;
+  };
+}
+
+export interface OrderAddress {
+  id: number;
+  buyerId: number;
+  fullName: string;
+  phoneNumber: string;
+  email?: string;
+  addressType: string;
+  addressLine1: string;
+  addressLine2?: string;
+  landmark?: string;
+  city: string;
+  state: string;
+  country: string;
+  pincode: string;
+  isDefault: boolean;
+  isBillingSame: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export function getEscrowDeals(chatId?: string): Promise<EscrowDeal[]> {
@@ -1243,6 +1304,12 @@ export function shipEscrowDeal(
   });
 }
 
+export function cancelEscrowDeal(id: number): Promise<EscrowDeal> {
+  return apiFetch<EscrowDeal>(`/api/escrow/${id}/cancel`, {
+    method: "POST"
+  });
+}
+
 export function simulateDelivery(dealId: number): Promise<EscrowDeal> {
   return apiFetch<EscrowDeal>(`/api/escrow/${dealId}/simulate-delivery`, {
     method: "POST",
@@ -1262,6 +1329,61 @@ export function submitDealReview(
   return apiFetch<any>(`/api/escrow/${dealId}/review`, {
     method: "POST",
     body: JSON.stringify(data),
+  });
+}
+
+// ============ Order Addresses API ============
+
+export function getOrderAddresses(): Promise<OrderAddress[]> {
+  return apiFetch<OrderAddress[]>('/api/order-addresses');
+}
+
+export function createOrderAddress(data: {
+  fullName: string;
+  phoneNumber: string;
+  email?: string;
+  addressType?: string;
+  addressLine1: string;
+  addressLine2?: string;
+  landmark?: string;
+  city: string;
+  state: string;
+  pincode: string;
+  isDefault?: boolean;
+  isBillingSame?: boolean;
+  dealId?: number;
+  checkPincodeServiceability?: boolean;
+}): Promise<OrderAddress> {
+  return apiFetch<OrderAddress>('/api/order-addresses', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export function getDealShippingAddress(dealId: number): Promise<OrderAddress | null> {
+  return apiFetch<OrderAddress | null>(`/api/order-addresses/deal/${dealId}`);
+}
+
+export function updateOrderAddress(
+  addressId: number,
+  data: Partial<OrderAddress>
+): Promise<OrderAddress> {
+  return apiFetch<OrderAddress>(`/api/order-addresses/${addressId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export function deleteOrderAddress(addressId: number): Promise<{ success: boolean }> {
+  return apiFetch<{ success: boolean }>(`/api/order-addresses/${addressId}`, {
+    method: 'DELETE',
+  });
+}
+
+export function linkAddressToDeal(addressId: number, dealId: number): Promise<{ success: boolean; shippingAddressId: number }> {
+  return apiFetch<{ success: boolean; shippingAddressId: number }>('/api/order-addresses/link-deal', {
+    method: 'POST',
+    body: JSON.stringify({ addressId, dealId }),
   });
 }
 
@@ -2139,6 +2261,7 @@ export interface DealListing {
   title: string;
   description: string;
   price: number;
+  mrp?: number;
   currency: string;
   imageUrls: string[];
   deliveryType: string;
@@ -2165,6 +2288,8 @@ export function getPublicDeals(params?: {
   category?: string;
   deliveryType?: string;
   minPrice?: number;
+  sort?: "recent" | "oldest" | "price_asc" | "price_desc" | "popular";
+  includeOutOfStock?: boolean;
   maxPrice?: number;
   search?: string;
   page?: number;
@@ -2176,9 +2301,61 @@ export function getPublicDeals(params?: {
   if (params?.minPrice !== undefined) q.append('minPrice', String(params.minPrice));
   if (params?.maxPrice !== undefined) q.append('maxPrice', String(params.maxPrice));
   if (params?.search) q.append('search', params.search);
+  if (params?.sort) q.append('sort', params.sort);
+  if (params?.includeOutOfStock) q.append('includeOutOfStock', 'true');
   if (params?.page) q.append('page', String(params.page));
   if (params?.limit) q.append('limit', String(params.limit));
   return apiFetch(`/api/deals/public?${q.toString()}`);
+}
+
+// ─── Wishlist ────────────────────────────────────────────────────────────────────
+
+export function getWishlistIds(): Promise<{ listingIds: number[] }> {
+  return apiFetch<{ listingIds: number[] }>('/api/wishlist/ids');
+}
+
+export function toggleWishlist(listingId: number): Promise<{ wishlisted: boolean; listingId: number }> {
+  return apiFetch<{ wishlisted: boolean; listingId: number }>('/api/wishlist/toggle', {
+    method: 'POST',
+    body: JSON.stringify({ listingId }),
+  });
+}
+
+export function getWishlist(params?: { page?: number; limit?: number }): Promise<{
+  items: DealListing[];
+  total: number;
+  page: number;
+  hasMore: boolean;
+}> {
+  const q = new URLSearchParams();
+  if (params?.page) q.append('page', String(params.page));
+  if (params?.limit) q.append('limit', String(params.limit));
+  return apiFetch(`/api/wishlist?${q.toString()}`);
+}
+
+// ─── Public order tracking ────────────────────────────────────────────────────────
+
+export interface TrackingTimelineEvent {
+  status?: string | null;
+  title?: string | null;
+  description?: string | null;
+  location?: string | null;
+  at?: string | null;
+}
+
+export interface TrackingInfo {
+  trackingId: string;
+  courier: string | null;
+  status: string | null;
+  isNdr: boolean;
+  delivered: boolean;
+  destination: string | null;
+  timeline: TrackingTimelineEvent[];
+  updatedAt: string;
+}
+
+export function trackOrder(trackingId: string): Promise<TrackingInfo> {
+  return apiFetch<TrackingInfo>(`/api/shipping/track/${encodeURIComponent(trackingId)}`);
 }
 
 export function getPublicDeal(shareCode: string): Promise<DealListing> {
@@ -2197,6 +2374,7 @@ export function createDealListing(data: {
   title: string;
   description: string;
   price: number;
+  mrp?: number;
   imageUrls?: string[];
   deliveryType?: string;
   deliveryDays?: number;
@@ -2204,6 +2382,7 @@ export function createDealListing(data: {
   shippingWeight?: number;
   shippingDimensions?: string;
   pickupAddress?: string;
+  stock?: number;
 }): Promise<{ deal: DealListing; shareUrl: string }> {
   return apiFetch<{ deal: DealListing; shareUrl: string }>('/api/deals', {
     method: 'POST',
@@ -2216,7 +2395,7 @@ export function updateDealListing(id: number, data: Partial<{
   imageUrls: string[]; deliveryType: string;
   deliveryDays: number; category: string;
   shippingWeight: number; shippingDimensions: string;
-  pickupAddress: string;
+  pickupAddress: string; stock: number;
 }>): Promise<DealListing> {
   return apiFetch<DealListing>(`/api/deals/${id}`, {
     method: 'PUT',
@@ -2251,5 +2430,63 @@ export function uploadDealImage(file: File): Promise<{ imageUrl: string }> {
   return apiFetch<{ imageUrl: string }>("/api/deals/upload", {
     method: "POST",
     body: formData,
+  });
+}
+
+export function getAdminProducts(params?: {
+  page?: number; limit?: number; search?: string;
+  status?: string; category?: string; deliveryType?: string;
+}): Promise<{ products: any[]; total: number; page: number; totalPages: number }> {
+  const q = new URLSearchParams();
+  if (params?.page) q.set('page', String(params.page));
+  if (params?.limit) q.set('limit', String(params.limit));
+  if (params?.search) q.set('search', params.search);
+  if (params?.status) q.set('status', params.status);
+  if (params?.category) q.set('category', params.category);
+  if (params?.deliveryType) q.set('deliveryType', params.deliveryType);
+  return apiFetch<{ products: any[]; total: number; page: number; totalPages: number }>(`/api/admin/products?${q}`);
+}
+
+export function getAdminDeliveries(params?: {
+  page?: number; limit?: number; search?: string; state?: string;
+}): Promise<{ deliveries: any[]; total: number; page: number; totalPages: number }> {
+  const q = new URLSearchParams();
+  if (params?.page) q.set('page', String(params.page));
+  if (params?.limit) q.set('limit', String(params.limit));
+  if (params?.search) q.set('search', params.search);
+  if (params?.state) q.set('state', params.state);
+  return apiFetch<{ deliveries: any[]; total: number; page: number; totalPages: number }>(`/api/admin/deliveries?${q}`);
+}
+
+export function requestEscrowReturn(dealId: number, payload: { reason: string; videoUrl: string }) {
+  return apiFetch<{ success: true }>(`/api/escrow/${dealId}/return/request`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function decideEscrowReturn(dealId: number, payload: { action: 'approve' | 'reject', adminNote?: string }) {
+  return apiFetch<{ success: true }>(`/api/escrow/${dealId}/return/decision`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function shipEscrowReturn(dealId: number, trackingId: string) {
+  return apiFetch<{ success: true }>(`/api/escrow/${dealId}/return/ship`, {
+    method: "PUT",
+    body: JSON.stringify({ trackingId }),
+  });
+}
+
+export function receiveEscrowReturn(dealId: number) {
+  return apiFetch<{ success: true }>(`/api/escrow/${dealId}/return/receive`, {
+    method: "PUT",
+  });
+}
+
+export function refundEscrowReturn(dealId: number) {
+  return apiFetch<{ success: true, refundAmount: number }>(`/api/escrow/${dealId}/return/refund`, {
+    method: "POST",
   });
 }

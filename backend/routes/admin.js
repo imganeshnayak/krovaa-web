@@ -4,6 +4,9 @@ import { auth, adminOnly, checkPermission } from '../middleware/auth.js';
 import bcrypt from 'bcryptjs';
 import { processPayoutAutomatically } from '../services/razorpayPayouts.js';
 import { sendUserNotification } from './notifications.js';
+import { roundMoney } from '../utils/money.js';
+import { applyWalletDelta } from '../utils/walletOps.js';
+import { toAmount } from '../utils/decimalJson.js';
 
 const prisma = new PrismaClient();
 const router = express.Router();
@@ -350,7 +353,15 @@ router.get('/escrow', auth, adminOnly, checkPermission('escrow'), async (req, re
         const { page = 1, limit = 20, status = '' } = req.query;
         const skip = (parseInt(page) - 1) * parseInt(limit);
 
-        const where = status ? { status } : {};
+        let where = {};
+        if (status) {
+            if (status.startsWith('return_') || status === 'refunded') {
+                where = { shippingStatus: status };
+            } else {
+                where = { status };
+            }
+        }
+
 
         const [deals, total] = await Promise.all([
             prisma.escrowDeal.findMany({
@@ -358,7 +369,8 @@ router.get('/escrow', auth, adminOnly, checkPermission('escrow'), async (req, re
                 include: {
                     client: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
                     vendor: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
-                    transactions: { orderBy: { createdAt: 'desc' }, take: 3 }
+                    transactions: { orderBy: { createdAt: 'desc' }, take: 3 },
+                    returnRefund: true
                 },
                 orderBy: { createdAt: 'desc' },
                 skip,
@@ -631,16 +643,15 @@ router.put('/payouts/:id', auth, adminOnly, checkPermission('payouts'), async (r
         // If cancelled or failed, refund the amount to wallet
         if (['failed', 'cancelled'].includes(status) && payout.status !== 'failed' && payout.status !== 'cancelled') {
             await prisma.$transaction(async (prisma) => {
-                const user = await prisma.user.update({
-                    where: { id: payout.userId },
-                    data: { walletBalance: { increment: payout.amount } }
-                });
+                // Re-round on refund so a cancelled payout never leaves the
+                // balance with extra sub-paise residue.
+                const user = await applyWalletDelta(prisma, payout.userId, Number(payout.amount || 0));
 
                 await prisma.walletTransaction.create({
                     data: {
                         userId: payout.userId,
                         type: 'credit', // Refund
-                        amount: payout.amount,
+                        amount: roundMoney(payout.amount),
                         balance: user.walletBalance,
                         reference: `payout_refund_${payout.id}`,
                         description: `Payout ${status}: Refunded to wallet`
@@ -660,19 +671,19 @@ router.put('/payouts/:id', auth, adminOnly, checkPermission('payouts'), async (r
         // Notify user about payout status change
         const io = req.app.get('io');
         let notificationTitle = 'Payout Update';
-        let notificationMessage = `Your payout request of ₹${payout.amount.toLocaleString('en-IN')} is now ${status}.`;
+        let notificationMessage = `Your payout request of ₹${toAmount(payout.amount).toLocaleString('en-IN')} is now ${status}.`;
         let notificationType = 'info';
 
         if (status === 'completed') {
             notificationTitle = 'Payout Completed';
-            notificationMessage = `Your payout of ₹${payout.amount.toLocaleString('en-IN')} has been successfully processed.`;
+            notificationMessage = `Your payout of ₹${toAmount(payout.amount).toLocaleString('en-IN')} has been successfully processed.`;
             notificationType = 'success';
         } else if (status === 'failed' || status === 'cancelled') {
             notificationTitle = status === 'failed' ? 'Payout Failed' : 'Payout Cancelled';
-            notificationMessage = `Your payout of ₹${payout.amount.toLocaleString('en-IN')} was ${status}. ${adminNote ? 'Reason: ' + adminNote : 'The amount has been refunded to your wallet.'}`;
+            notificationMessage = `Your payout of ₹${toAmount(payout.amount).toLocaleString('en-IN')} was ${status}. ${adminNote ? 'Reason: ' + adminNote : 'The amount has been refunded to your wallet.'}`;
             notificationType = 'alert';
         } else if (status === 'processing') {
-            notificationMessage = `Your payout of ₹${payout.amount.toLocaleString('en-IN')} is now being processed.`;
+            notificationMessage = `Your payout of ₹${toAmount(payout.amount).toLocaleString('en-IN')} is now being processed.`;
         }
 
         sendUserNotification(io, payout.userId, notificationTitle, notificationMessage, notificationType, { type: 'wallet' });
@@ -1063,4 +1074,111 @@ router.delete('/staff/:id', auth, adminOnly, checkPermission('staff'), async (re
     }
 });
 
+// GET /api/admin/products - Paginated list of all deal listings
+router.get('/products', auth, adminOnly, async (req, res) => {
+    try {
+        const { page = 1, limit = 20, search = '', status = '', category = '', deliveryType = '' } = req.query;
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+
+        const where = {
+            ...(status && status !== 'all' ? { status } : {}),
+            ...(category ? { category } : {}),
+            ...(deliveryType ? { deliveryType } : {}),
+            ...(search ? {
+                OR: [
+                    { title: { contains: search, mode: 'insensitive' } },
+                    { description: { contains: search, mode: 'insensitive' } },
+                ]
+            } : {})
+        };
+
+        const [products, total] = await Promise.all([
+            prisma.dealListing.findMany({
+                where,
+                select: {
+                    id: true,
+                    title: true,
+                    category: true,
+                    price: true,
+                    currency: true,
+                    deliveryType: true,
+                    deliveryDays: true,
+                    status: true,
+                    viewCount: true,
+                    createdAt: true,
+                    seller: {
+                        select: { id: true, username: true, displayName: true, avatarUrl: true }
+                    },
+                    _count: { select: { inquiries: true } }
+                },
+                orderBy: { createdAt: 'desc' },
+                skip,
+                take: parseInt(limit)
+            }),
+            prisma.dealListing.count({ where })
+        ]);
+
+        res.json({ products, total, page: parseInt(page), totalPages: Math.ceil(total / parseInt(limit)) });
+    } catch (err) {
+        console.error('Admin products error:', err);
+        res.status(500).json({ error: 'Server error.' });
+    }
+});
+
+// GET /api/admin/deliveries - Paginated list of all buyer order addresses
+router.get('/deliveries', auth, adminOnly, async (req, res) => {
+    try {
+        const { page = 1, limit = 20, search = '', state = '' } = req.query;
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+
+        const where = {
+            ...(state ? { state } : {}),
+            ...(search ? {
+                OR: [
+                    { fullName: { contains: search, mode: 'insensitive' } },
+                    { phoneNumber: { contains: search } },
+                    { pincode: { contains: search } },
+                    { city: { contains: search, mode: 'insensitive' } },
+                ]
+            } : {})
+        };
+
+        const [deliveries, total] = await Promise.all([
+            prisma.orderAddress.findMany({
+                where,
+                select: {
+                    id: true,
+                    fullName: true,
+                    phoneNumber: true,
+                    addressLine1: true,
+                    addressLine2: true,
+                    city: true,
+                    state: true,
+                    pincode: true,
+                    addressType: true,
+                    isDefault: true,
+                    createdAt: true,
+                    buyer: {
+                        select: { id: true, username: true, displayName: true }
+                    },
+                    escrowDeals: {
+                        select: { id: true, title: true },
+                        take: 1
+                    }
+                },
+                orderBy: { createdAt: 'desc' },
+                skip,
+                take: parseInt(limit)
+            }),
+            prisma.orderAddress.count({ where })
+        ]);
+
+        res.json({ deliveries, total, page: parseInt(page), totalPages: Math.ceil(total / parseInt(limit)) });
+    } catch (err) {
+        console.error('Admin deliveries error:', err);
+        res.status(500).json({ error: 'Server error.' });
+    }
+});
+
 export default router;
+

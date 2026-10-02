@@ -1,0 +1,341 @@
+Ah, got it! **Marketplace model** — completely different. Sellers fulfill orders to buyers. Let me rebuild this for a **multi-vendor delivery system**.## **MARKETPLACE DELIVERY SYSTEM CHECKLIST**
+
+### **1. BACKEND ARCHITECTURE**
+
+**Database Schema**
+```
+Orders
+├── order_id (PK)
+├── seller_id (FK)
+├── buyer_id (FK)
+├── status (enum: pending → confirmed → packed → shipped → delivered → cancelled)
+├── total_amount
+├── shipping_address
+├── created_at, updated_at
+
+Shipments
+├── shipment_id (PK)
+├── order_id (FK, unique)
+├── seller_id (FK)
+├── awb_code (from ShipRocket)
+├── tracking_id (from ShipRocket)
+├── courier_partner (Fedex, Delhivery, etc.)
+├── shiprocket_shipment_id
+├── status (pending_pickup → in_transit → delivered)
+├── created_at, shipped_at, delivered_at
+
+SellerShipRocketAccounts
+├── seller_id (PK, FK)
+├── sr_email
+├── sr_password (encrypted)
+├── sr_channel_id
+├── sr_pickup_location_id
+├── is_active
+
+OrderItems
+├── order_item_id (PK)
+├── order_id (FK)
+├── seller_id (FK)
+├── product_id (FK)
+├── quantity
+├── unit_price
+
+TrackingEvents
+├── event_id (PK)
+├── shipment_id (FK)
+├── status
+├── location
+├── timestamp
+├── source (webhook from ShipRocket)
+```
+
+**ShipRocket Integration Layer** (Key Decision: Per-Seller vs. Centralized)
+- [ ] **Option A (Recommended for marketplace)**: Centralized account with seller sub-accounts
+  - One master ShipRocket account for your platform
+  - Each seller has a sub-account or channel within it
+  - Easier to manage, single credential set
+  - ShipRocket supports channel/warehouse management
+
+- [ ] **Option B**: Individual seller accounts
+  - Sellers create own ShipRocket accounts
+  - You integrate via their credentials
+  - More control for sellers, higher complexity
+  - Seller must provide API key
+
+**API Endpoints to Build**
+```
+BUYER ENDPOINTS
+POST   /api/orders                    → Create order
+GET    /api/orders/:id                → Get order details
+GET    /api/orders/:id/tracking       → Real-time tracking
+GET    /api/orders                    → Order history
+PUT    /api/orders/:id/cancel         → Cancel (if not shipped)
+
+SELLER ENDPOINTS
+GET    /api/seller/orders             → List orders for seller
+PUT    /api/seller/orders/:id/status  → Mark as packed
+POST   /api/seller/shipments          → Initiate ShipRocket shipment
+GET    /api/seller/shipments/:id      → Get shipment details
+POST   /api/seller/shipments/:id/label → Download label PDF
+GET    /api/seller/dashboard          → Stats (pending, shipped, delivered)
+
+ADMIN ENDPOINTS
+GET    /api/admin/shipments           → All shipments (for monitoring)
+GET    /api/admin/sellers/:id/config  → ShipRocket config check
+```
+
+**ShipRocket API Calls (Critical)**
+```javascript
+// 1. Authenticate & Get Token
+POST https://apiv2.shiprocket.in/v1/external/auth/login
+{
+  "email": "seller@example.com",
+  "password": "password"
+}
+→ Returns: token (valid 24hrs)
+
+// 2. Create Shipment (when seller marks order as packed)
+POST https://apiv2.shiprocket.in/v1/external/orders/create/forward-shipment
+Headers: Authorization: Bearer {token}
+{
+  "order_id": "order_123",
+  "order_date": "2024-01-15",
+  "pickup_location_id": 12345,
+  "channel_id": 67890,
+  "billing_customer_name": "Buyer Name",
+  "billing_email": "buyer@email.com",
+  "billing_phone": "9876543210",
+  "billing_address": "123 Main St",
+  "billing_city": "Mumbai",
+  "billing_state": "MH",
+  "billing_country": "IN",
+  "billing_pincode": "400001",
+  "order_items": [
+    {
+      "name": "Product Name",
+      "sku": "SKU123",
+      "units": 1,
+      "selling_price": "999.99"
+    }
+  ],
+  "payment_method": "Prepaid",
+  "sub_total": 999.99,
+  "length": 10,
+  "breadth": 5,
+  "height": 5,
+  "weight": 0.5
+}
+→ Returns: shipment_id, awb_code, tracking_id
+
+// 3. Get Tracking Status (webhook or polling)
+GET https://apiv2.shiprocket.in/v1/external/shipments/track/awb/{awb_code}
+Headers: Authorization: Bearer {token}
+→ Returns: current_status, location, expected_delivery_date
+
+// 4. Generate Label
+POST https://apiv2.shiprocket.in/v1/external/shipments/label
+{
+  "shipment_id": [12345]
+}
+→ Returns: label_url (PDF)
+```
+
+**Webhook Setup (Real-time Tracking)**
+- [ ] Register webhook URL in ShipRocket dashboard
+- [ ] Endpoint: `POST /api/webhooks/shiprocket`
+- [ ] Verify webhook signature (X-Shiprocket-Signature header)
+- [ ] Payload structure:
+  ```json
+  {
+    "event": "shipment_status_update",
+    "shipment_id": 12345,
+    "awb": "AWB123456",
+    "status": "in_transit",
+    "location": "Mumbai Hub",
+    "timestamp": "2024-01-16T10:30:00Z"
+  }
+  ```
+- [ ] Update order status in DB → Trigger customer notification
+
+**Error Handling & Retries**
+- [ ] Retry logic for failed ShipRocket API calls (exponential backoff)
+- [ ] Store failed shipments in `pending_shipments` queue
+- [ ] Background job to retry failed shipments
+- [ ] Alert seller if shipment creation fails (with error reason)
+- [ ] Cancel order if shipment fails after 24hrs
+
+---
+
+### **2. SELLER FULFILLMENT UI FLOW**
+
+```
+SELLER DASHBOARD
+├── Orders Tab
+│   ├── Pending orders (new)
+│   │   └── [View] → Order details
+│   │       ├── Items list
+│   │       ├── Buyer address
+│   │       ├── [Mark as Packed] button
+│   │       └── Upload packing video (optional)
+│   │
+│   ├── Packed orders (ready for pickup)
+│   │   └── [View] → Shipment details
+│   │       ├── AWB code (auto-generated)
+│   │       ├── [Download Label] → PDF
+│   │       ├── Courier assigned (Fedex, etc.)
+│   │       └── Estimated pickup: Today 3 PM
+│   │
+│   ├── Shipped orders (in transit)
+│   │   └── [Track] → Real-time tracking
+│   │       ├── Current status
+│   │       ├── Last location
+│   │       └── Est. delivery date
+│   │
+│   └── Delivered orders (completed)
+│       └── [View] → Proof of delivery
+│           ├── Photo from courier
+│           └── Recipient signature
+│
+├── Shipments Tab
+│   ├── Bulk actions
+│   │   ├── [Print Labels] (bulk)
+│   │   ├── [Request Pickup] 
+│   │   └── Filter by status
+│   │
+│   └── Shipment list
+│       ├── Order ID | AWB | Status | Est. Delivery
+│       └── [Details] [Track] [Reprint Label]
+│
+├── Analytics Tab
+│   ├── Cards:
+│   │   ├── Pending shipments: 12
+│   │   ├── In transit: 8
+│   │   ├── Delivered today: 35
+│   │   └── Avg. delivery time: 2.1 days
+│   │
+│   └── Chart: Orders by status (pie/bar)
+│
+└── Settings Tab
+    ├── ShipRocket connection
+    │   ├── Connected as: xyz@shiprocket.com
+    │   ├── Pickup location: Mumbai Hub
+    │   └── [Reconnect] / [Disconnect]
+    │
+    ├── Preferred couriers (checkbox list)
+    │   ├── ☑ Fedex
+    │   ├── ☑ Delhivery
+    │   ├── ☑ Ecom Express
+    │   └── ☐ BlueDart
+    │
+    └── Return address (for RTO)
+        ├── Address field
+        └── [Save]
+```
+
+---
+
+### **3. BUYER TRACKING UI FLOW**
+
+```
+ORDER DETAIL PAGE
+├── Order status badge (large)
+│   ├── Pending ⏳
+│   ├── Confirmed ✓
+│   ├── Packed 📦
+│   ├── Shipped 🚚
+│   ├── In Transit 🗺️
+│   └── Delivered ✓✓
+│
+├── Timeline (vertical)
+│   ├── ✓ Order confirmed (Jan 15, 2 PM)
+│   ├── ✓ Packed (Jan 15, 4 PM)
+│   ├── ✓ Picked up by Fedex (Jan 16, 8 AM)
+│   ├── → In transit - Mumbai Hub (Jan 16, 2 PM)
+│   ├── → In transit - Delhi Hub (Jan 17, 11 PM)
+│   ├── → Out for delivery (Jan 18, 8 AM)
+│   └── ○ Delivery expected by (Jan 18, 8 PM)
+│
+├── Tracking Card
+│   ├── AWB: FDX987654
+│   ├── Carrier: Fedex
+│   ├── Current location: Bangalore Hub
+│   ├── Last update: 2 hours ago
+│   └── [Refresh tracking]
+│
+├── Estimated delivery
+│   ├── Date & time range
+│   └── "Usually delivers within 2-3 days"
+│
+├── Contact seller
+│   ├── Message button
+│   └── Chat with seller
+│
+└── Actions
+    ├── [Report delivery issue]
+    ├── [Return order] (if eligible)
+    └── [Cancel order] (if not shipped)
+```
+
+---
+
+### **4. DATABASE OPERATIONS CHECKLIST**
+
+- [ ] **Order Creation Flow**
+  - Create order record (status: pending)
+  - Create order_items records
+  - Deduct inventory from seller
+  - Send confirmation to seller via email/push
+
+- [ ] **Shipment Initiation** (seller action)
+  - Validate: order status = confirmed
+  - Call ShipRocket API
+  - Store: awb_code, tracking_id, shipment_id
+  - Update order status → packed
+  - Notify buyer: "Your order has shipped!"
+
+- [ ] **Real-time Updates** (webhook handler)
+  - Receive webhook from ShipRocket
+  - Parse status & location
+  - Create TrackingEvent record
+  - Update Shipments.status
+  - Update Orders.status
+  - Push notification to buyer app
+  - Email notification (optional)
+
+- [ ] **Cancellation Workflow**
+  - If order not shipped: simple cancel + refund
+  - If order shipped: create return shipment (RTO)
+  - Call ShipRocket for reverse logistics
+  - Update status → return_initiated → returned
+
+---
+
+### **5. CRITICAL IMPLEMENTATION DECISIONS**
+
+| Decision | Impact | Recommendation |
+|----------|--------|-----------------|
+| **ShipRocket account model** | Seller experience, cost, complexity | Centralized with channels (easier) |
+| **Label printing** | Seller workflow, time | Direct thermal printer integration via browser API |
+| **Webhook vs. Polling** | Real-time accuracy, server load | Use webhooks + poll every 6 hours as fallback |
+| **Multi-packaging** | Seller complexity | Disallow (1 shipment = 1 order) initially |
+| **Pickup scheduling** | Seller convenience | Auto-request pickup when "Mark packed" is clicked |
+| **Return shipments** | Complexity, cost | Route through separate ShipRocket RTO flow |
+| **Seller payout timing** | Trust, cash flow | After delivery confirmed (not at order place) |
+
+---
+
+### **6. FRONTEND COMPONENTS TO BUILD**
+
+**Buyer Side**
+- [ ] Order tracking page (with real-time updates)
+- [ ] Track order by AWB number (public)
+- [ ] Push notifications for status changes
+- [ ] Proof of delivery (photo viewer)
+
+**Seller Side**
+- [ ] Orders dashboard (sortable, filterable)
+- [ ] Quick "Mark as packed" workflow
+- [ ] Bulk label printing interface
+- [ ] Shipment status dashboard
+- [ ] Analytics/stats cards
+- [ ] ShipRocket re-authentication modal

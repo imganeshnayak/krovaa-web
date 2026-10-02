@@ -182,9 +182,9 @@ const ExplorePage = () => {
             <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight whitespace-nowrap">Explore</h1>
           </div>
           <button 
-            onClick={() => navigate('/my-listings')} 
+            onClick={() => navigate('/seller/dashboard')} 
             className="p-2 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200 transition-colors shrink-0"
-            title="My Listings"
+            title="Seller Dashboard"
           >
             <LayoutGrid className="w-5 h-5" />
           </button>

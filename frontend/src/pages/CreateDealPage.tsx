@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, ArrowRight, ShoppingBag, IndianRupee, Copy, Check, ExternalLink, Trash2, UploadCloud, RefreshCw, Lock, Package, Images, DollarSign, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, ShoppingBag, IndianRupee, Copy, Check, ExternalLink, Trash2, UploadCloud, RefreshCw, Lock, Package, Images, DollarSign, CheckCircle2, Info } from "lucide-react";
 import { createDealListing, uploadDealImage } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -28,13 +28,26 @@ const STEPS = [
 
 export default function CreateDealPage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const isBusiness = user?.accountType === "business";
+
+  const [showAddressForm, setShowAddressForm] = useState(false);
+  const [bAddress, setBAddress] = useState(user?.businessAddress || "");
+  const [bCity, setBCity] = useState(user?.businessCity || "");
+  const [bState, setBState] = useState(user?.businessState || "");
+  const [bPincode, setBPincode] = useState(user?.businessPincode || "");
+  const [bLandmark, setBLandmark] = useState(user?.businessLandmark || "");
+  const [contactName, setContactName] = useState(user?.businessName || user?.displayName || "");
+  const [contactEmail, setContactEmail] = useState(user?.email || "");
+  const [contactPhone, setContactPhone] = useState(user?.phoneNumber || "");
+  const [isUpdatingAddress, setIsUpdatingAddress] = useState(false);
 
   const [step, setStep] = useState(1);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
+  const [mrp, setMrp] = useState("");
+  const [stock, setStock] = useState("1");
   const [deliveryType, setDeliveryType] = useState("shipping");
   const [deliveryDays, setDeliveryDays] = useState("");
   const [shippingWeight, setShippingWeight] = useState("");
@@ -88,7 +101,7 @@ export default function CreateDealPage() {
   const isStepValid = () => {
     if (step === 1) return title.trim().length > 0 && description.trim().length > 0;
     if (step === 2) return true;
-    if (step === 3) return price !== "" && !isNaN(Number(price)) && Number(price) > 0;
+    if (step === 3) return price !== "" && !isNaN(Number(price)) && Number(price) > 0 && stock !== "" && !isNaN(Number(stock)) && Number(stock) >= 1;
     return true;
   };
 
@@ -118,9 +131,11 @@ export default function CreateDealPage() {
         title: title.trim(),
         description: description.trim(),
         price: Number(price),
+        mrp: mrp ? Number(mrp) : undefined,
         imageUrls: uploadedImages,
         category: category || undefined,
         deliveryType: "shipping",
+        stock: Number(stock),
       });
       setShareUrl(result.shareUrl);
       setDealShareCode(result.deal.shareCode);
@@ -179,6 +194,107 @@ export default function CreateDealPage() {
           >
             Complete Business Profile
           </Button>
+        </div>
+      </div>
+    );
+  }
+
+  const needsAddress = !user?.businessAddress || !user?.businessPincode;
+  const isAddressStep = needsAddress || showAddressForm;
+
+  if (isAddressStep) {
+    return (
+      <div className="max-w-xl mx-auto px-4 pt-6 pb-28">
+        <div className="flex flex-col space-y-4 pt-10">
+          <div className="flex items-center gap-3 mb-4">
+             <div className="h-10 w-10 rounded-2xl bg-[#00A4EF] flex items-center justify-center shrink-0">
+               <Package className="h-5 w-5 text-white" />
+             </div>
+             <div>
+               <h1 className="text-xl font-extrabold tracking-tight text-slate-900">Pickup Location</h1>
+               <p className="text-xs text-slate-500 mt-0.5">Where will Shiprocket pick up your items?</p>
+             </div>
+          </div>
+          <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 rounded-2xl p-4 text-xs text-amber-800 dark:text-amber-300 leading-relaxed shadow-sm">
+            <p className="font-bold flex items-center gap-1.5 mb-1 text-amber-950 dark:text-amber-200">
+              <Info className="h-4 w-4 shrink-0 text-amber-500" /> Address Verification Notice
+            </p>
+            It takes 24-48 hours for Krovaa Admin to verify your new pickup address. <strong>The Krovaa team will contact you to verify your pickup address</strong>, as Krovaa uses a third-party service to deliver products.
+            <strong> You can still immediately create and list products</strong> in the meantime, but physical shipments will only activate once verification is complete.
+          </div>
+          <div className="space-y-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+             <div className="space-y-1.5">
+               <Label className="text-xs font-bold uppercase text-slate-500">Contact Name *</Label>
+               <Input value={contactName} onChange={e => setContactName(e.target.value)} placeholder="Name of person at pickup location" className="text-sm" />
+             </div>
+             <div className="grid grid-cols-2 gap-4">
+               <div className="space-y-1.5">
+                 <Label className="text-xs font-bold uppercase text-slate-500">Email *</Label>
+                 <Input type="email" value={contactEmail} onChange={e => setContactEmail(e.target.value)} placeholder="Contact Email" className="text-sm" />
+               </div>
+               <div className="space-y-1.5">
+                 <Label className="text-xs font-bold uppercase text-slate-500">Phone *</Label>
+                 <Input type="tel" value={contactPhone} onChange={e => setContactPhone(e.target.value)} placeholder="Phone Number" className="text-sm" />
+               </div>
+             </div>
+             <div className="space-y-1.5">
+               <Label className="text-xs font-bold uppercase text-slate-500">Address *</Label>
+               <Input value={bAddress} onChange={e => setBAddress(e.target.value)} placeholder="Building, Street..." className="text-sm" />
+             </div>
+             <div className="grid grid-cols-2 gap-4">
+               <div className="space-y-1.5">
+                 <Label className="text-xs font-bold uppercase text-slate-500">City *</Label>
+                 <Input value={bCity} onChange={e => setBCity(e.target.value)} className="text-sm" />
+               </div>
+               <div className="space-y-1.5">
+                 <Label className="text-xs font-bold uppercase text-slate-500">State *</Label>
+                 <Input value={bState} onChange={e => setBState(e.target.value)} placeholder="e.g. MH" className="text-sm" />
+               </div>
+             </div>
+             <div className="grid grid-cols-2 gap-4">
+               <div className="space-y-1.5">
+                 <Label className="text-xs font-bold uppercase text-slate-500">Pincode *</Label>
+                 <Input value={bPincode} onChange={e => setBPincode(e.target.value)} maxLength={6} className="text-sm" />
+               </div>
+               <div className="space-y-1.5">
+                 <Label className="text-xs font-bold uppercase text-slate-500">Landmark</Label>
+                 <Input value={bLandmark} onChange={e => setBLandmark(e.target.value)} className="text-sm" />
+               </div>
+             </div>
+             <Button
+                onClick={async () => {
+                  if (!bAddress || !bCity || !bState || bPincode.length !== 6 || !contactName || !contactEmail || !contactPhone) {
+                    toast.error("Please fill all required fields correctly.");
+                    return;
+                  }
+                  setIsUpdatingAddress(true);
+                  try {
+                    const { updatePickupLocation } = await import('@/lib/api');
+                    await updatePickupLocation(user!.id, { 
+                      businessAddress: bAddress, 
+                      businessCity: bCity, 
+                      businessState: bState, 
+                      businessPincode: bPincode, 
+                      businessLandmark: bLandmark,
+                      contactName,
+                      contactEmail,
+                      contactPhone
+                    });
+                    await refreshUser();
+                    setShowAddressForm(false);
+                    toast.success("Pickup location saved!");
+                  } catch (err: any) {
+                    toast.error(err.message || "Failed to save address.");
+                  } finally {
+                    setIsUpdatingAddress(false);
+                  }
+                }}
+                disabled={isUpdatingAddress}
+                className="w-full h-11 bg-slate-900 text-white font-bold rounded-xl mt-2"
+             >
+               {isUpdatingAddress ? "Saving..." : "Save Pickup Location"}
+             </Button>
+          </div>
         </div>
       </div>
     );
@@ -251,6 +367,15 @@ export default function CreateDealPage() {
           {/* Step 1: Product Details */}
           {step === 1 && (
             <>
+              <div className="bg-[#00A4EF]/10 border border-[#00A4EF]/20 rounded-xl p-3 flex items-start gap-3 mb-4">
+                <Package className="h-4 w-4 text-[#00A4EF] shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-xs font-semibold text-slate-900">Pickup Location Confirmed</p>
+                  <p className="text-[11px] text-slate-600 mt-0.5 leading-snug">{user?.businessAddress}, {user?.businessCity}, {user?.businessState} - {user?.businessPincode}</p>
+                </div>
+                <button onClick={() => setShowAddressForm(true)} className="text-[10px] font-bold text-[#00A4EF] uppercase tracking-wider shrink-0 mt-0.5">Edit</button>
+              </div>
+
               <div className="space-y-1.5">
                 <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">
                   What are you selling? *
@@ -350,23 +475,64 @@ export default function CreateDealPage() {
 
           {/* Step 3: Price & Delivery */}
           {step === 3 && (
-            <>
-              <div className="space-y-1.5">
-                <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">Price *</Label>
-                <div className="relative">
-                  <IndianRupee className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-                  <Input
-                    type="number"
-                    min="1"
-                    step="1"
-                    value={price}
-                    onChange={e => setPrice(e.target.value)}
-                    placeholder="0"
-                    className="h-11 pl-9 text-sm font-mono"
-                  />
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">Selling Price *</Label>
+                  <div className="relative">
+                    <IndianRupee className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                    <Input
+                      type="number"
+                      min="1"
+                      step="1"
+                      value={price}
+                      onChange={e => setPrice(e.target.value)}
+                      placeholder="0"
+                      className="h-11 pl-9 text-sm font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">Original M.R.P (Optional)</Label>
+                  <div className="relative">
+                    <IndianRupee className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                    <Input
+                      type="number"
+                      min="1"
+                      step="1"
+                      value={mrp}
+                      onChange={e => setMrp(e.target.value)}
+                      placeholder="e.g. 1999"
+                      className="h-11 pl-9 text-sm font-mono"
+                    />
+                  </div>
                 </div>
               </div>
-            </>
+
+              {/* Live Discount Calculation Preview */}
+              {mrp && price && Number(mrp) > Number(price) && (
+                <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200/80 flex items-center justify-between text-xs text-emerald-800 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <span className="font-semibold">Discount Offer Preview:</span>
+                  <span className="font-bold text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded-lg">
+                    {Math.round(((Number(mrp) - Number(price)) / Number(mrp)) * 100)}% OFF (Save ₹{(Number(mrp) - Number(price)).toLocaleString('en-IN')})
+                  </span>
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">Quantity (Stock) *</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={stock}
+                  onChange={e => setStock(e.target.value)}
+                  placeholder="1"
+                  className="h-11 text-sm font-mono"
+                />
+              </div>
+            </div>
           )}
         </motion.div>
       </AnimatePresence>
@@ -421,7 +587,7 @@ export default function CreateDealPage() {
       </div>
 
       {/* Success Modal */}
-      <Dialog open={!!shareUrl} onOpenChange={() => {}}>
+      <Dialog open={!!shareUrl} onOpenChange={(open) => { if (!open) setShareUrl(null); }}>
         <DialogContent className="max-w-sm bg-white rounded-3xl border-0 shadow-2xl p-6" onInteractOutside={e => e.preventDefault()}>
           <div className="text-center space-y-4">
             <div className="mx-auto h-16 w-16 rounded-full bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center">

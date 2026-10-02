@@ -5,6 +5,15 @@ import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { auth } from '../middleware/auth.js';
 import { sendUserNotification } from './notifications.js';
+import {
+    roundMoney,
+    toPaise,
+    hasSufficientBalance,
+    balanceAfterDebit,
+    parseMoneyInput,
+} from '../utils/money.js';
+import { applyWalletDelta, setWalletBalance } from '../utils/walletOps.js';
+import { toAmount } from '../utils/decimalJson.js';
 
 const prisma = new PrismaClient();
 const router = express.Router();
@@ -33,7 +42,7 @@ router.get('/balance', auth, async (req, res) => {
             return res.status(404).json({ error: 'User not found' });
         }
 
-        res.json({ balance: user.walletBalance });
+        res.json({ balance: roundMoney(user.walletBalance) });
     } catch (err) {
         console.error('Get wallet balance error:', err);
         res.status(500).json({ error: 'Failed to fetch wallet balance' });
@@ -290,10 +299,7 @@ router.post('/transfer', auth, transferLimiter, async (req, res) => {
                 throw Object.assign(new Error('Insufficient wallet balance'), { code: 'INSUFFICIENT_BALANCE' });
             }
 
-            const updatedRecipient = await tx.user.update({
-                where: { id: recipient.id },
-                data: { walletBalance: { increment: transferAmount } }
-            });
+            const updatedRecipient = await applyWalletDelta(tx, recipient.id, transferAmount);
 
             const newDailyUsed = dailyUsed + transferAmount;
             const newMonthlyUsed = monthlyUsed + transferAmount;
@@ -499,10 +505,38 @@ router.get('/transactions', auth, async (req, res) => {
 // POST /api/wallet/payout/request - Create payout request
 router.post('/payout/request', auth, async (req, res) => {
     try {
-        const { amount, paymentMethod = 'bank', bankAccount, ifscCode, accountName, upiVpa, phoneNumber, email } = req.body;
+        const { amount: rawAmount, paymentMethod = 'bank', bankAccount, ifscCode, accountName, upiVpa, phoneNumber, email } = req.body;
 
-        if (!amount || amount < 500) {
-            return res.status(400).json({ error: 'Minimum payout amount is ₹500' });
+        const MIN_PAYOUT = 500;
+        const user = await prisma.user.findUnique({
+            where: { id: req.user.id },
+            select: { walletBalance: true }
+        });
+
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        // Parse and validate against the real balance. This runs BEFORE the
+        // fixed-₹500 check so a user who requests their entire (smaller) balance
+        // gets a clear "below minimum" message rather than a generic error.
+        const parsed = parseMoneyInput(rawAmount, { min: 0, max: null });
+        if (!parsed.ok) {
+            return res.status(400).json({ error: parsed.error });
+        }
+        const amount = parsed.amount;
+
+        if (!hasSufficientBalance(user.walletBalance, amount)) {
+            return res.status(400).json({ error: 'Insufficient wallet balance' });
+        }
+
+        if (toPaise(amount) < toPaise(MIN_PAYOUT)) {
+            // Allow a user to clear their entire balance in one go, even if it
+            // is below the threshold, so money is never permanently stuck.
+            const isFullBalance = toPaise(user.walletBalance) === toPaise(amount);
+            if (!isFullBalance) {
+                return res.status(400).json({ error: `Minimum payout amount is ₹${MIN_PAYOUT}. You can withdraw your full balance of ₹${roundMoney(user.walletBalance).toLocaleString('en-IN')} in one request.` });
+            }
         }
 
         if (!accountName) {
@@ -523,21 +557,14 @@ router.post('/payout/request', auth, async (req, res) => {
         }
 
         // Check wallet balance
-        const user = await prisma.user.findUnique({
-            where: { id: req.user.id }
-        });
-
-        if (user.walletBalance < amount) {
-            return res.status(400).json({ error: 'Insufficient wallet balance' });
-        }
+        // (already validated above against the paise-rounded balance)
 
         // Start transaction
         const result = await prisma.$transaction(async (prisma) => {
-            // Debit wallet
-            const updatedUser = await prisma.user.update({
-                where: { id: req.user.id },
-                data: { walletBalance: { decrement: amount } }
-            });
+            // Debit wallet. A full withdrawal must always land exactly on zero,
+            // so the balance is set absolutely rather than float-decremented.
+            const newBalance = balanceAfterDebit(user.walletBalance, amount);
+            const updatedUser = await setWalletBalance(prisma, req.user.id, newBalance);
 
             // Log transaction
             await prisma.walletTransaction.create({
@@ -554,7 +581,7 @@ router.post('/payout/request', auth, async (req, res) => {
             const payoutRequest = await prisma.payoutRequest.create({
                 data: {
                     userId: req.user.id,
-                    amount: parseFloat(amount),
+                    amount,
                     paymentMethod,
                     bankAccount: paymentMethod === 'bank' ? bankAccount : null,
                     ifscCode: paymentMethod === 'bank' ? ifscCode : null,
@@ -575,7 +602,7 @@ router.post('/payout/request', auth, async (req, res) => {
             io,
             req.user.id,
             'Payout Requested',
-            `Your payout request for ₹${amount.toLocaleString('en-IN')} has been submitted. It will be processed within 24-48 business hours.`,
+            `Your payout request for ₹${toAmount(amount).toLocaleString('en-IN')} has been submitted. It will be processed within 24-48 business hours.`,
             'info',
             { type: 'wallet' }
         );

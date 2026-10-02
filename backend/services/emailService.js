@@ -377,3 +377,68 @@ export async function sendWalletInvoiceEmail(email, details, pdfBuffer) {
 
   console.log(`Wallet receipt sent to ${email}`);
 }
+
+export async function sendOrderPlacedEmail(email, details) {
+  const customerName = details.customerName || 'Krovaa member';
+  const dealTitle = details.dealTitle || 'your item';
+  const amountLabel = formatCurrency(details.amount, 'INR');
+  const senderEmail = process.env.EMAIL_USER || 'support@krovaa.com';
+
+  const subject = `Order Confirmed: ${dealTitle}`;
+  const bodyHtml = `
+    <div style="font-family:Arial,Helvetica,sans-serif;color:#E5E7EB;line-height:1.6;">
+      <p style="margin:0 0 12px;">Hi ${escapeHtml(customerName)},</p>
+      <p style="margin:0 0 18px;">Your payment of ${escapeHtml(amountLabel)} has been secured in escrow for <strong>${escapeHtml(dealTitle)}</strong>.</p>
+      <div style="background:#111827;border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:18px 20px;margin:0 0 18px;">
+        <p style="margin:0 0 8px;color:#9CA3AF;font-size:12px;text-transform:uppercase;letter-spacing:.12em;">Order Summary</p>
+        <p style="margin:0;color:#FFFFFF;font-size:18px;font-weight:700;">${escapeHtml(dealTitle)}</p>
+        <p style="margin:4px 0 0;color:#00A4EF;font-size:14px;font-weight:700;">${escapeHtml(amountLabel)}</p>
+      </div>
+      <p style="margin:0;color:#9CA3AF;font-size:13px;">The seller has been notified to prepare your shipment. You will receive tracking details once dispatched.</p>
+    </div>
+  `;
+
+  await transporter.sendMail({
+    from: `"Krovaa Orders" <${senderEmail}>`,
+    to: email,
+    replyTo: 'support@krovaa.com',
+    subject,
+    text: `Hi ${customerName},\n\nYour payment of ${amountLabel} has been secured in escrow for ${dealTitle}.\n\nThe seller has been notified to prepare your shipment. You will receive tracking details once dispatched.`,
+    html: emailShell('#00A4EF', 'Order Confirmed', bodyHtml),
+  });
+
+  console.log(`Order placed email sent to ${email}`);
+}
+
+export async function sendOrderTrackingUpdateEmail(email, details) {
+  const customerName = details.customerName || 'Krovaa member';
+  const dealTitle = details.dealTitle || 'your item';
+  const trackingId = details.trackingId || 'N/A';
+  const shippingStatus = details.shippingStatus || 'In Transit';
+  const senderEmail = process.env.EMAIL_USER || 'support@krovaa.com';
+
+  const subject = `Shipping Update: ${dealTitle} is ${shippingStatus}`;
+  const bodyHtml = `
+    <div style="font-family:Arial,Helvetica,sans-serif;color:#E5E7EB;line-height:1.6;">
+      <p style="margin:0 0 12px;">Hi ${escapeHtml(customerName)},</p>
+      <p style="margin:0 0 18px;">There is a shipping update for your order <strong>${escapeHtml(dealTitle)}</strong>.</p>
+      <div style="background:#111827;border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:18px 20px;margin:0 0 18px;">
+        <p style="margin:0 0 8px;color:#9CA3AF;font-size:12px;text-transform:uppercase;letter-spacing:.12em;">Tracking Details</p>
+        <p style="margin:0;color:#FFFFFF;font-size:18px;font-weight:700;">Status: ${escapeHtml(shippingStatus)}</p>
+        <p style="margin:4px 0 0;color:#0FB881;font-size:14px;font-weight:700;">Tracking ID: ${escapeHtml(trackingId)}</p>
+      </div>
+      <p style="margin:0;color:#9CA3AF;font-size:13px;">You can track your order directly on the Krovaa platform.</p>
+    </div>
+  `;
+
+  await transporter.sendMail({
+    from: `"Krovaa Orders" <${senderEmail}>`,
+    to: email,
+    replyTo: 'support@krovaa.com',
+    subject,
+    text: `Hi ${customerName},\n\nThere is a shipping update for your order ${dealTitle}.\n\nStatus: ${shippingStatus}\nTracking ID: ${trackingId}\n\nYou can track your order directly on the Krovaa platform.`,
+    html: emailShell('#0FB881', 'Shipping Update', bodyHtml),
+  });
+
+  console.log(`Tracking update email sent to ${email}`);
+}

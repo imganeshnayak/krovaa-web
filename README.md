@@ -1,6 +1,6 @@
 # Krovaa — Premium Service Platform
 
-Krovaa is a state-of-the-art platform for connecting clients with vendors, featuring escrow payments, Telegram integration, and a premium aesthetic.
+Krovaa is a state-of-the-art platform for connecting clients with vendors, featuring escrow payments and a premium aesthetic.
 
 ## 📚 Project Documentation
 

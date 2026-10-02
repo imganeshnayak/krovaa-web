@@ -1,6 +1,13 @@
 import cron from 'node-cron';
 import { PrismaClient } from '@prisma/client';
 import { sendUserNotification } from '../routes/notifications.js';
+import {
+    getPlatformFeePercent,
+    sumRecordedPlatformFee,
+    computePartialRelease,
+} from '../utils/fees.js';
+import { applyWalletDelta } from '../utils/walletOps.js';
+import { toAmount } from '../utils/decimalJson.js';
 
 const prisma = new PrismaClient();
 
@@ -18,7 +25,7 @@ export const initCronJobs = (io) => {
     });
 };
 
-const checkAndAutoReleaseEscrow = async () => {
+export const checkAndAutoReleaseEscrow = async () => {
     try {
         // Calculate the threshold date (3 days ago)
         const thresholdDate = new Date();
@@ -39,7 +46,8 @@ const checkAndAutoReleaseEscrow = async () => {
             },
             include: {
                 client: { select: { id: true, displayName: true } },
-                vendor: { select: { id: true, displayName: true, walletBalance: true } }
+                vendor: { select: { id: true, displayName: true, walletBalance: true } },
+                transactions: true
             }
         });
 
@@ -52,28 +60,47 @@ const checkAndAutoReleaseEscrow = async () => {
 
         for (const deal of dealsToRelease) {
             try {
-                // Determine release amount (deducting any platform fee)
-                let platformFeePercent = 0.10;
-                const feeSetting = await prisma.systemSetting.findUnique({ where: { key: 'platform_fee_percent' } });
-                if (feeSetting) platformFeePercent = parseFloat(feeSetting.value);
-                
-                const releaseAmount = deal.totalAmount * (1 - platformFeePercent);
+                // Settle on the fee recorded at payment time, not today's configured rate.
+                const platformFeePercent = await getPlatformFeePercent(prisma);
+                const recordedFee = sumRecordedPlatformFee(deal.transactions);
+                const remainingPercent = Math.max(0, 100 - (deal.releasedPercent || 0));
+
+                if (remainingPercent <= 0) {
+                    console.log(`⏭️ Deal ${deal.id} already fully released, skipping.`);
+                    continue;
+                }
+
+                const releaseAmount = computePartialRelease({
+                    grossAmount: deal.totalAmount,
+                    recordedFee,
+                    platformFeePercent,
+                    paymentStatus: deal.paymentStatus,
+                    percent: remainingPercent,
+                });
 
                 await prisma.$transaction(async (tx) => {
-                    // 1. Update deal status
+                    // 1. Update deal status. NOTE: EscrowDeal has no `releasedAmount`
+                    //    column — writing one made every auto-release throw.
                     await tx.escrowDeal.update({
                         where: { id: deal.id },
                         data: {
                             status: 'released',
-                            releasedAmount: releaseAmount
+                            releasedPercent: 100
+                        }
+                    });
+
+                    // 1a. Record the payout so seller stats and audits can see it.
+                    await tx.escrowTransaction.create({
+                        data: {
+                            dealId: deal.id,
+                            percent: remainingPercent,
+                            amount: releaseAmount,
+                            note: 'Auto-released after 3-day delivery confirmation window'
                         }
                     });
 
                     // 2. Add funds to vendor's wallet
-                    const updatedVendor = await tx.user.update({
-                        where: { id: deal.vendorId },
-                        data: { walletBalance: { increment: releaseAmount } }
-                    });
+                    const updatedVendor = await applyWalletDelta(tx, deal.vendorId, releaseAmount);
 
                     // 3. Log wallet transaction
                     await tx.walletTransaction.create({
@@ -101,7 +128,7 @@ const checkAndAutoReleaseEscrow = async () => {
                             senderId: deal.clientId, // System sends on behalf of client essentially
                             receiverId: deal.vendorId,
                             chatId: deal.chatId,
-                            content: `✅ The escrow funds of ₹${releaseAmount.toLocaleString('en-IN')} have been automatically released to the seller as the 3-day confirmation window has passed since delivery.`,
+                            content: `✅ The escrow funds of ₹${toAmount(releaseAmount).toLocaleString('en-IN')} have been automatically released to the seller as the 3-day confirmation window has passed since delivery.`,
                             messageType: 'escrow_released'
                         },
                         include: { sender: { select: { displayName: true, avatarUrl: true, username: true } } }
@@ -133,11 +160,11 @@ const checkAndAutoReleaseEscrow = async () => {
 
                 // Send notifications
                 if (ioInstance) {
-                    sendUserNotification(ioInstance, deal.vendorId, 'Funds Auto-Released', `₹${releaseAmount.toLocaleString('en-IN')} has been automatically released to your wallet for "${deal.title}".`, 'success', { type: 'escrow', dealId: deal.id, chatId: deal.chatId });
+                    sendUserNotification(ioInstance, deal.vendorId, 'Funds Auto-Released', `₹${toAmount(releaseAmount).toLocaleString('en-IN')} has been automatically released to your wallet for "${deal.title}".`, 'success', { type: 'escrow', dealId: deal.id, chatId: deal.chatId });
                     sendUserNotification(ioInstance, deal.clientId, 'Escrow Auto-Released', `The 3-day window has passed for "${deal.title}" and funds have been automatically released.`, 'info', { type: 'escrow', dealId: deal.id, chatId: deal.chatId });
                 }
 
-                console.log(`✅ Auto-released deal ${deal.id}`);
+                console.log(`✅ Auto-released deal ${deal.id} (₹${releaseAmount} of ₹${deal.totalAmount} gross, fee ₹${recordedFee || 'n/a'})`);
 
             } catch (dealErr) {
                 console.error(`❌ Failed to auto-release deal ${deal.id}:`, dealErr);

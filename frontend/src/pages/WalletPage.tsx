@@ -169,15 +169,27 @@ const WalletPage = () => {
                             >
                                 <ArrowUpRight className="w-6 h-6 sm:w-5 sm:h-5 shrink-0" />
                             </Button>
-
                             {/* Receive Payments Button */}
                             <Button
                                 onClick={() => navigate("/wallet/pay/" + encodeURIComponent(shareId))}
-                                className="bg-[#00A4EF] hover:bg-[#00A4EF]/90 text-white rounded-xl w-14 h-14 sm:w-12 sm:h-12 p-0 flex items-center justify-center transition-all duration-200 active:scale-[0.97] shrink-0"
+                                className="bg-[#00A4EF]/10 hover:bg-[#00A4EF]/20 text-[#00A4EF] border border-[#00A4EF]/20 rounded-xl w-14 h-14 sm:w-12 sm:h-12 p-0 flex items-center justify-center transition-all duration-200 active:scale-[0.97] shrink-0"
                                 title="Receive Payments"
                                 aria-label="Receive Payments"
                             >
                                 <ArrowDownLeft className="w-6 h-6 sm:w-5 sm:h-5 shrink-0" />
+                            </Button>
+
+                            {/* Withdraw / Request Payout Button.
+                                Enabled for any positive balance: a user can always
+                                withdraw their full balance, even below ₹500. */}
+                            <Button
+                                onClick={() => setIsPayoutOpen(true)}
+                                disabled={balance <= 0}
+                                className="bg-[#00A4EF] hover:bg-[#00A4EF]/90 text-white rounded-xl h-14 sm:h-12 px-4 flex items-center justify-center transition-all duration-200 active:scale-[0.97] shrink-0 font-bold text-xs shadow-md shadow-sky-100 dark:shadow-none"
+                                title="Withdraw / Request Payout"
+                                aria-label="Withdraw / Request Payout"
+                            >
+                                Withdraw
                             </Button>
                         </div>
                     </div>

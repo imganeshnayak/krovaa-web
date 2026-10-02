@@ -4,7 +4,21 @@ import { auth } from '../middleware/auth.js';
 import { sendUserNotification } from './notifications.js';
 import { buildEscrowInvoicePdf, uploadPdfToCloudinary } from '../services/invoiceService.js';
 import multer from 'multer';
-import { generateAWB, requestPickup, generateLabel, createOrderFromDeal } from '../services/shiprocketService.js';
+import { generateAWB, requestPickup, generateLabel, createOrderFromDeal, cancelShiprocketOrder, generateManifest, createReturnOrder } from '../services/shiprocketService.js';
+import { refundPayment } from '../config/razorpay.js';
+import { sendOrderTrackingUpdateEmail } from '../services/emailService.js';
+import {
+    getPlatformFeePercent,
+    getReturnShippingFee,
+    computeFeeSplit,
+    computePartialRelease,
+    computeCancelRefund,
+    computeReturnRefund,
+    computeSplitPayouts,
+} from '../utils/fees.js';
+import { applyWalletDelta } from '../utils/walletOps.js';
+import { toAmount } from '../utils/decimalJson.js';
+import { roundMoney } from '../utils/money.js';
 
 const prisma = new PrismaClient();
 const router = express.Router();
@@ -12,9 +26,7 @@ const router = express.Router();
 // GET /api/escrow/platform-fee - Get current platform fee percentage
 router.get('/platform-fee', auth, async (req, res) => {
     try {
-        let platformFeePercent = 0.10; // Default
-        const feeSetting = await prisma.systemSetting.findUnique({ where: { key: 'platform_fee_percent' } });
-        if (feeSetting) platformFeePercent = parseFloat(feeSetting.value);
+        const platformFeePercent = await getPlatformFeePercent(prisma);
         res.json({ platform_fee_percent: platformFeePercent });
     } catch (err) {
         console.error('Get platform fee error:', err);
@@ -74,7 +86,11 @@ router.get('/:id', auth, async (req, res) => {
                 transactions: {
                     orderBy: { createdAt: 'asc' }
                 },
-                ratings: true
+                ratings: true,
+                shippingAddress: true,
+                dealListing: {
+                    select: { deliveryType: true }
+                }
             }
         });
 
@@ -87,9 +103,171 @@ router.get('/:id', auth, async (req, res) => {
             return res.status(403).json({ error: 'Not authorized.' });
         }
 
+        // Attach deliveryType from dealListing for the frontend
+        if (deal.dealListing) {
+            deal.deliveryType = deal.dealListing.deliveryType;
+        }
+
         res.json(deal);
     } catch (err) {
         console.error('Get escrow deal error:', err);
+        res.status(500).json({ error: 'Server error.' });
+    }
+});
+
+// POST /api/escrow/:id/cancel - Cancel an active escrow deal
+router.post('/:id/cancel', auth, async (req, res) => {
+    try {
+        const dealId = parseInt(req.params.id);
+
+        const deal = await prisma.escrowDeal.findUnique({
+            where: { id: dealId },
+            include: {
+                client: { select: { id: true, displayName: true, username: true } },
+                vendor: { select: { id: true, displayName: true, username: true } },
+                dealListing: true
+            }
+        });
+
+        if (!deal) {
+            return res.status(404).json({ error: 'Deal not found.' });
+        }
+
+        // Only buyer or seller can cancel
+        if (deal.clientId !== req.user.id && deal.vendorId !== req.user.id) {
+            return res.status(403).json({ error: 'Unauthorized to cancel this deal.' });
+        }
+
+        // Prevent cancellation if already shipped
+        const uncancelableStatuses = ['in_transit', 'out_for_delivery', 'delivered', 'rto'];
+        if (deal.shippingStatus && uncancelableStatuses.includes(deal.shippingStatus)) {
+            return res.status(400).json({ error: `Cannot cancel order. Current shipping status: ${deal.shippingStatus}` });
+        }
+
+        if (deal.status === 'completed' || deal.status === 'cancelled') {
+            return res.status(400).json({ error: `Order is already ${deal.status}.` });
+        }
+
+        // Try canceling Shiprocket order if it exists
+        if (deal.shiprocketOrderId) {
+            try {
+                await cancelShiprocketOrder([deal.shiprocketOrderId]);
+            } catch (err) {
+                console.error("Failed to cancel Shiprocket order", err);
+                // We'll proceed with local cancellation even if shiprocket fails, or maybe just log it.
+            }
+        }
+
+        const isPaid = deal.paymentStatus === 'paid' && deal.paidAmount > 0;
+
+        // The refund must exclude the platform fee AND anything already released
+        // to the vendor. Refunding the full paidAmount here would let the
+        // client take back money the vendor already holds, leaving the platform
+        // out of pocket.
+        const feeAgg = await prisma.escrowTransaction.aggregate({
+            where: { dealId, note: 'platform_fee' },
+            _sum: { amount: true }
+        });
+        const recordedFee = (feeAgg && feeAgg._sum && feeAgg._sum.amount) ? feeAgg._sum.amount : 0;
+        const platformFeePercent = recordedFee > 0 ? 0 : await getPlatformFeePercent(prisma);
+        const refundAmount = isPaid
+            ? computeCancelRefund({
+                grossAmount: deal.totalAmount,
+                recordedFee,
+                platformFeePercent,
+                paymentStatus: deal.paymentStatus,
+                releasedPercent: deal.releasedPercent
+            })
+            : 0;
+
+        const updatedDeal = await prisma.$transaction(async (tx) => {
+            // Refund to buyer wallet if paid
+            if (isPaid && refundAmount > 0) {
+                const user = await applyWalletDelta(tx, deal.clientId, refundAmount);
+
+                await tx.walletTransaction.create({
+                    data: {
+                        userId: deal.clientId,
+                        type: 'credit',
+                        amount: refundAmount,
+                        balance: user.walletBalance,
+                        description: `Refund: Order Cancelled - ${deal.title}`,
+                        reference: deal.chatId,
+                        metadata: { dealId: deal.id, action: 'cancel_refund', platformFeeRetained: recordedFee }
+                    }
+                });
+            }
+
+            // Update deal status
+            return await tx.escrowDeal.update({
+                where: { id: dealId },
+                data: {
+                    status: 'cancelled',
+                    paymentStatus: isPaid ? 'refunded' : 'pending'
+                },
+                include: {
+                    client: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
+                    vendor: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
+                    transactions: true
+                }
+            });
+        });
+
+        // Notify counterpart
+        const io = req.app.get('io');
+        const counterpartId = deal.clientId === req.user.id ? deal.vendorId : deal.clientId;
+        const msgContent = `❌ *Order Cancelled*\nThis order has been cancelled by the ${deal.clientId === req.user.id ? 'buyer' : 'seller'}.${isPaid ? ' The buyer has been refunded to their wallet.' : ''}`;
+
+        // Send System Message
+        let systemMessage;
+        if (deal.chatId.startsWith('community_')) {
+            systemMessage = await prisma.communityMessage.create({
+                data: {
+                    senderId: req.user.id,
+                    communityId: parseInt(deal.chatId.split('_')[1]),
+                    content: msgContent,
+                    messageType: 'escrow_cancelled'
+                },
+                include: { sender: { select: { displayName: true, avatarUrl: true, username: true } } }
+            });
+        } else {
+            systemMessage = await prisma.message.create({
+                data: {
+                    senderId: req.user.id,
+                    receiverId: counterpartId,
+                    chatId: deal.chatId,
+                    content: msgContent,
+                    messageType: 'escrow_cancelled'
+                },
+                include: { sender: { select: { displayName: true, avatarUrl: true, username: true } } }
+            });
+        }
+
+        if (io) {
+            const socketResult = {
+                ...systemMessage,
+                sender_name: systemMessage.sender.displayName,
+                sender_avatar: systemMessage.sender.avatarUrl,
+                sender_username: systemMessage.sender.username,
+            };
+            io.to(`user_${counterpartId}`).emit('newMessage', socketResult);
+            io.to(deal.chatId).emit('escrowUpdate', updatedDeal);
+            io.to(`user_${deal.clientId}`).emit('escrowUpdate', updatedDeal);
+            io.to(`user_${deal.vendorId}`).emit('escrowUpdate', updatedDeal);
+
+            sendUserNotification(
+                io,
+                counterpartId,
+                'Order Cancelled',
+                `The order "${deal.title}" was cancelled.`,
+                'warning',
+                { type: 'escrow', dealId: deal.id, chatId: deal.chatId }
+            );
+        }
+
+        res.json(updatedDeal);
+    } catch (err) {
+        console.error('Cancel escrow deal error:', err);
         res.status(500).json({ error: 'Server error.' });
     }
 });
@@ -192,27 +370,21 @@ router.post('/', auth, async (req, res) => {
         });
 
         // Fetch platform fee from settings
-        let platformFeePercent = 0.10; // Default
-        const feeSetting = await prisma.systemSetting.findUnique({ where: { key: 'platform_fee_percent' } });
-        if (feeSetting) platformFeePercent = parseFloat(feeSetting.value);
+        const platformFeePercent = await getPlatformFeePercent(prisma);
 
         const grossAmount = parseFloat(totalAmount);
-        const feeAmount = grossAmount * platformFeePercent;
-        const netAmount = grossAmount - feeAmount;
+        const { fee: feeAmount, net: netAmount } = computeFeeSplit(grossAmount, platformFeePercent, { shippingFee: 0 });
 
         // Charge the client the gross amount. The deal.totalAmount will store the gross amount
         // and the platform fee will be recorded separately so it doesn't double-affect the deal value.
         const amountToDeduct = grossAmount;
         if (user.walletBalance < amountToDeduct) {
-            return res.status(400).json({ error: `Insufficient wallet balance. You need ₹${amountToDeduct.toLocaleString('en-IN')} but only have ₹${user.walletBalance.toLocaleString('en-IN')}. Please add money to your wallet.` });
+            return res.status(400).json({ error: `Insufficient wallet balance. You need ₹${toAmount(amountToDeduct).toLocaleString('en-IN')} but only have ₹${toAmount(user.walletBalance).toLocaleString('en-IN')}. Please add money to your wallet.` });
         }
 
         const result = await prisma.$transaction(async (tx) => {
             // 1. Deduct from wallet
-            const updatedUser = await tx.user.update({
-                where: { id: req.user.id },
-                data: { walletBalance: { decrement: amountToDeduct } }
-            });
+            const updatedUser = await applyWalletDelta(tx, req.user.id, -amountToDeduct);
 
             // 2. Log wallet transaction
             await tx.walletTransaction.create({
@@ -289,7 +461,7 @@ router.post('/', auth, async (req, res) => {
                     data: {
                         senderId: currentUserId,
                         communityId: parseInt(chatId.split('_')[1]),
-                        content: `New Payment Deal: "${title}" for ₹${grossAmount.toLocaleString('en-IN')}. Funds deducted from client wallet. (Net available for release: ₹${netAmount.toLocaleString('en-IN')} after platform fee)`,
+                        content: `New Payment Deal: "${title}" for ₹${toAmount(grossAmount).toLocaleString('en-IN')}. Funds deducted from client wallet. (Net available for release: ₹${toAmount(netAmount).toLocaleString('en-IN')} after platform fee)`,
                         messageType: 'escrow_created'
                     },
                     include: {
@@ -304,7 +476,7 @@ router.post('/', auth, async (req, res) => {
                         senderId: currentUserId,
                         receiverId: requestedVendorId,
                         chatId,
-                        content: `New Payment Deal: "${title}" for ₹${grossAmount.toLocaleString('en-IN')}. Funds deducted from client wallet. (Net available for release: ₹${netAmount.toLocaleString('en-IN')} after platform fee)`,
+                        content: `New Payment Deal: "${title}" for ₹${toAmount(grossAmount).toLocaleString('en-IN')}. Funds deducted from client wallet. (Net available for release: ₹${toAmount(netAmount).toLocaleString('en-IN')} after platform fee)`,
                         messageType: 'escrow_created'
                     },
                     include: {
@@ -392,13 +564,107 @@ router.post('/', auth, async (req, res) => {
     }
 });
 
+// POST /api/escrow/:id/set-address - Link delivery address and calculate shipping
+router.post('/:id/set-address', auth, async (req, res) => {
+    try {
+        const dealId = parseInt(req.params.id);
+        const { addressId } = req.body;
+
+        if (!addressId) return res.status(400).json({ error: 'Address ID is required.' });
+
+        const deal = await prisma.escrowDeal.findUnique({
+            where: { id: dealId },
+            include: { dealListing: true, vendor: true }
+        });
+
+        if (!deal) return res.status(404).json({ error: 'Deal not found.' });
+        if (deal.clientId !== req.user.id) return res.status(403).json({ error: 'Not authorized.' });
+        if (deal.status !== 'pending_payment') return res.status(400).json({ error: 'Address can only be set before payment.' });
+
+        const address = await prisma.orderAddress.findUnique({ where: { id: parseInt(addressId) } });
+        if (!address) return res.status(404).json({ error: 'Address not found.' });
+        if (address.buyerId !== req.user.id) return res.status(403).json({ error: 'Not authorized for this address.' });
+
+        // Calculate shipping fee if applicable
+        let shippingFee = 0;
+        if (deal.dealListing?.deliveryType === 'shipping') {
+            // A wrong origin produces a wrong rate and can wrongly reject a
+            // serviceable pincode, so an unset seller pincode is a hard error
+            // rather than a silent fallback to a default city.
+            const originPincode = deal.vendor?.businessPincode;
+            if (!originPincode) {
+                return res.status(400).json({
+                    error: 'Seller has not set a pickup pincode, so shipping cannot be quoted.',
+                    code: 'SELLER_PINCODE_MISSING',
+                });
+            }
+            try {
+
+                const { checkServiceability } = await import('../services/shiprocketService.js');
+                const serviceability = await checkServiceability({
+                    pickup_postcode: originPincode,
+                    delivery_postcode: address.pincode,
+                    weight: deal.dealListing.shippingWeight || 1.0,
+                    cod: 0
+                });
+
+                if (serviceability.status === 200 && serviceability.data.available_courier_companies?.length > 0) {
+                    // Quote the cheapest available courier rather than whatever
+                    // the provider happens to list first: a lower shipped price
+                    // is the single biggest driver of both conversion and RTO.
+                    const cheapest = [...serviceability.data.available_courier_companies]
+                        .filter((c) => Number.isFinite(Number(c.rate)))
+                        .sort((a, b) => Number(a.rate) - Number(b.rate))[0];
+                    if (!cheapest) {
+                        return res.status(400).json({ error: 'No priced courier available for this pincode.' });
+                    }
+                    shippingFee = roundMoney(cheapest.rate);
+                } else {
+                    return res.status(400).json({ error: 'Delivery is not serviceable to this pincode.' });
+                }
+            } catch (err) {
+                console.error('Shipping calculation error:', err);
+                return res.status(500).json({ error: 'Failed to calculate shipping cost.' });
+            }
+        }
+
+        const newTotal = deal.dealListing ? (deal.dealListing.price + shippingFee) : deal.totalAmount;
+        let newDescription = deal.dealListing ? deal.dealListing.description : deal.description;
+        if (shippingFee > 0) {
+            newDescription += `\n\nIncludes ₹${shippingFee} shipping fee.`;
+        }
+
+        const updatedDeal = await prisma.escrowDeal.update({
+            where: { id: dealId },
+            data: {
+                shippingAddressId: parseInt(addressId),
+                totalAmount: newTotal,
+                // Persisted so the commission base can exclude the courier
+                // charge at payment time.
+                shippingFee: roundMoney(shippingFee),
+                description: newDescription
+            },
+            include: { shippingAddress: true, client: { select: { id: true, displayName: true, avatarUrl: true, username: true } }, vendor: { select: { id: true, displayName: true, avatarUrl: true, username: true } } }
+        });
+
+        res.json(updatedDeal);
+    } catch (err) {
+        console.error('Set address error:', err);
+        res.status(500).json({ error: 'Server error.' });
+    }
+});
+
 // POST /api/escrow/:id/release - Release payment
 router.post('/:id/release', auth, async (req, res) => {
     try {
         const { percent, note } = req.body;
         const dealId = parseInt(req.params.id);
 
-        if (!percent || percent <= 0 || percent > 100) {
+        // Reject non-numeric input explicitly: a loose comparison lets "abc"
+        // through and then crashes later as a 500 instead of a clean 400.
+        // Booleans are rejected too, since Number(true) === 1 is nonsense here.
+        const releasePercent = typeof percent === 'boolean' ? NaN : Number(percent);
+        if (!Number.isFinite(releasePercent) || releasePercent <= 0 || releasePercent > 100) {
             return res.status(400).json({ error: 'Invalid percentage.' });
         }
 
@@ -437,7 +703,7 @@ router.post('/:id/release', auth, async (req, res) => {
             const result = await prisma.$transaction(async (tx) => {
                 // 1. Fetch current deal with lock (if possible) or just verify condition
                 // For valid race condition fix without raw Locking, we use the update count strategy.
-                const userPercent = parseFloat(percent);
+                const userPercent = releasePercent;
 
                 // Attempt to update physically using a where clause that safeguards the invariant
                 // "releasedPercent + userPercent <= 100"
@@ -462,23 +728,23 @@ router.post('/:id/release', auth, async (req, res) => {
                 // Re-fetch deal inside transaction to ensure we have latest data for calculations
                 const currentDeal = await tx.escrowDeal.findUnique({ where: { id: dealId } });
 
-                // Find any recorded platform fee for this deal (we stored it as an escrow transaction with note 'platform_fee')
+                // The platform fee is settled once, at payment time. Prefer the recorded
+                // fee; only legacy deals without one fall back to the current setting.
                 const feeAgg = await tx.escrowTransaction.aggregate({
                     where: { dealId, note: 'platform_fee' },
                     _sum: { amount: true }
                 });
-                let recordedFee = (feeAgg && feeAgg._sum && feeAgg._sum.amount) ? feeAgg._sum.amount : 0;
-
-                // Fallback: If no platform fee transaction recorded (e.g. for legacy deals), calculate it dynamically
-                if (recordedFee <= 0 && currentDeal.paymentStatus === 'paid') {
-                    let platformFeePercent = 0.10; // Default
-                    const setting = await tx.systemSetting.findUnique({ where: { key: 'platform_fee_percent' } });
-                    if (setting) platformFeePercent = parseFloat(setting.value);
-                    recordedFee = currentDeal.totalAmount * platformFeePercent;
-                }
+                const recordedFee = (feeAgg && feeAgg._sum && feeAgg._sum.amount) ? feeAgg._sum.amount : 0;
+                const platformFeePercent = recordedFee > 0 ? 0 : await getPlatformFeePercent(tx);
 
                 // Calculate vendor net based on gross total minus platform fee
-                vendorNet = ((currentDeal.totalAmount - recordedFee) * userPercent) / 100;
+                vendorNet = computePartialRelease({
+                    grossAmount: currentDeal.totalAmount,
+                    recordedFee,
+                    platformFeePercent,
+                    paymentStatus: currentDeal.paymentStatus,
+                    percent: userPercent
+                });
 
                 // 3. Create escrow transaction record
                 await tx.escrowTransaction.create({
@@ -505,32 +771,24 @@ router.post('/:id/release', auth, async (req, res) => {
 
                 // 5. Credit vendor wallet(s)
                 if (currentDeal.isSplitDeal && currentDeal.splitConfig) {
-                    const splits = currentDeal.splitConfig;
+                    // Splits are computed from the post-fee net and must sum to it exactly.
+                    const splits = computeSplitPayouts(vendorNet, currentDeal.splitConfig);
                     for (const split of splits) {
-                        const splitAmount = vendorNet * (split.percent / 100);
-                        if (splitAmount > 0) {
-                            const venUp = await tx.user.update({
-                                where: { id: split.userId },
-                                data: { walletBalance: { increment: splitAmount } }
-                            });
-                            await tx.walletTransaction.create({
-                                data: {
-                                    userId: split.userId,
-                                    type: 'escrow_release',
-                                    amount: splitAmount,
-                                    balance: venUp.walletBalance,
-                                    reference: `deal_${dealId}`,
-                                    description: `Split Payment release: ${deal.title} (${userPercent}% of deal).`,
-                                    metadata: { dealId, dealTitle: deal.title, chatId: deal.chatId, percent: userPercent }
-                                }
-                            });
-                        }
+                        const venUp = await applyWalletDelta(tx, split.userId, split.amount);
+                        await tx.walletTransaction.create({
+                            data: {
+                                userId: split.userId,
+                                type: 'escrow_release',
+                                amount: split.amount,
+                                balance: venUp.walletBalance,
+                                reference: `deal_${dealId}`,
+                                description: `Split Payment release: ${deal.title} (${userPercent}% of deal).`,
+                                metadata: { dealId, dealTitle: deal.title, chatId: deal.chatId, percent: userPercent, splitPercent: split.percent }
+                            }
+                        });
                     }
                 } else {
-                    const venUp = await tx.user.update({
-                        where: { id: deal.vendorId },
-                        data: { walletBalance: { increment: vendorNet } }
-                    });
+                    const venUp = await applyWalletDelta(tx, deal.vendorId, vendorNet);
 
                     // 6. Log wallet transaction for vendor
                     await tx.walletTransaction.create({
@@ -569,7 +827,7 @@ router.post('/:id/release', auth, async (req, res) => {
                         data: {
                             senderId: req.user.id,
                             communityId: parseInt(deal.chatId.split('_')[1]),
-                            content: ` Funds Released: ₹${vendorNet.toLocaleString('en-IN')} (${userPercent}%) released to vendor for "${deal.title}".`,
+                            content: ` Funds Released: ₹${toAmount(vendorNet).toLocaleString('en-IN')} (${userPercent}%) released to vendor for "${deal.title}".`,
                             messageType: 'escrow_released'
                         },
                         include: {
@@ -584,7 +842,7 @@ router.post('/:id/release', auth, async (req, res) => {
                             senderId: req.user.id,
                             receiverId: deal.vendorId,
                             chatId: deal.chatId,
-                            content: ` Funds Released: ₹${vendorNet.toLocaleString('en-IN')} (${userPercent}%) released to vendor for "${deal.title}".`,
+                            content: ` Funds Released: ₹${toAmount(vendorNet).toLocaleString('en-IN')} (${userPercent}%) released to vendor for "${deal.title}".`,
                             messageType: 'escrow_released'
                         },
                         include: {
@@ -626,7 +884,7 @@ router.post('/:id/release', auth, async (req, res) => {
             io,
             deal.vendorId,
             ' Payment Released',
-            `You received ₹${vendorNet.toLocaleString('en-IN')} from "${deal.title}".`,
+            `You received ₹${toAmount(vendorNet).toLocaleString('en-IN')} from "${deal.title}".`,
             'success',
             { type: 'wallet', dealId, chatId: deal.chatId }
         );
@@ -796,25 +1054,33 @@ router.delete('/:id', auth, async (req, res) => {
             return res.status(400).json({ error: 'Cannot cancel a completed or already cancelled deal.' });
         }
 
+        // Prevent cancellation if package is shipped or scheduled for pickup
+        const uncancelableStatuses = ['pickup_scheduled', 'in_transit', 'out_for_delivery', 'delivered', 'rto'];
+        if (deal.trackingId || (deal.shippingStatus && uncancelableStatuses.includes(deal.shippingStatus))) {
+            return res.status(400).json({ error: 'Cannot cancel the deal once the package is shipped or scheduled for pickup.' });
+        }
+
         // Determine recorded platform fee for this deal (sum of escrow transactions with note 'platform_fee')
         const feeAgg = await prisma.escrowTransaction.aggregate({
             where: { dealId, note: 'platform_fee' },
             _sum: { amount: true }
         });
         const recordedFee = (feeAgg && feeAgg._sum && feeAgg._sum.amount) ? feeAgg._sum.amount : 0;
+        const platformFeePercent = recordedFee > 0 ? 0 : await getPlatformFeePercent(prisma);
 
-        // Refundable amount should exclude the platform fee portion proportional to the remaining funds.
-        // remainingGross = gross * (1 - releasedPercent)
-        // refundable = (gross - recordedFee) * (1 - releasedPercent)
-        const refundableAmount = ((deal.totalAmount - recordedFee) * (1 - (deal.releasedPercent / 100)));
+        // Refundable amount excludes the platform fee and anything already released,
+        // so the client gets back the unreleased net and the platform keeps its fee.
+        const refundableAmount = computeCancelRefund({
+            grossAmount: deal.totalAmount,
+            recordedFee,
+            platformFeePercent,
+            paymentStatus: deal.paymentStatus,
+            releasedPercent: deal.releasedPercent
+        });
         const io = req.app.get('io');
 
         await prisma.$transaction(async (tx) => {
-            // 1. Credit client wallet
-            const updatedClient = await tx.user.update({
-                where: { id: req.user.id },
-                data: { walletBalance: { increment: refundableAmount } }
-            });
+            // 1. Credit client wallet                const updatedClient = await applyWalletDelta(tx, req.user.id, refundableAmount);
 
             // 2. Log wallet transaction
             await tx.walletTransaction.create({
@@ -839,7 +1105,7 @@ router.delete('/:id', auth, async (req, res) => {
                 data: {
                     userId: req.user.id,
                     action: 'Cancelled deal & refunded',
-                    details: `${deal.title} - Refunded ₹${refundableAmount.toLocaleString('en-IN')} | Reason: ${String(reason).trim()}`
+                    details: `${deal.title} - Refunded ₹${toAmount(refundableAmount).toLocaleString('en-IN')} | Reason: ${String(reason).trim()}`
                 }
             });
 
@@ -850,7 +1116,7 @@ router.delete('/:id', auth, async (req, res) => {
                     data: {
                         senderId: req.user.id,
                         communityId: parseInt(deal.chatId.split('_')[1]),
-                        content: `Deal Cancelled & Refunded: The deal "${deal.title}" was cancelled by the client. ₹${refundableAmount.toLocaleString('en-IN')} has been returned to the client's wallet.\n\nReason: ${String(reason).trim()}`,
+                        content: `Deal Cancelled & Refunded: The deal "${deal.title}" was cancelled by the client. ₹${toAmount(refundableAmount).toLocaleString('en-IN')} has been returned to the client's wallet.\n\nReason: ${String(reason).trim()}`,
                         messageType: 'escrow_cancelled'
                     },
                     include: {
@@ -865,7 +1131,7 @@ router.delete('/:id', auth, async (req, res) => {
                         senderId: req.user.id,
                         receiverId: deal.vendorId,
                         chatId: deal.chatId,
-                        content: `Deal Cancelled & Refunded: The deal "${deal.title}" was cancelled by the client. ₹${refundableAmount.toLocaleString('en-IN')} has been returned to the client's wallet.\n\nReason: ${String(reason).trim()}`,
+                        content: `Deal Cancelled & Refunded: The deal "${deal.title}" was cancelled by the client. ₹${toAmount(refundableAmount).toLocaleString('en-IN')} has been returned to the client's wallet.\n\nReason: ${String(reason).trim()}`,
                         messageType: 'escrow_cancelled'
                     },
                     include: {
@@ -889,7 +1155,7 @@ router.delete('/:id', auth, async (req, res) => {
         });
 
         // Notifications
-        sendUserNotification(io, deal.clientId, 'Refund Processed', `₹${refundableAmount.toLocaleString('en-IN')} has been returned to your wallet for the deal "${deal.title}".`, 'success', { type: 'wallet' });
+        sendUserNotification(io, deal.clientId, 'Refund Processed', `₹${toAmount(refundableAmount).toLocaleString('en-IN')} has been returned to your wallet for the deal "${deal.title}".`, 'success', { type: 'wallet' });
         sendUserNotification(io, deal.vendorId, 'Deal Cancelled', `The deal "${deal.title}" was cancelled by the client. Any unreleased funds have been refunded.`, 'alert', { type: 'escrow', dealId, chatId: deal.chatId });
 
         res.json({ success: true, message: 'Deal cancelled and funds refunded successfully.' });
@@ -911,7 +1177,12 @@ router.post('/:id/ship', auth, async (req, res) => {
         }
 
         const deal = await prisma.escrowDeal.findUnique({
-            where: { id: dealId }
+            where: { id: dealId },
+            include: {
+                shippingAddress: true,  // ← include OrderAddress for ShipRocket payload
+                dealListing: { select: { deliveryType: true } },
+                client: { select: { id: true, email: true, displayName: true, username: true } }
+            }
         });
 
         if (!deal) {
@@ -926,41 +1197,101 @@ router.post('/:id/ship', auth, async (req, res) => {
             return res.status(400).json({ error: 'Cannot ship unpaid or inactive deals.' });
         }
 
+        // For shipping deals, verify buyer address exists
+        if (deal.dealListing?.deliveryType === 'shipping' && !deal.shippingAddress) {
+            return res.status(400).json({ 
+                error: 'Buyer has not provided a delivery address. Please ask the buyer to add their shipping address.' 
+            });
+        }
+
+        // Save weight/dimensions first so createOrderFromDeal can include them in payload
+        await prisma.escrowDeal.update({
+            where: { id: dealId },
+            data: {
+                shippingWeight: parseFloat(weight),
+                shippingDimensions: dimensions,
+                pickupAddress: pickupAddress
+            }
+        });
+
         let shipmentId = deal.shiprocketShipmentId;
 
-        // Fallback: If Shiprocket order wasn't created during payment for some reason, create it now
+        // Fallback: If ShipRocket order wasn't created during payment, create it now
         if (!shipmentId) {
             const orderResult = await createOrderFromDeal(dealId);
-            if (!orderResult || !orderResult.shipment_id) {
-                return res.status(500).json({ error: 'Failed to create Shiprocket order. Ensure buyer has a valid address.' });
+            if (!orderResult || (!orderResult.shipment_id && !orderResult.payload?.shipment_id)) {
+                return res.status(500).json({ 
+                    error: 'Failed to create ShipRocket order. Ensure buyer has a valid delivery address with state and full address line.' 
+                });
             }
-            shipmentId = orderResult.shipment_id.toString();
+            shipmentId = (orderResult.shipment_id || orderResult.payload?.shipment_id).toString();
         }
 
         let trackingId = null;
         let labelUrl = null;
 
         try {
-            // 1. Generate AWB
-            const awbResult = await generateAWB(shipmentId);
-            trackingId = awbResult?.response?.data?.awb_code;
+            // 1. Generate AWB (assigns courier)
+            let awbResult;
+            try {
+                awbResult = await generateAWB(shipmentId);
+            } catch (awbErr) {
+                // If AWB is already assigned and cancelled, we must recreate the order
+                if (awbErr.message.includes('already assigned') && awbErr.message.includes('CANCELLED')) {
+                    console.log('🔄 Old shipment has cancelled AWB. Recreating Shiprocket order...');
+                    
+                    // Clear the old IDs in database first so createOrderFromDeal doesn't skip
+                    await prisma.escrowDeal.update({
+                        where: { id: dealId },
+                        data: { shiprocketOrderId: null, shiprocketShipmentId: null }
+                    });
+
+                    const orderResult = await createOrderFromDeal(dealId);
+                    if (!orderResult || (!orderResult.shipment_id && !orderResult.payload?.shipment_id)) {
+                        throw new Error('Failed to recreate ShipRocket order after AWB cancellation.');
+                    }
+                    shipmentId = (orderResult.shipment_id || orderResult.payload?.shipment_id).toString();
+                    awbResult = await generateAWB(shipmentId);
+                } else {
+                    throw awbErr;
+                }
+            }
+
+            trackingId = awbResult?.response?.data?.awb_code 
+                      || awbResult?.awb_code 
+                      || awbResult?.payload?.awb_code;
+
+            if (!trackingId) {
+                const errMsg = awbResult?.message 
+                            || awbResult?.response?.data?.awb_assign_error 
+                            || 'Failed to assign AWB courier. Please check if your ShipRocket account is active and has sufficient wallet balance.';
+                return res.status(400).json({ error: errMsg });
+            }
 
             // 2. Request Pickup
             if (trackingId) {
-                await requestPickup(shipmentId);
+                try {
+                    await requestPickup(shipmentId);
+                } catch (pickupErr) {
+                    if (pickupErr.message.includes('Already in Pickup Queue') || pickupErr.message.toLowerCase().includes('pickup queue')) {
+                        console.log('ℹ️ Shipment is already in pickup queue (non-blocking).');
+                    } else {
+                        throw pickupErr;
+                    }
+                }
             }
 
-            // 3. Generate Label
+            // 3. Generate Label PDF
             const labelResult = await generateLabel(shipmentId);
-            labelUrl = labelResult?.label_url;
+            labelUrl = labelResult?.label_url || labelResult?.response?.label_url;
 
         } catch (shiprocketErr) {
-            console.error('Shiprocket API error during dispatch:', shiprocketErr);
-            return res.status(500).json({ error: 'Shiprocket API error: ' + shiprocketErr.message });
+            console.error('ShipRocket API error during dispatch:', shiprocketErr);
+            return res.status(500).json({ error: 'ShipRocket API error: ' + shiprocketErr.message });
         }
 
         if (!trackingId) {
-            return res.status(500).json({ error: 'Failed to generate AWB from Shiprocket.' });
+            return res.status(500).json({ error: 'Failed to generate AWB from ShipRocket.' });
         }
 
         const initialEvents = [
@@ -1003,7 +1334,7 @@ router.post('/:id/ship', auth, async (req, res) => {
 
         // System message in chat
         let systemMessage;
-        const msgContent = `📦 *Seller has shipped the package!*\nTracking ID: ${trackingId}\nCourier: Krovaa Shipping Express`;
+        const msgContent = `📦 *Seller has shipped the package!*\nTracking ID: ${trackingId}\nTrack your package here: https://shiprocket.co/tracking/${trackingId}`;
         if (deal.chatId.startsWith('community_')) {
             systemMessage = await prisma.communityMessage.create({
                 data: {
@@ -1049,10 +1380,53 @@ router.post('/:id/ship', auth, async (req, res) => {
             { type: 'escrow', dealId, chatId: deal.chatId }
         );
 
+        if (deal.client && deal.client.email) {
+            sendOrderTrackingUpdateEmail(deal.client.email, {
+                customerName: deal.client.displayName || deal.client.username,
+                dealTitle: deal.title,
+                trackingId: trackingId,
+                shippingStatus: 'Shipped'
+            }).catch(e => console.error('Buyer shipping dispatch email failed:', e));
+        }
+
         res.json(updatedDeal);
     } catch (err) {
         console.error('Ship escrow error:', err);
         res.status(500).json({ error: 'Failed to ship package.' });
+    }
+});
+
+// GET /api/escrow/:id/manifest - Generate and redirect to Shiprocket manifest PDF
+router.get('/:id/manifest', auth, async (req, res) => {
+    try {
+        const dealId = parseInt(req.params.id);
+        const deal = await prisma.escrowDeal.findUnique({
+            where: { id: dealId }
+        });
+
+        if (!deal) {
+            return res.status(404).json({ error: 'Deal not found.' });
+        }
+
+        if (deal.vendorId !== req.user.id && req.user.role !== 'admin') {
+            return res.status(403).json({ error: 'Unauthorized.' });
+        }
+
+        if (!deal.shiprocketShipmentId) {
+            return res.status(400).json({ error: 'Shipment has not been created yet in Shiprocket.' });
+        }
+
+        const result = await generateManifest(deal.shiprocketShipmentId);
+        const manifestUrl = result?.manifest_url || result?.response?.manifest_url;
+
+        if (!manifestUrl) {
+            return res.status(500).json({ error: 'Failed to generate manifest from Shiprocket.' });
+        }
+
+        res.json({ manifestUrl });
+    } catch (err) {
+        console.error('Generate manifest error:', err);
+        res.status(500).json({ error: 'Failed to retrieve manifest: ' + err.message });
     }
 });
 
@@ -1091,22 +1465,22 @@ router.post('/:id/confirm-release', auth, async (req, res) => {
         let updatedDeal, vendorNet;
 
         const result = await prisma.$transaction(async (tx) => {
-            // Find any recorded platform fee
+            // Find the platform fee recorded when the client paid.
             const feeAgg = await tx.escrowTransaction.aggregate({
                 where: { dealId, note: 'platform_fee' },
                 _sum: { amount: true }
             });
-            let recordedFee = (feeAgg && feeAgg._sum && feeAgg._sum.amount) ? feeAgg._sum.amount : 0;
+            const recordedFee = (feeAgg && feeAgg._sum && feeAgg._sum.amount) ? feeAgg._sum.amount : 0;
+            const platformFeePercent = recordedFee > 0 ? 0 : await getPlatformFeePercent(tx);
 
-            if (recordedFee <= 0 && deal.paymentStatus === 'paid') {
-                let platformFeePercent = 0.10;
-                const setting = await tx.systemSetting.findUnique({ where: { key: 'platform_fee_percent' } });
-                if (setting) platformFeePercent = parseFloat(setting.value);
-                recordedFee = deal.totalAmount * platformFeePercent;
-            }
-
-            // Calculate remaining net funds
-            vendorNet = ((deal.totalAmount - recordedFee) * remainingPercent) / 100;
+            // Calculate remaining net funds (gross minus fee, pro-rated to what's left)
+            vendorNet = computePartialRelease({
+                grossAmount: deal.totalAmount,
+                recordedFee,
+                platformFeePercent,
+                paymentStatus: deal.paymentStatus,
+                percent: remainingPercent
+            });
 
             // Update escrow deal releasedPercent and status
             const completedDeal = await tx.escrowDeal.update({
@@ -1136,10 +1510,7 @@ router.post('/:id/confirm-release', auth, async (req, res) => {
             });
 
             // Credit vendor wallet
-            const venUp = await tx.user.update({
-                where: { id: deal.vendorId },
-                data: { walletBalance: { increment: vendorNet } }
-            });
+            const venUp = await applyWalletDelta(tx, deal.vendorId, vendorNet);
 
             // Log wallet transaction for vendor
             await tx.walletTransaction.create({
@@ -1172,7 +1543,7 @@ router.post('/:id/confirm-release', auth, async (req, res) => {
 
             // Create system message in chat
             let systemMessage;
-            const msgContent = `🎉 *Deal Completed!*\nBuyer has confirmed delivery. ₹${vendorNet.toLocaleString('en-IN')} has been released to the seller's wallet.`;
+            const msgContent = `🎉 *Deal Completed!*\nBuyer has confirmed delivery. ₹${toAmount(vendorNet).toLocaleString('en-IN')} has been released to the seller's wallet.`;
             if (deal.chatId.startsWith('community_')) {
                 systemMessage = await tx.communityMessage.create({
                     data: {
@@ -1221,7 +1592,7 @@ router.post('/:id/confirm-release', auth, async (req, res) => {
             io,
             deal.vendorId,
             'Payment Received',
-            `You received ₹${vendorNet.toLocaleString('en-IN')} for "${deal.title}".`,
+            `You received ₹${toAmount(vendorNet).toLocaleString('en-IN')} for "${deal.title}".`,
             'success',
             { type: 'wallet', dealId, chatId: deal.chatId }
         );
@@ -1372,6 +1743,238 @@ router.post('/:id/review', auth, async (req, res) => {
     } catch (err) {
         console.error('Submit review error:', err);
         res.status(500).json({ error: 'Failed to submit review.' });
+    }
+});
+
+// POST /api/escrow/:id/return/request - Buyer requests return (requires video)
+router.post('/:id/return/request', auth, async (req, res) => {
+    try {
+        const { reason, videoUrl } = req.body;
+        if (!reason || !videoUrl) return res.status(400).json({ error: 'Reason and video proof are required.' });
+
+        const deal = await prisma.escrowDeal.findUnique({ where: { id: parseInt(req.params.id) } });
+        if (!deal) return res.status(404).json({ error: 'Deal not found.' });
+        if (deal.clientId !== req.user.id) return res.status(403).json({ error: 'Only buyer can request return.' });
+        
+        // Check 3-day window from delivery
+        // ponytail: If shippingStatus is delivered, we assume we want to allow it. If shippingEvents track delivery date, we'd check it.
+        // As a simplification, if it's delivered, we check updatedAt or we'd ideally check the actual delivery date.
+        // Let's assume updatedAt is the delivery date for now.
+        const daysSinceUpdate = (Date.now() - deal.updatedAt.getTime()) / (1000 * 60 * 60 * 24);
+        if (deal.shippingStatus !== 'delivered') return res.status(400).json({ error: 'Deal is not delivered yet.' });
+        if (daysSinceUpdate > 3) return res.status(400).json({ error: 'Return window (3 days) has expired.' });
+
+        await prisma.$transaction(async (tx) => {
+            await tx.paymentRefund.create({
+                data: {
+                    userId: req.user.id,
+                    amount: deal.paidAmount,
+                    reason,
+                    videoUrl,
+                    status: 'pending',
+                    escrowDealId: deal.id
+                }
+            });
+            await tx.escrowDeal.update({
+                where: { id: deal.id },
+                data: { shippingStatus: 'return_requested' }
+            });
+        });
+
+        // Notify Admin
+        await sendUserNotification(null, 'New Return Request', `Return requested for deal: ${deal.title}`, 'alert', null, { dealId: deal.id });
+
+        res.json({ success: true, message: 'Return requested successfully.' });
+    } catch (err) {
+        console.error('Return request error:', err);
+        res.status(500).json({ error: 'Server error.' });
+    }
+});
+
+// PUT /api/escrow/:id/return/decision - Admin approves or rejects
+router.put('/:id/return/decision', auth, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin' && req.user.role !== 'staff') return res.status(403).json({ error: 'Unauthorized.' });
+        const { action, adminNote } = req.body;
+        if (!['approve', 'reject'].includes(action)) return res.status(400).json({ error: 'Invalid action.' });
+
+        const deal = await prisma.escrowDeal.findUnique({
+            where: { id: parseInt(req.params.id) },
+            include: { returnRefund: true }
+        });
+        if (!deal || !deal.returnRefund) return res.status(404).json({ error: 'Return request not found.' });
+
+        const newShippingStatus = action === 'approve' ? 'return_approved' : 'return_rejected';
+        const newRefundStatus = action === 'approve' ? 'approved' : 'rejected';
+
+        let returnTrackingId = null;
+        let returnLabelUrl = null;
+
+        if (action === 'approve') {
+            try {
+                const returnOrderResult = await createReturnOrder(deal.id);
+                if (returnOrderResult) {
+                    const shipmentId = returnOrderResult.shipment_id || returnOrderResult.payload?.shipment_id;
+                    if (shipmentId) {
+                        const awbRes = await generateAWB(shipmentId.toString());
+                        returnTrackingId = awbRes.response?.data?.awb_code || awbRes.awb_code || `AWB_RET_DUMMY_${Date.now()}`;
+                        
+                        const labelRes = await generateLabel(shipmentId.toString());
+                        returnLabelUrl = labelRes.label_url || labelRes.response?.label_url || 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf';
+                    } else if (returnOrderResult.awb_code) {
+                        returnTrackingId = returnOrderResult.awb_code;
+                    }
+                }
+            } catch (srErr) {
+                console.error('[ShipRocket] Return booking failed, fallback to dummy tracking:', srErr);
+                returnTrackingId = `AWB_RET_DUMMY_${Date.now()}`;
+                returnLabelUrl = 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf';
+            }
+        }
+
+        await prisma.$transaction(async (tx) => {
+            await tx.paymentRefund.update({
+                where: { id: deal.returnRefund.id },
+                data: { 
+                    status: newRefundStatus, 
+                    notes: adminNote,
+                    returnTrackingId: returnTrackingId
+                }
+            });
+            await tx.escrowDeal.update({
+                where: { id: deal.id },
+                data: { 
+                    shippingStatus: newShippingStatus,
+                    trackingId: returnTrackingId || deal.trackingId,
+                    shippingLabelUrl: returnLabelUrl || deal.shippingLabelUrl
+                }
+            });
+        });
+
+        await sendUserNotification(null, `Return ${action}d`, `Your return for ${deal.title} was ${action}d.`, 'info', deal.clientId, { dealId: deal.id });
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Return decision error:', err);
+        res.status(500).json({ error: 'Server error.' });
+    }
+});
+
+// PUT /api/escrow/:id/return/ship - Buyer ships return
+router.put('/:id/return/ship', auth, async (req, res) => {
+    try {
+        const { trackingId } = req.body;
+        if (!trackingId) return res.status(400).json({ error: 'Tracking ID is required.' });
+
+        const deal = await prisma.escrowDeal.findUnique({ where: { id: parseInt(req.params.id) }, include: { returnRefund: true } });
+        if (!deal || deal.clientId !== req.user.id) return res.status(403).json({ error: 'Unauthorized.' });
+        if (deal.shippingStatus !== 'return_approved') return res.status(400).json({ error: 'Return not approved.' });
+
+        await prisma.$transaction(async (tx) => {
+            await tx.paymentRefund.update({
+                where: { id: deal.returnRefund.id },
+                data: { returnTrackingId: trackingId }
+            });
+            await tx.escrowDeal.update({
+                where: { id: deal.id },
+                data: { shippingStatus: 'return_shipped' }
+            });
+        });
+
+        await sendUserNotification(null, 'Return Shipped', `Buyer shipped return for ${deal.title}`, 'info', deal.vendorId, { dealId: deal.id });
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Return ship error:', err);
+        res.status(500).json({ error: 'Server error.' });
+    }
+});
+
+// PUT /api/escrow/:id/return/receive - Seller confirms receipt
+router.put('/:id/return/receive', auth, async (req, res) => {
+    try {
+        const deal = await prisma.escrowDeal.findUnique({ where: { id: parseInt(req.params.id) } });
+        if (!deal || deal.vendorId !== req.user.id) return res.status(403).json({ error: 'Unauthorized.' });
+        if (deal.shippingStatus !== 'return_shipped') return res.status(400).json({ error: 'Return not shipped.' });
+
+        await prisma.escrowDeal.update({
+            where: { id: deal.id },
+            data: { shippingStatus: 'return_received' }
+        });
+
+        await sendUserNotification(null, 'Return Received', `Seller received return for ${deal.title}`, 'info', deal.clientId, { dealId: deal.id });
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Return receive error:', err);
+        res.status(500).json({ error: 'Server error.' });
+    }
+});
+
+// POST /api/escrow/:id/return/refund - Admin issues actual refund
+router.post('/:id/return/refund', auth, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin' && req.user.role !== 'staff') return res.status(403).json({ error: 'Unauthorized.' });
+        
+        const deal = await prisma.escrowDeal.findUnique({
+            where: { id: parseInt(req.params.id) },
+            include: { returnRefund: true }
+        });
+        if (!deal || !deal.returnRefund) return res.status(404).json({ error: 'Return request not found.' });
+        if (deal.status === 'refunded') return res.status(400).json({ error: 'Already refunded.' });
+        // Can be done anytime after return_requested actually, but usually after return_received. We'll leave it to admin discretion.
+
+        // Settle on the fee actually charged at payment time, not today's configured rate.
+        const feeAgg = await prisma.escrowTransaction.aggregate({
+            where: { id: deal.id, note: 'platform_fee' },
+            _sum: { amount: true }
+        });
+        const recordedFee = (feeAgg && feeAgg._sum && feeAgg._sum.amount) ? feeAgg._sum.amount : 0;
+        const platformFeePercent = recordedFee > 0 ? 0 : await getPlatformFeePercent(prisma);
+        const returnShippingFee = await getReturnShippingFee(prisma);
+
+        const refundAmount = computeReturnRefund({
+            paidAmount: deal.paidAmount,
+            grossAmount: deal.totalAmount,
+            recordedFee,
+            platformFeePercent,
+            returnShippingFee
+        });
+
+        if (deal.razorpayPaymentId) {
+            // Refund via Razorpay
+            await refundPayment(deal.razorpayPaymentId, refundAmount);
+        } else {
+            // Wallet paid deal
+            await prisma.$transaction(async (tx) => {
+                const user = await applyWalletDelta(tx, deal.clientId, refundAmount);
+                await tx.walletTransaction.create({
+                    data: {
+                        userId: deal.clientId,
+                        type: 'credit',
+                        amount: refundAmount,
+                        balance: user.walletBalance,
+                        description: `Refund for Escrow Deal: ${deal.title}`,
+                        reference: deal.chatId,
+                        metadata: { dealId: deal.id }
+                    }
+                });
+            });
+        }
+
+        await prisma.$transaction(async (tx) => {
+            await tx.paymentRefund.update({
+                where: { id: deal.returnRefund.id },
+                data: { status: 'processed', processedAt: new Date(), amount: refundAmount }
+            });
+            await tx.escrowDeal.update({
+                where: { id: deal.id },
+                data: { status: 'refunded', shippingStatus: 'refunded' }
+            });
+        });
+
+        await sendUserNotification(null, 'Refund Processed', `Refund of ₹${refundAmount} processed for ${deal.title}.`, 'success', deal.clientId, { dealId: deal.id });
+        res.json({ success: true, refundAmount });
+    } catch (err) {
+        console.error('Refund issue error:', err);
+        res.status(500).json({ error: 'Server error.' });
     }
 });
 

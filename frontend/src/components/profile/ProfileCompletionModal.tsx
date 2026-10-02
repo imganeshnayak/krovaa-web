@@ -30,7 +30,7 @@ import {
   Landmark
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { updateUserProfile } from "@/lib/api";
+import { updateUserProfile, createOrderAddress } from "@/lib/api";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -704,6 +704,26 @@ export function ProfileCompletionModal() {
         businessPincode:  formData.userGoal === "RUN_BUSINESS" ? formData.businessPincode : undefined,
         businessLandmark: formData.userGoal === "RUN_BUSINESS" ? formData.businessLandmark.trim() || undefined : undefined,
       });
+
+      // Automatically create an OrderAddress for businesses to use as pickup location
+      if (formData.userGoal === "RUN_BUSINESS") {
+        try {
+          await createOrderAddress({
+            fullName: formData.businessName.trim(),
+            phoneNumber: formData.phoneNumber.startsWith("+91") ? formData.phoneNumber : `+91${formData.phoneNumber}`,
+            addressLine1: formData.businessAddress.trim(),
+            landmark: formData.businessLandmark.trim() || undefined,
+            city: formData.businessCity.trim(),
+            state: formData.businessState,
+            pincode: formData.businessPincode,
+            addressType: "work",
+            isDefault: true,
+          });
+        } catch (addrErr) {
+          console.error("Failed to auto-create order address for business:", addrErr);
+          // Non-fatal, just log it.
+        }
+      }
 
       queryClient.setQueryData(['profile', user.id], (existing: any) => {
         if (!existing) return existing;

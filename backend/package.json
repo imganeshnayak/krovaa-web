@@ -7,6 +7,9 @@
     "scripts": {
         "dev": "node --watch server.js",
         "start": "node server.js",
+        "test": "node --test utils/",
+        "test:integration": "node --test --test-concurrency=1 tests/",
+        "test:all": "node --test --test-concurrency=1 utils/ tests/",
         "postinstall": "npx prisma generate",
         "db:push": "npx prisma db push",
         "db:seed": "node prisma/seed.js",

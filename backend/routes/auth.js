@@ -307,6 +307,8 @@ router.get('/me', auth, async (req, res) => {
                 shareId: true, telegramId: true, socialLinks: true,
                 permissions: true, coverPhotoUrl: true,
                 accountType: true, businessName: true, businessType: true,
+                businessAddress: true, businessCity: true, businessState: true,
+                businessPincode: true, businessLandmark: true,
             },
         });
 
