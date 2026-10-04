@@ -6,10 +6,12 @@ import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, CheckCircle2, Clock, LogOut, XCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock, LogOut, XCircle, ShoppingBag, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { getVerificationStatus, getVerificationFee, applyForVerification, VerificationRequest, initiateVerificationPayment, verifyPayment } from "@/lib/api";
+import { getVerificationStatus, getVerificationFee, applyForVerification, VerificationRequest, initiateVerificationPayment, verifyPayment, getEscrowDeals } from "@/lib/api";
 import { getUserPreferences, updateUserPreferences, JobPreferences } from "@/lib/api";
+import { useQuery } from "@tanstack/react-query";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useRazorpay } from "@/hooks/useRazorpay";
 import {
@@ -34,6 +36,14 @@ const SettingsPage = () => {
     const [isApplying, setIsApplying] = useState(false);
     const [agreeToTerms, setAgreeToTerms] = useState(false);
     
+    const { data: deals, isLoading: isDealsLoading } = useQuery({
+        queryKey: ['my-escrow-deals'],
+        queryFn: () => getEscrowDeals(),
+        enabled: !!user
+    });
+    
+    const purchases = deals?.filter(d => d.clientId === Number(user?.id)) || [];
+
     useEffect(() => {
         loadVerificationData();
     }, []);
@@ -156,8 +166,14 @@ const SettingsPage = () => {
                     <h1 className="text-2xl font-bold">Settings</h1>
                 </div>
 
-                {/* Subscription Section */}
-                <Card className="mb-6">
+                <Tabs defaultValue="general" className="w-full">
+                    <TabsList className="grid w-full grid-cols-2 mb-6">
+                        <TabsTrigger value="general">General</TabsTrigger>
+                        <TabsTrigger value="purchases">Purchase History</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="general">
+                        {/* Subscription Section */}
+                        <Card className="mb-6">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                             Subscription & Verification
@@ -401,6 +417,59 @@ const SettingsPage = () => {
                         </Button>
                     </CardContent>
                 </Card>
+                    </TabsContent>
+                    
+                    <TabsContent value="purchases">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Purchase History</CardTitle>
+                                <CardDescription>View your past orders and deals</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                {isDealsLoading ? (
+                                    <div className="flex justify-center p-8">
+                                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                                    </div>
+                                ) : purchases.length === 0 ? (
+                                    <div className="text-center py-12">
+                                        <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                                            <ShoppingBag className="h-8 w-8 text-primary" />
+                                        </div>
+                                        <h3 className="font-semibold text-lg">No purchases yet</h3>
+                                        <p className="text-muted-foreground text-sm mt-1">When you buy an item, it will appear here.</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-4">
+                                        {purchases.map(deal => (
+                                            <div key={deal.id} className="border rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => navigate(`/deal/transaction/${deal.id}`)}>
+                                                <div className="flex gap-4 items-center">
+                                                    <div className="bg-primary/10 w-12 h-12 rounded-lg flex items-center justify-center shrink-0">
+                                                        <ShoppingBag className="h-6 w-6 text-primary" />
+                                                    </div>
+                                                    <div>
+                                                        <h4 className="font-bold text-sm line-clamp-1">{deal.title}</h4>
+                                                        <p className="text-xs text-muted-foreground mt-0.5">Purchased from {deal.vendor?.displayName || deal.vendor?.username}</p>
+                                                        <div className="flex items-center gap-2 mt-2">
+                                                            <Badge variant="outline" className="text-[10px] capitalize">
+                                                                {deal.status.replace(/_/g, ' ')}
+                                                            </Badge>
+                                                            <span className="text-[10px] text-muted-foreground">
+                                                                {new Date(deal.createdAt).toLocaleDateString()}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="text-right shrink-0 mt-2 sm:mt-0">
+                                                    <p className="font-bold">₹{deal.totalAmount?.toLocaleString('en-IN')}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+                </Tabs>
             </div>
         </div>
     );

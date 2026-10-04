@@ -53,7 +53,7 @@ model User {
   permissions          Json?     @default("[]")
   profession           String?
   verified             Boolean   @default(false)
-  walletBalance        Float     @default(0) @map("wallet_balance")
+  walletBalance        Decimal   @default(0) @map("wallet_balance") @db.Decimal(18, 2)
   razorpayContactId    String?   @map("razorpay_contact_id")
   phoneNumber          String?   @map("phone_number")
   city                 String?
@@ -77,8 +77,8 @@ model User {
   erasureRequestedAt   DateTime? @map("erasure_requested_at")
   dailyTransferLimit   Float     @default(50000) @map("daily_transfer_limit")
   monthlyTransferLimit Float     @default(500000) @map("monthly_transfer_limit")
-  dailyTransferUsed    Float     @default(0) @map("daily_transfer_used")
-  monthlyTransferUsed  Float     @default(0) @map("monthly_transfer_used")
+  dailyTransferUsed    Decimal   @default(0) @map("daily_transfer_used") @db.Decimal(18, 2)
+  monthlyTransferUsed  Decimal   @default(0) @map("monthly_transfer_used") @db.Decimal(18, 2)
   lastTransferResetDay DateTime? @map("last_transfer_reset_day")
 
   // ── Business account fields ────────────────────────────────────────────────
@@ -90,12 +90,14 @@ model User {
   businessState        String?   @map("business_state")
   businessPincode      String?   @map("business_pincode")
   businessLandmark     String?   @map("business_landmark")
+  shiprocketPickupName String?   @map("shiprocket_pickup_name")
+  shiprocketPickupId   String?   @map("shiprocket_pickup_id")
 
   // ── App-specific fields (not on web) ──────────────────────────────────────
   location String @default("")
   jobsDone Int    @default(0) @map("jobs_done")
   reviews  Int    @default(0)
-  earned   Float  @default(0)
+  earned   Decimal @default(0) @db.Decimal(18, 2)
 
   // ── Web compliance relations ───────────────────────────────────────────────
   kycSubmissions    KYCSubmission[]
@@ -168,6 +170,8 @@ model User {
   // ── Deal Marketplace relations ─────────────────────────────────────────────
   sellerDealListings   DealListing[]  @relation("SellerDealListings")
   buyerDealInquiries   DealInquiry[]  @relation("BuyerDealInquiries")
+  orderAddresses       OrderAddress[] @relation("UserOrderAddresses")
+  wishlist             ListingWishlist[] @relation("UserWishlist")
 
   @@map("users")
 }
@@ -252,6 +256,19 @@ model ActivityLog {
   @@map("activity_log")
 }
 
+model ListingWishlist {
+  id        Int          @id @default(autoincrement())
+  userId    Int          @map("user_id")
+  user      User         @relation("UserWishlist", fields: [userId], references: [id], onDelete: Cascade)
+  listingId Int          @map("listing_id")
+  listing   DealListing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  createdAt DateTime     @default(now()) @map("created_at")
+
+  @@unique([userId, listingId])
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("listing_wishlist")
+}
+
 model EscrowDeal {
   id                Int                 @id @default(autoincrement())
   chatId            String              @map("chat_id")
@@ -261,12 +278,15 @@ model EscrowDeal {
   vendor            User                @relation("UserVendorDeals", fields: [vendorId], references: [id])
   title             String
   description       String?
-  totalAmount       Float               @map("total_amount")
+  totalAmount       Decimal             @map("total_amount") @db.Decimal(18, 2)
   releasedPercent   Float               @default(0) @map("released_percent")
   status            String              @default("pending_payment")
   createdAt         DateTime            @default(now()) @map("created_at")
   updatedAt         DateTime            @updatedAt @map("updated_at")
-  paidAmount        Float               @default(0) @map("paid_amount")
+  paidAmount        Decimal             @default(0) @map("paid_amount")
+  // Courier charge added to the total at checkout. Excluded from the platform
+  // commission base, because Shiprocket bills this to the seller.
+  shippingFee       Decimal             @default(0) @map("shipping_fee") @db.Decimal(18, 2)
   paymentStatus     String              @default("pending") @map("payment_status")
   razorpayOrderId   String?             @map("razorpay_order_id")
   razorpayPaymentId String?             @map("razorpay_payment_id")
@@ -275,19 +295,22 @@ model EscrowDeal {
   teamId            Int?                @map("team_id")
   splitConfig       Json?               @map("split_config")
   transactions      EscrowTransaction[]
-  dealListingId     Int?                @map("deal_listing_id")
-  dealListing       DealListing?        @relation(fields: [dealListingId], references: [id])
-  shippingWeight    Float?              @map("shipping_weight")
-  shippingDimensions String?            @map("shipping_dimensions")
-  pickupAddress     String?             @map("pickup_address")
-  trackingId        String?             @map("tracking_id")
-  shippingStatus    String?             @map("shipping_status")
-  shippingEvents    Json?               @default("[]") @map("shipping_events")
-  shiprocketOrderId    String?          @map("shiprocket_order_id")
-  shiprocketShipmentId String?          @map("shiprocket_shipment_id")
-  shiprocketAwbCode    String?          @map("shiprocket_awb_code")
-  shippingLabelUrl     String?          @map("shipping_label_url")
-  ratings           UserRating[]
+  dealListingId        Int?                @map("deal_listing_id")
+  dealListing          DealListing?        @relation(fields: [dealListingId], references: [id])
+  shippingWeight       Float?              @map("shipping_weight")
+  shippingDimensions   String?             @map("shipping_dimensions")
+  pickupAddress        String?             @map("pickup_address")
+  trackingId           String?             @map("tracking_id")
+  shippingStatus       String?             @map("shipping_status")
+  shippingEvents       Json?               @default("[]") @map("shipping_events")
+  shiprocketOrderId    String?             @map("shiprocket_order_id")
+  shiprocketShipmentId String?             @map("shiprocket_shipment_id")
+  shiprocketAwbCode    String?             @map("shiprocket_awb_code")
+  shippingLabelUrl     String?             @map("shipping_label_url")
+  shippingAddressId    Int?                @map("shipping_address_id")
+  shippingAddress      OrderAddress?       @relation(fields: [shippingAddressId], references: [id])
+  ratings              UserRating[]
+  returnRefund         PaymentRefund?
 
   @@map("escrow_deals")
 }
@@ -296,7 +319,7 @@ model EscrowTransaction {
   id        Int        @id @default(autoincrement())
   dealId    Int        @map("deal_id")
   percent   Float
-  amount    Float
+  amount    Decimal    @db.Decimal(18, 2)
   note      String?
   createdAt DateTime   @default(now()) @map("created_at")
   deal      EscrowDeal @relation(fields: [dealId], references: [id], onDelete: Cascade)
@@ -341,8 +364,8 @@ model WalletTransaction {
   id          Int      @id @default(autoincrement())
   userId      Int      @map("user_id")
   type        String
-  amount      Float
-  balance     Float
+  amount      Decimal   @db.Decimal(18, 2)
+  balance     Decimal   @db.Decimal(18, 2)
   reference   String?
   description String
   createdAt   DateTime @default(now()) @map("created_at")
@@ -356,7 +379,7 @@ model PayoutRequest {
   id                    Int       @id @default(autoincrement())
   userId                Int       @map("user_id")
   user                  User      @relation(fields: [userId], references: [id])
-  amount                Float
+  amount                Decimal  @db.Decimal(18, 2)
   status                String    @default("pending")
   bankAccount           String?   @map("bank_account")
   ifscCode              String?   @map("ifsc_code")
@@ -430,17 +453,22 @@ model DataConsent {
 }
 
 model PaymentRefund {
-  id            Int       @id @default(autoincrement())
-  userId        Int       @map("user_id")
-  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  transactionId Int?      @map("transaction_id")
+  id            Int        @id @default(autoincrement())
+  userId        Int        @map("user_id")
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactionId Int?       @map("transaction_id")
   amount        Float
   reason        String
-  status        String    @default("pending")
-  requestedAt   DateTime  @default(now()) @map("requested_at")
-  processedAt   DateTime? @map("processed_at")
-  policy        String    @default("standard")
+  status        String     @default("pending")
+  requestedAt   DateTime   @default(now()) @map("requested_at")
+  processedAt   DateTime?  @map("processed_at")
+  policy        String     @default("standard")
   notes         String?
+  // Return-specific fields
+  escrowDealId     Int?     @unique @map("escrow_deal_id")
+  escrowDeal       EscrowDeal? @relation(fields: [escrowDealId], references: [id])
+  videoUrl         String?  @map("video_url")          // required proof video URL
+  returnTrackingId String?  @map("return_tracking_id") // buyer's return shipment tracking
 
   @@map("payment_refunds")
 }
@@ -1179,6 +1207,7 @@ model DealListing {
   title        String
   description  String
   price        Float
+  mrp          Float?
   currency     String        @default("INR")
   imageUrls    Json          @default("[]") @map("image_urls")
   deliveryType String        @default("shipping") @map("delivery_type")
@@ -1190,9 +1219,13 @@ model DealListing {
 
   status       String        @default("active")
   viewCount    Int           @default(0) @map("view_count")
+  // Inventory count. routes/deals.js enforces `stock <= 0` as out-of-stock and
+  // the create-deal form sets it, so this column must exist.
+  stock        Int           @default(1)
 
   inquiries    DealInquiry[]
   escrowDeals  EscrowDeal[]
+  wishlistedBy ListingWishlist[]
   createdAt    DateTime      @default(now()) @map("created_at")
   updatedAt    DateTime      @updatedAt @map("updated_at")
 
@@ -1213,4 +1246,32 @@ model DealInquiry {
 
   @@unique([dealId, buyerId])
   @@map("deal_inquiries")
+}
+
+// ─── ORDER ADDRESSES ──────────────────────────────────────────────────────────
+// Buyer delivery address collected at checkout per deliverydata.md spec
+
+model OrderAddress {
+  id              Int          @id @default(autoincrement())
+  buyerId         Int          @map("buyer_id")
+  buyer           User         @relation("UserOrderAddresses", fields: [buyerId], references: [id], onDelete: Cascade)
+  fullName        String       @map("full_name")
+  phoneNumber     String       @map("phone_number")
+  email           String?
+  addressType     String       @default("home") @map("address_type") // home | work | other
+  addressLine1    String       @map("address_line_1")
+  addressLine2    String?      @map("address_line_2")
+  landmark        String?
+  city            String
+  state           String       // 2-letter state code e.g. MH, DL
+  country         String       @default("IN")
+  pincode         String       // 6-digit
+  isDefault       Boolean      @default(false) @map("is_default")
+  isBillingSame   Boolean      @default(true) @map("is_billing_same")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+  escrowDeals     EscrowDeal[]
+
+  @@index([buyerId])
+  @@map("order_addresses")
 }

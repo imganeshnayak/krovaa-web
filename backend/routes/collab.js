@@ -5,6 +5,7 @@ import { sendUserNotification } from './notifications.js';
 import multer from 'multer';
 import cloudinary from '../config/cloudinary.js';
 import jwt from 'jsonwebtoken';
+import { applyWalletDelta } from '../utils/walletOps.js';
 
 const prisma = new PrismaClient();
 const router = express.Router();
@@ -506,10 +507,7 @@ router.post('/:id/fund', auth, async (req, res) => {
 
         await prisma.$transaction(async (tx) => {
             // 1. Deduct from client
-            await tx.user.update({
-                where: { id: req.user.id },
-                data: { walletBalance: { decrement: totalToDeduct } }
-            });
+            await applyWalletDelta(tx, req.user.id, -totalToDeduct);
 
             // Log tx
             await tx.transaction.create({
@@ -611,10 +609,7 @@ router.post('/:id/milestones/:milestoneId/release', auth, async (req, res) => {
         await prisma.$transaction(async (tx) => {
             if (project.mode === 'SINGLE') {
                 if (project.singleVendorId) {
-                    await tx.user.update({
-                        where: { id: project.singleVendorId },
-                        data: { walletBalance: { increment: milestone.amount } }
-                    });
+                    await applyWalletDelta(tx, project.singleVendorId, milestone.amount);
 
                     await tx.transaction.create({
                         data: {
@@ -634,10 +629,7 @@ router.post('/:id/milestones/:milestoneId/release', auth, async (req, res) => {
                     if (seat.status === 'OCCUPIED' && seat.userId) {
                         const payoutAmount = milestone.amount * (seat.splitPercent / 100);
                         if (payoutAmount > 0) {
-                            await tx.user.update({
-                                where: { id: seat.userId },
-                                data: { walletBalance: { increment: payoutAmount } }
-                            });
+                            await applyWalletDelta(tx, seat.userId, payoutAmount);
 
                             await tx.transaction.create({
                                 data: {

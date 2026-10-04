@@ -5,8 +5,11 @@ import { createOrder, verifyPaymentSignature, fetchPayment } from '../config/raz
 import { sendUserNotification } from './notifications.js';
 import { sendSubscriptionSuccessArtifacts } from '../services/subscriptionFulfillment.js';
 import { buildWalletInvoicePdf } from '../services/invoiceService.js';
-import { sendWalletInvoiceEmail } from '../services/emailService.js';
+import { sendWalletInvoiceEmail, sendOrderPlacedEmail } from '../services/emailService.js';
 import { createOrderFromDeal } from '../services/shiprocketService.js';
+import { getPlatformFeePercent, computeFeeSplit } from '../utils/fees.js';
+import { applyWalletDelta } from '../utils/walletOps.js';
+import { toAmount } from '../utils/decimalJson.js';
 
 const prisma = new PrismaClient();
 const router = express.Router();
@@ -21,7 +24,8 @@ router.post('/escrow/initiate', auth, async (req, res) => {
         }
 
         const deal = await prisma.escrowDeal.findUnique({
-            where: { id: parseInt(dealId) }
+            where: { id: parseInt(dealId) },
+            include: { dealListing: true }
         });
 
         if (!deal) {
@@ -36,6 +40,11 @@ router.post('/escrow/initiate', auth, async (req, res) => {
         // Check if already paid
         if (deal.paymentStatus === 'paid') {
             return res.status(400).json({ error: 'Payment already completed for this deal.' });
+        }
+
+        // Check for missing shipping address
+        if (deal.dealListing?.deliveryType === 'shipping' && !deal.shippingAddressId) {
+            return res.status(400).json({ error: 'Please select a delivery address before paying.' });
         }
 
         // Create Razorpay order using paidAmount (gross) if available, otherwise totalAmount
@@ -96,7 +105,7 @@ router.post('/escrow/wallet-pay', auth, async (req, res) => {
 
         const deal = await prisma.escrowDeal.findUnique({
             where: { id: parseInt(dealId) },
-            include: { vendor: { select: { id: true, displayName: true } } }
+            include: { vendor: { select: { id: true, displayName: true } }, dealListing: true }
         });
 
         if (!deal) {
@@ -113,6 +122,11 @@ router.post('/escrow/wallet-pay', auth, async (req, res) => {
             return res.status(400).json({ error: 'Payment already completed for this deal.' });
         }
 
+        // Check for missing shipping address
+        if (deal.dealListing?.deliveryType === 'shipping' && !deal.shippingAddressId) {
+            return res.status(400).json({ error: 'Please select a delivery address before paying.' });
+        }
+
         // Check user balance
         const user = await prisma.user.findUnique({
             where: { id: req.user.id },
@@ -121,21 +135,20 @@ router.post('/escrow/wallet-pay', auth, async (req, res) => {
 
         const amountToDeduct = deal.totalAmount;
         if (user.walletBalance < amountToDeduct) {
-            return res.status(400).json({ error: `Insufficient wallet balance. You need ₹${amountToDeduct.toLocaleString('en-IN')} but only have ₹${user.walletBalance.toLocaleString('en-IN')}.` });
+            return res.status(400).json({ error: `Insufficient wallet balance. You need ₹${toAmount(amountToDeduct).toLocaleString('en-IN')} but only have ₹${toAmount(user.walletBalance).toLocaleString('en-IN')}.` });
         }
 
         // Fetch platform fee from settings
-        let platformFeePercent = 0.10; // Default
-        const feeSetting = await prisma.systemSetting.findUnique({ where: { key: 'platform_fee_percent' } });
-        if (feeSetting) platformFeePercent = parseFloat(feeSetting.value);
-        const feeAmount = amountToDeduct * platformFeePercent;
+        const platformFeePercent = await getPlatformFeePercent(prisma);
+        // The courier's shipping charge is excluded from the commission base:
+        // Shiprocket bills it to the seller, so the platform must not take a cut.
+        const { fee: feeAmount } = computeFeeSplit(amountToDeduct, platformFeePercent, {
+            shippingFee: toAmount(deal.shippingFee),
+        });
 
         const updatedDeal = await prisma.$transaction(async (tx) => {
             // 1. Deduct from wallet
-            const updatedUser = await tx.user.update({
-                where: { id: req.user.id },
-                data: { walletBalance: { decrement: amountToDeduct } }
-            });
+            const updatedUser = await applyWalletDelta(tx, req.user.id, -amountToDeduct);
 
             // 2. Log wallet transaction
             await tx.walletTransaction.create({
@@ -199,7 +212,7 @@ router.post('/escrow/wallet-pay', auth, async (req, res) => {
                     senderId: req.user.id,
                     receiverId: deal.vendorId,
                     chatId: deal.chatId,
-                    content: `Payment Confirmed: ₹${deal.totalAmount.toLocaleString('en-IN')} for "${deal.title}". Paid via client wallet. The deal is now active.`,
+                    content: `Payment Confirmed: ₹${toAmount(deal.totalAmount).toLocaleString('en-IN')} for "${deal.title}". Paid via client wallet. The deal is now active.`,
                     messageType: 'escrow_payment'
                 },
                 include: { sender: { select: { displayName: true, avatarUrl: true, username: true } } }
@@ -234,9 +247,18 @@ router.post('/escrow/wallet-pay', auth, async (req, res) => {
             createOrderFromDeal(updatedDeal.id).catch(err => console.error("Auto-order creation failed:", err));
         }
 
-        sendUserNotification(io, req.user.id, 'Payment Successful', `Your payment of ₹${amountToDeduct.toLocaleString('en-IN')} for "${deal.title}" was successful.`, 'success', { type: 'escrow', dealId: deal.id, chatId: deal.chatId });
-        sendUserNotification(io, deal.vendorId, 'Payment Received', `A client paid ₹${amountToDeduct.toLocaleString('en-IN')} for the deal "${deal.title}".`, 'success', { type: 'escrow', dealId: deal.id, chatId: deal.chatId });
+        sendUserNotification(io, req.user.id, 'Payment Successful', `Your payment of ₹${toAmount(amountToDeduct).toLocaleString('en-IN')} for "${deal.title}" was successful.`, 'success', { type: 'escrow', dealId: deal.id, chatId: deal.chatId });
+        sendUserNotification(io, deal.vendorId, 'Payment Received', `A client paid ₹${toAmount(amountToDeduct).toLocaleString('en-IN')} for the deal "${deal.title}".`, 'success', { type: 'escrow', dealId: deal.id, chatId: deal.chatId });
 
+        // Send email
+        const clientUser = await prisma.user.findUnique({ where: { id: req.user.id } });
+        if (clientUser && clientUser.email) {
+            sendOrderPlacedEmail(clientUser.email, {
+                customerName: clientUser.displayName,
+                dealTitle: deal.title,
+                amount: amountToDeduct
+            }).catch(e => console.error('Email sending failed:', e));
+        }
         res.json(updatedDeal);
     } catch (err) {
         console.error('Wallet escrow payment error:', err);
@@ -608,11 +630,13 @@ router.post('/verify', auth, async (req, res) => {
                         }
                     });
 
-                    // Record platform fee transaction for accounting
-                    let platformFeePercent = 0.10; // Default
-                    const feeSetting = await tx.systemSetting.findUnique({ where: { key: 'platform_fee_percent' } });
-                    if (feeSetting) platformFeePercent = parseFloat(feeSetting.value);
-                    const feeAmount = deal.totalAmount * platformFeePercent;
+                    // Record platform fee transaction for accounting.
+                    // Fee is charged on the gross the client actually paid,
+                    // excluding the courier's shipping charge.
+                    const platformFeePercent = await getPlatformFeePercent(tx);
+                    const { fee: feeAmount } = computeFeeSplit(amount, platformFeePercent, {
+                        shippingFee: toAmount(deal.shippingFee),
+                    });
 
                     if (feeAmount > 0) {
                         await tx.escrowTransaction.create({
@@ -633,16 +657,26 @@ router.post('/verify', auth, async (req, res) => {
                         }
                     });
 
+                    // Send email
+                    const clientUser = await prisma.user.findUnique({ where: { id: req.user.id } });
+                    if (clientUser && clientUser.email) {
+                        sendOrderPlacedEmail(clientUser.email, {
+                            customerName: clientUser.displayName,
+                            dealTitle: deal.title,
+                            amount: amount
+                        }).catch(e => console.error('Email sending failed:', e));
+                    }
+
                     const io = req.app.get('io');
-                    sendUserNotification(io, req.user.id, 'Payment Successful', `Your payment of ₹${amount.toLocaleString('en-IN')} for "${deal.title}" was successful.`, 'success', { type: 'escrow', dealId: deal.id, chatId: deal.chatId });
-                    sendUserNotification(io, deal.vendorId, 'Payment Received', `A client paid ₹${amount.toLocaleString('en-IN')} for the deal "${deal.title}".`, 'success', { type: 'escrow', dealId: deal.id, chatId: deal.chatId });
+                    sendUserNotification(io, req.user.id, 'Payment Successful', `Your payment of ₹${toAmount(amount).toLocaleString('en-IN')} for "${deal.title}" was successful.`, 'success', { type: 'escrow', dealId: deal.id, chatId: deal.chatId });
+                    sendUserNotification(io, deal.vendorId, 'Payment Received', `A client paid ₹${toAmount(amount).toLocaleString('en-IN')} for the deal "${deal.title}".`, 'success', { type: 'escrow', dealId: deal.id, chatId: deal.chatId });
 
                     const systemMessage = await tx.message.create({
                         data: {
                             senderId: req.user.id,
                             receiverId: deal.vendorId,
                             chatId: deal.chatId,
-                            content: `Payment Confirmed: ₹${deal.totalAmount.toLocaleString('en-IN')} for "${deal.title}". The deal is now active.`,
+                            content: `Payment Confirmed: ₹${toAmount(deal.totalAmount).toLocaleString('en-IN')} for "${deal.title}". The deal is now active.`,
                             messageType: 'escrow_payment'
                         },
                         include: { sender: { select: { displayName: true, avatarUrl: true, username: true } } }
@@ -682,10 +716,7 @@ router.post('/verify', auth, async (req, res) => {
                     const io = req.app.get('io');
                     sendUserNotification(io, req.user.id, 'Verification Payment Received', `We received your payment for verification. Our team will review your account shortly.`, 'success', { type: 'wallet' });
                 } else if (type === 'wallet') {
-                    await tx.user.update({
-                        where: { id: req.user.id },
-                        data: { walletBalance: { increment: amount } }
-                    });
+                    await applyWalletDelta(tx, req.user.id, amount);
 
                     const updatedUser = await tx.user.findUnique({
                         where: { id: req.user.id }
@@ -711,7 +742,7 @@ router.post('/verify', auth, async (req, res) => {
                     });
 
                     const io = req.app.get('io');
-                    sendUserNotification(io, req.user.id, 'Wallet Credited', `₹${amount.toLocaleString('en-IN')} added to wallet.`, 'success', { type: 'wallet' });
+                    sendUserNotification(io, req.user.id, 'Wallet Credited', `₹${toAmount(amount).toLocaleString('en-IN')} added to wallet.`, 'success', { type: 'wallet' });
                 }
             });
 
@@ -778,10 +809,7 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
                                 }
                             });
 
-                            await tx.user.update({
-                                where: { id: userId },
-                                data: { walletBalance: { increment: amount } }
-                            });
+                            await applyWalletDelta(tx, userId, amount);
 
                             const updatedUser = await tx.user.findUnique({
                                 where: { id: userId }
@@ -825,11 +853,13 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
                         // Auto-create Shiprocket Order in background
                         createOrderFromDeal(deal.id).catch(err => console.error("Auto-order creation failed:", err));
 
-                        // Record platform fee transaction for accounting
-                        let platformFeePercent = 0.10; // Default
-                        const feeSetting = await tx.systemSetting.findUnique({ where: { key: 'platform_fee_percent' } });
-                        if (feeSetting) platformFeePercent = parseFloat(feeSetting.value);
-                        const feeAmount = deal.totalAmount * platformFeePercent;
+                        // Record platform fee transaction for accounting.
+                        // Fee is charged on the gross the client actually paid,
+                        // excluding the courier's shipping charge.
+                        const platformFeePercent = await getPlatformFeePercent(tx);
+                        const { fee: feeAmount } = computeFeeSplit(deal.totalAmount, platformFeePercent, {
+                            shippingFee: toAmount(deal.shippingFee),
+                        });
 
                         if (feeAmount > 0) {
                             await tx.escrowTransaction.create({
@@ -861,7 +891,7 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
                     } else if (result.type === 'verification') {
                         sendUserNotification(io, result.request.userId, 'Verification Payment Received', `Payment received.`, 'success', { type: 'wallet' });
                     } else if (result.type === 'wallet') {
-                        sendUserNotification(io, result.userId, 'Wallet Credited', `₹${result.amount.toLocaleString('en-IN')} added to wallet.`, 'success', { type: 'wallet' });
+                        sendUserNotification(io, result.userId, 'Wallet Credited', `₹${toAmount(result.amount).toLocaleString('en-IN')} added to wallet.`, 'success', { type: 'wallet' });
 
                         (async () => {
                             try {

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ShieldCheck, Truck, Package, Laptop, MapPin, Star, CheckCircle, Share2, Copy, Check, MessageCircle, IndianRupee, Clock, Tag, Home, Phone } from "lucide-react";
-import { getPublicDeal, inquireDeal, DealListing, acceptDeal, updateUserProfile } from "@/lib/api";
+import { ShieldCheck, Truck, Package, Laptop, MapPin, Star, CheckCircle, Share2, Copy, Check, MessageCircle, IndianRupee, Clock, Tag, ChevronLeft, Home, Phone } from "lucide-react";
+import { getPublicDeal, inquireDeal, DealListing, acceptDeal, createOrderAddress } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -43,19 +43,27 @@ export default function DealPublicPage() {
   const [copied, setCopied] = useState(false);
   const [selectedImage, setSelectedImage] = useState(0);
 
-  // Address dialog states for shipping delivery type
+  // Address dialog states (full OrderAddress per deliverydata.md)
   const [isAddressDialogOpen, setIsAddressDialogOpen] = useState(false);
-  const [addressPincode, setAddressPincode] = useState("");
-  const [addressCity, setAddressCity] = useState("");
-  const [addressPhone, setAddressPhone] = useState("");
-  const [addressLocation, setAddressLocation] = useState("");
+  const [addrFullName, setAddrFullName] = useState("");
+  const [addrPhone, setAddrPhone] = useState("");
+  const [addrLine1, setAddrLine1] = useState("");
+  const [addrLine2, setAddrLine2] = useState("");
+  const [addrLandmark, setAddrLandmark] = useState("");
+  const [addrCity, setAddrCity] = useState("");
+  const [addrState, setAddrState] = useState("");
+  const [addrPincode, setAddrPincode] = useState("");
+  const [addrType, setAddrType] = useState("home");
   const [isSavingAddress, setIsSavingAddress] = useState(false);
+  // Pending escrow deal ID (set after acceptDeal, address links to it)
+  const [pendingDealId, setPendingDealId] = useState<number | null>(null);
 
   useEffect(() => {
     if (user) {
-      setAddressPincode(user.pincode || "");
-      setAddressCity(user.city || "");
-      setAddressPhone(user.phoneNumber || "");
+      setAddrFullName(user.displayName || "");
+      setAddrPhone(user.phoneNumber || "");
+      setAddrCity(user.city || "");
+      setAddrPincode(user.pincode || "");
     }
   }, [user]);
 
@@ -128,24 +136,43 @@ export default function DealPublicPage() {
 
   const handleSaveAddressAndBuy = async () => {
     if (!user || !deal) return;
-    if (!addressPincode.trim() || !addressCity.trim() || !addressPhone.trim()) {
-      toast.error("Please fill in all required fields.");
+
+    // Validate all required fields per deliverydata.md
+    const errors: string[] = [];
+    if (!addrFullName.trim() || addrFullName.trim().length < 3) errors.push('Enter your full name (min 3 chars)');
+    if (!addrLine1.trim() || addrLine1.trim().length < 10) errors.push('Street address must be at least 10 characters');
+    if (!addrCity.trim()) errors.push('City is required');
+    if (!addrState) errors.push('Select your state');
+    if (!/^\d{6}$/.test(addrPincode)) errors.push('Pincode must be 6 digits');
+    if (!/^[6-9]\d{9}$/.test(addrPhone)) errors.push('Enter a valid 10-digit Indian mobile number');
+    
+    if (errors.length > 0) {
+      toast.error(errors[0]);
       return;
     }
+
     setIsSavingAddress(true);
     try {
-      await updateUserProfile(user.id, {
-        pincode: addressPincode.trim(),
-        city: addressCity.trim(),
-        phoneNumber: addressPhone.trim(),
-        ...(addressLocation.trim() ? { location: addressLocation.trim() } : {})
+      // Save address to order_addresses table; if we have a pending dealId, link it
+      await createOrderAddress({
+        fullName: addrFullName.trim(),
+        phoneNumber: addrPhone.trim(),
+        addressType: addrType,
+        addressLine1: addrLine1.trim(),
+        addressLine2: addrLine2.trim() || undefined,
+        landmark: addrLandmark.trim() || undefined,
+        city: addrCity.trim(),
+        state: addrState,
+        pincode: addrPincode.trim(),
+        isDefault: true,
+        ...(pendingDealId ? { dealId: pendingDealId } : {}),
+        checkPincodeServiceability: false // skip SR check on client, done server-side
       });
-      await refreshUser();
       setIsAddressDialogOpen(false);
-      toast.success("Delivery details saved!");
+      toast.success('Delivery address saved!');
       await executeAcceptDeal();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to save address.");
+      toast.error(err instanceof Error ? err.message : 'Failed to save address.');
     } finally {
       setIsSavingAddress(false);
     }
@@ -162,11 +189,7 @@ export default function DealPublicPage() {
       return;
     }
 
-    if (deal.deliveryType === "shipping" && (!user.pincode || !user.city || !user.phoneNumber)) {
-      setIsAddressDialogOpen(true);
-      return;
-    }
-
+    // Address collection is strictly enforced on the DealTransactionPage during checkout
     await executeAcceptDeal();
   };
 
@@ -209,6 +232,17 @@ export default function DealPublicPage() {
 
   return (
     <div className="max-w-xl mx-auto px-4 pt-4 pb-48">
+      {/* Top Navigation */}
+      <div className="flex items-center mb-4">
+        <button
+          onClick={() => navigate(-1)}
+          className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center hover:bg-slate-200 transition-colors"
+          aria-label="Go back"
+        >
+          <ChevronLeft className="h-6 w-6 text-slate-700" />
+        </button>
+      </div>
+
       {/* Image section */}
       {images.length > 0 ? (
         <div className="space-y-2 mb-5">
@@ -247,7 +281,7 @@ export default function DealPublicPage() {
           )}
         </div>
       ) : (
-        <div className="mb-5 h-48 rounded-3xl bg-gradient-to-br from-sky-100 to-blue-100 flex items-center justify-center relative">
+        <div className="mb-5 h-48 rounded-3xl bg-gradient-to-br from-slate-50 to-blue-50/50 flex items-center justify-center relative">
           <span className="text-6xl">🛍️</span>
           <button
             onClick={handleShare}
@@ -272,8 +306,8 @@ export default function DealPublicPage() {
           </div>
 
           <div className="flex items-center gap-1.5 mt-2">
-            <IndianRupee className="h-5 w-5 text-[#00A4EF]" />
-            <span className="text-2xl font-black text-[#00A4EF]">{formatPrice(deal.price)}</span>
+            <IndianRupee className="h-5 w-5 text-slate-500" />
+            <span className="text-2xl font-black text-slate-800">{formatPrice(deal.price)}</span>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 mt-3">
@@ -322,7 +356,7 @@ export default function DealPublicPage() {
                 {deal.seller.displayName}
               </p>
               {deal.seller.verified && (
-                <CheckCircle className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                <CheckCircle className="h-3.5 w-3.5 text-[#00A4EF] shrink-0" />
               )}
             </div>
             <p className="text-[11px] text-slate-500 truncate">@{deal.seller.username}</p>
@@ -337,7 +371,7 @@ export default function DealPublicPage() {
         <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3 flex items-center gap-2.5">
           <ShieldCheck className="h-5 w-5 text-emerald-600 shrink-0" />
           <p className="text-xs text-emerald-800 font-medium">
-            Transactions on Krovaa are protected by <strong>Secure Escrow</strong> — your money is only released after you confirm delivery.
+            Transactions on Krovaa are protected by <strong>Secure Payments</strong> — your money is only released after you confirm delivery.
           </p>
         </div>
       </div>
@@ -363,18 +397,18 @@ export default function DealPublicPage() {
                   onClick={handleChatToBuy}
                   disabled={isInquiring || isAccepting}
                   variant="outline"
-                  className="flex-1 h-13 font-bold border-slate-200 hover:bg-slate-50 text-slate-700 rounded-2xl gap-2 text-xs"
-                  title="Chat with Seller"
+                  className="flex-1 h-13 text-sm font-bold border-slate-200 hover:bg-slate-50 text-slate-700 rounded-2xl gap-2"
                 >
                   <MessageCircle className="h-4 w-4" />
+                  {isInquiring ? "Opening..." : "Chat"}
                   Chat to Buy
                 </Button>
                 <Button
                   onClick={handleAcceptDeal}
                   disabled={isInquiring || isAccepting}
-                  className="flex-1 h-13 text-xs font-extrabold bg-[#00A4EF] hover:bg-[#0087d1] text-white rounded-2xl shadow-lg shadow-[#00A4EF]/20 gap-2"
+                  className="flex-[1.5] h-13 text-sm font-extrabold bg-[#00A4EF] hover:bg-[#0087d1] text-white rounded-2xl shadow-lg shadow-[#00A4EF]/20 gap-2"
                 >
-                  <ShieldCheck className="h-4 w-4" />
+                  <ShieldCheck className="h-5 w-5" />
                   {isAccepting ? "Accepting..." : "Accept & Buy"}
                 </Button>
               </div>
@@ -386,66 +420,137 @@ export default function DealPublicPage() {
         </div>
       </div>
 
-      {/* Address Prompt Dialog */}
+      {/* Delivery Address Dialog — Full OrderAddress per deliverydata.md */}
       <Dialog open={isAddressDialogOpen} onOpenChange={setIsAddressDialogOpen}>
-        <DialogContent className="max-w-md bg-white rounded-3xl border-0 shadow-2xl p-6" onInteractOutside={e => e.preventDefault()}>
+        <DialogContent className="max-w-md bg-white rounded-3xl border-0 shadow-2xl p-6 max-h-[90vh] overflow-y-auto" onInteractOutside={e => e.preventDefault()}>
           <DialogTitle className="text-lg font-extrabold text-slate-900 flex items-center gap-2">
             <Home className="h-5 w-5 text-[#00A4EF]" />
-            Enter Delivery Details
+            Enter Delivery Address
           </DialogTitle>
-          <p className="text-xs text-slate-500">
-            Please provide your delivery information to check courier serviceability and calculate shipping costs.
+          <p className="text-xs text-slate-500 mt-1">
+            Required for courier dispatch. Your address is only shared with Krovaa's shipping partner.
           </p>
 
-          <div className="space-y-4 py-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Pincode *</Label>
-                <Input
-                  type="text"
-                  maxLength={6}
-                  value={addressPincode}
-                  onChange={e => setAddressPincode(e.target.value.replace(/\D/g, ""))}
-                  placeholder="e.g. 110001"
-                  className="h-10 text-xs font-mono"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">City *</Label>
-                <Input
-                  type="text"
-                  value={addressCity}
-                  onChange={e => setAddressCity(e.target.value)}
-                  placeholder="e.g. New Delhi"
-                  className="h-10 text-xs"
-                />
-              </div>
+          <div className="space-y-3.5 py-3">
+            {/* Full Name */}
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Full Name *</Label>
+              <Input
+                value={addrFullName}
+                onChange={e => setAddrFullName(e.target.value)}
+                placeholder="As printed on Aadhaar / ID"
+                className="h-10 text-xs"
+              />
             </div>
 
+            {/* Phone */}
             <div className="space-y-1.5">
-              <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Phone Number *</Label>
+              <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Mobile Number *</Label>
               <div className="relative">
                 <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
                 <Input
                   type="tel"
                   maxLength={10}
-                  value={addressPhone}
-                  onChange={e => setAddressPhone(e.target.value.replace(/\D/g, ""))}
-                  placeholder="10-digit mobile number"
+                  value={addrPhone}
+                  onChange={e => setAddrPhone(e.target.value.replace(/\D/g, ""))}
+                  placeholder="10-digit number (starts with 6-9)"
                   className="h-10 pl-9 text-xs font-mono"
                 />
               </div>
             </div>
 
+            {/* Address Line 1 */}
             <div className="space-y-1.5">
-              <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Complete Address (Street, House No.)</Label>
+              <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Street Address *</Label>
               <Textarea
-                value={addressLocation}
-                onChange={e => setAddressLocation(e.target.value)}
-                placeholder="Flat / House no., building, street, area details"
-                rows={3}
+                value={addrLine1}
+                onChange={e => setAddrLine1(e.target.value)}
+                placeholder="House/Flat no., Building name, Street name (min 10 chars)"
+                rows={2}
                 className="text-xs resize-none"
               />
+            </div>
+
+            {/* Landmark */}
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Landmark (Optional)</Label>
+              <Input
+                value={addrLandmark}
+                onChange={e => setAddrLandmark(e.target.value)}
+                placeholder="Near school / temple / metro station"
+                className="h-10 text-xs"
+              />
+            </div>
+
+            {/* City + Pincode */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">City *</Label>
+                <Input
+                  value={addrCity}
+                  onChange={e => setAddrCity(e.target.value)}
+                  placeholder="e.g. Mumbai"
+                  className="h-10 text-xs"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Pincode *</Label>
+                <Input
+                  type="text"
+                  maxLength={6}
+                  value={addrPincode}
+                  onChange={e => setAddrPincode(e.target.value.replace(/\D/g, ""))}
+                  placeholder="6-digit"
+                  className="h-10 text-xs font-mono"
+                />
+              </div>
+            </div>
+
+            {/* State */}
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">State *</Label>
+              <select
+                value={addrState}
+                onChange={e => setAddrState(e.target.value)}
+                className="w-full h-10 px-3 bg-white border border-slate-200 rounded-md text-xs outline-none focus:ring-2 focus:ring-[#00A4EF] text-slate-700"
+              >
+                <option value="">Select State</option>
+                {[
+                  ['AN','Andaman & Nicobar Islands'], ['AP','Andhra Pradesh'], ['AR','Arunachal Pradesh'],
+                  ['AS','Assam'], ['BR','Bihar'], ['CG','Chhattisgarh'], ['CH','Chandigarh'],
+                  ['DD','Daman & Diu'], ['DL','Delhi'], ['DN','Dadra & Nagar Haveli'],
+                  ['GA','Goa'], ['GJ','Gujarat'], ['HR','Haryana'], ['HP','Himachal Pradesh'],
+                  ['JK','Jammu & Kashmir'], ['JH','Jharkhand'], ['KA','Karnataka'],
+                  ['KL','Kerala'], ['LA','Ladakh'], ['LD','Lakshadweep'], ['MH','Maharashtra'],
+                  ['ML','Meghalaya'], ['MN','Manipur'], ['ME','Meghalaya'], ['MZ','Mizoram'],
+                  ['NL','Nagaland'], ['OD','Odisha'], ['PB','Punjab'], ['PY','Puducherry'],
+                  ['RJ','Rajasthan'], ['SK','Sikkim'], ['TN','Tamil Nadu'], ['TR','Tripura'],
+                  ['TS','Telangana'], ['UP','Uttar Pradesh'], ['UK','Uttarakhand'], ['WB','West Bengal']
+                ].map(([code, name]) => (
+                  <option key={code} value={code}>{name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Address Type */}
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Address Type</Label>
+              <div className="flex gap-2">
+                {['home', 'work', 'other'].map(type => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => setAddrType(type)}
+                    className={`flex-1 h-9 rounded-xl text-xs font-bold border transition-all capitalize ${
+                      addrType === type 
+                        ? 'bg-[#00A4EF] text-white border-[#00A4EF]' 
+                        : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    {type}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -464,7 +569,7 @@ export default function DealPublicPage() {
               disabled={isSavingAddress || isAccepting}
               className="h-10 text-xs font-bold bg-[#00A4EF] hover:bg-[#0087d1] text-white"
             >
-              {isSavingAddress ? "Saving..." : "Save & Continue"}
+              {isSavingAddress ? "Saving..." : "Save & Buy"}
             </Button>
           </div>
         </DialogContent>

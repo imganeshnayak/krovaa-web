@@ -36,19 +36,37 @@ const RequestPayoutDialog = ({ open, onOpenChange, maxAmount, onSuccess }: Reque
 
     const validateForm = () => {
         const numAmount = parseFloat(amount);
-        if (isNaN(numAmount) || numAmount < 500) {
+        if (!amount.trim() || isNaN(numAmount) || numAmount <= 0) {
             toast({
                 title: "Invalid Amount",
-                description: "Minimum payout amount is ₹500",
+                description: "Please enter a valid amount",
                 variant: "destructive",
             });
             return false;
         }
 
-        if (numAmount > maxAmount) {
+        // Compare in paise so a balance with sub-paise float residue never
+        // blocks a full withdrawal.
+        const toPaise = (n: number) => Math.round(Math.abs(n) * 100) * Math.sign(n || 1);
+        const availablePaise = toPaise(maxAmount);
+        const requestedPaise = toPaise(numAmount);
+
+        if (requestedPaise > availablePaise) {
             toast({
                 title: "Insufficient Balance",
                 description: "You cannot withdraw more than your wallet balance",
+                variant: "destructive",
+            });
+            return false;
+        }
+
+        // The ₹500 minimum applies to partial withdrawals only, so a user can
+        // always clear their entire balance in one request.
+        const isFullBalance = requestedPaise === availablePaise;
+        if (requestedPaise < toPaise(500) && !isFullBalance) {
+            toast({
+                title: "Invalid Amount",
+                description: "Minimum payout amount is ₹500",
                 variant: "destructive",
             });
             return false;
@@ -138,19 +156,32 @@ const RequestPayoutDialog = ({ open, onOpenChange, maxAmount, onSuccess }: Reque
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="space-y-2">
                         <Label htmlFor="amount" className="text-xs font-semibold text-slate-600">Amount (₹)</Label>
-                        <Input
-                            id="amount"
-                            type="number"
-                            placeholder="Enter amount"
-                            value={amount}
-                            onChange={(e) => setAmount(e.target.value)}
-                            min="500"
-                            max={maxAmount}
-                            required
-                            className="rounded-xl border-slate-200 focus-visible:ring-[#00A4EF]/20 h-11"
-                        />
+                        <div className="flex gap-2">
+                            <Input
+                                id="amount"
+                                type="number"
+                                placeholder="Enter amount"
+                                value={amount}
+                                onChange={(e) => setAmount(e.target.value)}
+                                step="0.01"
+                                max={maxAmount}
+                                required
+                                className="rounded-xl border-slate-200 focus-visible:ring-[#00A4EF]/20 h-11"
+                            />
+                            {maxAmount > 0 && (
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => setAmount(maxAmount.toFixed(2))}
+                                    className="rounded-xl border-slate-200 h-11 px-3 text-xs font-bold text-slate-600 shrink-0"
+                                >
+                                    Max
+                                </Button>
+                            )}
+                        </div>
                         <p className="text-[11px] text-slate-400 font-medium pl-0.5">
                             Available: ₹{maxAmount.toLocaleString('en-IN')} | Minimum payout: ₹500
+                            {maxAmount > 0 && maxAmount < 500 && " (you can withdraw your full balance)"}
                         </p>
                     </div>
 

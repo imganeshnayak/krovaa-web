@@ -4,6 +4,7 @@ import { auth, adminOnly } from '../middleware/auth.js';
 import cloudinary from '../config/cloudinary.js';
 import multer from 'multer';
 import jwt from 'jsonwebtoken';
+import { addPickupLocation } from '../services/shiprocketService.js';
 
 const prisma = new PrismaClient();
 const router = express.Router();
@@ -1095,6 +1096,63 @@ router.post('/rate', auth, async (req, res) => {
         res.json(ratingObj);
     } catch (err) {
         console.error('Rate user error:', err);
+        res.status(500).json({ error: 'Server error.' });
+    }
+});
+// PUT /api/users/:id/pickup-location - Update pickup location and sync to Shiprocket
+router.put('/:id/pickup-location', auth, async (req, res) => {
+    try {
+        if (req.user.id !== parseInt(req.params.id) && req.user.role !== 'admin') {
+            return res.status(403).json({ error: 'Not authorized.' });
+        }
+        
+        const { businessAddress, businessCity, businessState, businessPincode, businessLandmark, contactName, contactEmail, contactPhone } = req.body;
+        
+        if (!businessAddress || !businessCity || !businessState || !businessPincode) {
+             return res.status(400).json({ error: 'Address, City, State, and Pincode are required.' });
+        }
+
+        const trimmedBPincode = businessPincode.trim();
+        if (!/^\d{6}$/.test(trimmedBPincode)) {
+             return res.status(400).json({ error: 'Business pincode must be exactly 6 digits.' });
+        }
+
+        const updateData = {
+            businessAddress: businessAddress.trim(),
+            businessCity: businessCity.trim(),
+            businessState: businessState.trim(),
+            businessPincode: trimmedBPincode,
+            businessLandmark: businessLandmark ? businessLandmark.trim() : null
+        };
+        
+        if (contactName) updateData.businessName = contactName.trim();
+        if (contactPhone) updateData.phoneNumber = contactPhone.trim();
+        
+        let user = await prisma.user.update({
+             where: { id: parseInt(req.params.id) },
+             data: updateData
+        });
+
+        try {
+            const shiprocketResponse = await addPickupLocation(user, { name: contactName, email: contactEmail, phone: contactPhone });
+            if (shiprocketResponse && shiprocketResponse.address && shiprocketResponse.address.pickup_code) {
+                 const pickupCode = shiprocketResponse.address.pickup_code;
+                 user = await prisma.user.update({
+                      where: { id: user.id },
+                      data: {
+                           shiprocketPickupName: pickupCode,
+                           shiprocketPickupId: shiprocketResponse.pickup_id?.toString()
+                      }
+                 });
+            }
+        } catch (srError) {
+             console.error('Shiprocket pickup sync error:', srError);
+             return res.status(500).json({ error: 'Failed to sync pickup location with Shiprocket: ' + srError.message, user });
+        }
+        
+        res.json({ message: 'Pickup location updated successfully.', user });
+    } catch (err) {
+        console.error('Update pickup location error:', err);
         res.status(500).json({ error: 'Server error.' });
     }
 });

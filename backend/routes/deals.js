@@ -22,9 +22,9 @@ router.post('/upload', auth, upload.single('image'), async (req, res) => {
             return res.status(400).json({ error: 'No image file provided.' });
         }
 
-        const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+        const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'video/webm', 'video/quicktime'];
         if (!allowedMimeTypes.includes(req.file.mimetype)) {
-            return res.status(400).json({ error: 'Only JPG, PNG, WEBP, and GIF images are allowed.' });
+            return res.status(400).json({ error: 'Only images and videos (MP4, WebM, MOV) are allowed.' });
         }
 
         const b64 = Buffer.from(req.file.buffer).toString('base64');
@@ -32,7 +32,7 @@ router.post('/upload', auth, upload.single('image'), async (req, res) => {
 
         const result = await cloudinary.uploader.upload(dataURI, {
             folder: 'deals',
-            resource_type: 'image'
+            resource_type: 'auto'
         });
 
         res.json({ imageUrl: result.secure_url });
@@ -51,6 +51,7 @@ const DEAL_SELECT = {
     title: true,
     description: true,
     price: true,
+    mrp: true,
     currency: true,
     imageUrls: true,
     deliveryType: true,
@@ -60,6 +61,7 @@ const DEAL_SELECT = {
     viewCount: true,
     createdAt: true,
     updatedAt: true,
+    stock: true,
     seller: {
         select: {
             id: true,
@@ -71,7 +73,7 @@ const DEAL_SELECT = {
             accountType: true,
         }
     },
-    _count: { select: { inquiries: true } }
+    _count: { select: { inquiries: true, escrowDeals: true } }
 };
 
 function generateShareCode() {
@@ -82,40 +84,62 @@ function generateShareCode() {
 
 router.get('/public', async (req, res) => {
     try {
-        const { category, deliveryType, minPrice, maxPrice, search, page = 1, limit = 18 } = req.query;
-        const skip = (Number(page) - 1) * Number(limit);
+        const { category, deliveryType, minPrice, maxPrice, search, sort = 'recent', sellerId } = req.query;
+
+        // Clamp paging inputs. An unbounded `limit` lets one request ask for the
+        // entire table, which is a cheap way to take the API down.
+        const page = Math.max(1, Number(req.query.page) || 1);
+        const limit = Math.min(60, Math.max(1, Number(req.query.limit) || 18));
+        const skip = (page - 1) * limit;
+
+        const trimmed = typeof search === 'string' ? search.trim().slice(0, 120) : '';
 
         const where = {
             status: 'active',
             ...(category ? { category } : {}),
             ...(deliveryType ? { deliveryType } : {}),
+            ...(sellerId ? { sellerId: Number(sellerId) } : {}),
+            // Out-of-stock items stay hidden by default; sellers need a way to
+            // see them, which the `includeOutOfStock` flag provides.
+            ...(req.query.includeOutOfStock === 'true' ? {} : { stock: { gt: 0 } }),
             ...(minPrice || maxPrice ? {
                 price: {
                     ...(minPrice ? { gte: Number(minPrice) } : {}),
                     ...(maxPrice ? { lte: Number(maxPrice) } : {}),
                 }
             } : {}),
-            ...(search ? {
+            ...(trimmed ? {
                 OR: [
-                    { title: { contains: search, mode: 'insensitive' } },
-                    { description: { contains: search, mode: 'insensitive' } },
-                    { category: { contains: search, mode: 'insensitive' } },
+                    { title: { contains: trimmed, mode: 'insensitive' } },
+                    { description: { contains: trimmed, mode: 'insensitive' } },
+                    { category: { contains: trimmed, mode: 'insensitive' } },
                 ]
             } : {}),
         };
+
+        // Whitelisted sorts only: an arbitrary `orderBy` from the client would
+        // be both a performance hazard and a way to probe unindexed columns.
+        const SORTS = {
+            recent: { createdAt: 'desc' },
+            oldest: { createdAt: 'asc' },
+            price_asc: { price: 'asc' },
+            price_desc: { price: 'desc' },
+            popular: { viewCount: 'desc' },
+        };
+        const orderBy = SORTS[sort] || SORTS.recent;
 
         const [deals, total] = await Promise.all([
             prisma.dealListing.findMany({
                 where,
                 select: DEAL_SELECT,
-                orderBy: { createdAt: 'desc' },
+                orderBy,
                 skip,
-                take: Number(limit),
+                take: limit,
             }),
             prisma.dealListing.count({ where }),
         ]);
 
-        res.json({ deals, total, page: Number(page), hasMore: skip + deals.length < total });
+        res.json({ deals, total, page, limit, sort: SORTS[sort] ? sort : 'recent', hasMore: skip + deals.length < total });
     } catch (err) {
         console.error('GET /api/deals/public error:', err);
         res.status(500).json({ error: 'Failed to load deals.' });
@@ -174,14 +198,13 @@ router.post('/', auth, async (req, res) => {
             return res.status(403).json({ error: 'Only business accounts can create deal listings. Please complete your business profile first.' });
         }
 
-        const { title, description, price, imageUrls = [], deliveryType = 'shipping', deliveryDays, category, shippingWeight, shippingDimensions, pickupAddress } = req.body;
+        const { title, description, price, mrp, imageUrls = [], deliveryType = 'shipping', deliveryDays, category, shippingWeight, shippingDimensions, pickupAddress, stock } = req.body;
 
         if (!title?.trim()) return res.status(400).json({ error: 'Title is required.' });
         if (!description?.trim()) return res.status(400).json({ error: 'Description is required.' });
         if (!price || isNaN(Number(price)) || Number(price) <= 0) {
             return res.status(400).json({ error: 'A valid price is required.' });
         }
-
 
         const shareCode = generateShareCode();
 
@@ -192,6 +215,7 @@ router.post('/', auth, async (req, res) => {
                 title: title.trim(),
                 description: description.trim(),
                 price: Number(price),
+                mrp: mrp && !isNaN(Number(mrp)) ? Number(mrp) : null,
                 imageUrls: Array.isArray(imageUrls) ? imageUrls : [],
                 deliveryType,
                 deliveryDays: deliveryDays ? Number(deliveryDays) : null,
@@ -199,6 +223,7 @@ router.post('/', auth, async (req, res) => {
                 shippingWeight: shippingWeight ? parseFloat(shippingWeight) : null,
                 shippingDimensions: shippingDimensions?.trim() || null,
                 pickupAddress: pickupAddress?.trim() || null,
+                stock: stock !== undefined ? Math.max(0, parseInt(stock)) : 1,
             },
             select: DEAL_SELECT,
         });
@@ -211,17 +236,16 @@ router.post('/', auth, async (req, res) => {
     }
 });
 
-// ─── AUTH: PUT /api/deals/:id — edit own deal ─────────────────────────────────
-
+// ─── AUTH: PUT /api/deals/:id — edit own deal ────────────────────────
 router.put('/:id', auth, async (req, res) => {
     try {
         const dealId = Number(req.params.id);
-        const existing = await prisma.dealListing.findUnique({ where: { id: dealId } });
 
-        if (!existing) return res.status(404).json({ error: 'Deal not found.' });
-        if (existing.sellerId !== req.user.id) return res.status(403).json({ error: 'Not your deal.' });
+        const deal = await prisma.dealListing.findUnique({ where: { id: dealId } });
+        if (!deal) return res.status(404).json({ error: 'Deal not found.' });
+        if (deal.sellerId !== req.user.id) return res.status(403).json({ error: 'Unauthorized.' });
 
-        const { title, description, price, imageUrls, deliveryType, deliveryDays, category, shippingWeight, shippingDimensions, pickupAddress } = req.body;
+        const { title, description, price, imageUrls, deliveryType, deliveryDays, category, shippingWeight, shippingDimensions, pickupAddress, stock } = req.body;
 
         const updated = await prisma.dealListing.update({
             where: { id: dealId },
@@ -236,6 +260,7 @@ router.put('/:id', auth, async (req, res) => {
                 ...(shippingWeight !== undefined ? { shippingWeight: shippingWeight ? parseFloat(shippingWeight) : null } : {}),
                 ...(shippingDimensions !== undefined ? { shippingDimensions: shippingDimensions?.trim() || null } : {}),
                 ...(pickupAddress !== undefined ? { pickupAddress: pickupAddress?.trim() || null } : {}),
+                ...(stock !== undefined ? { stock: Math.max(0, parseInt(stock)) } : {}),
             },
             select: DEAL_SELECT,
         });
@@ -370,7 +395,7 @@ router.post('/:shareCode/accept', auth, async (req, res) => {
         });
 
         if (!deal) return res.status(404).json({ error: 'Deal not found.' });
-        if (deal.status !== 'active') return res.status(400).json({ error: 'This deal is no longer active.' });
+        if (deal.status !== 'active' || deal.stock <= 0) return res.status(400).json({ error: 'This deal is out of stock.' });
         if (deal.sellerId === buyerId) return res.status(400).json({ error: 'You cannot buy your own deal.' });
 
         // Deterministic chat ID
@@ -394,39 +419,9 @@ router.post('/:shareCode/accept', auth, async (req, res) => {
         });
 
         if (!escrowDeal) {
-            // Calculate Shipping
-            let shippingFee = 0;
-            if (deal.deliveryType === 'shipping') {
-                const buyer = await prisma.user.findUnique({ where: { id: buyerId } });
-                if (!buyer.pincode) {
-                    return res.status(400).json({ error: 'Please add a delivery pincode in your settings before buying a shipped item.' });
-                }
-                
-                try {
-                    // Extract origin pincode from seller's pickupAddress if possible, or assume a default format.
-                    // For now, we'll try to extract a 6 digit number from pickupAddress.
-                    const pincodeMatch = deal.pickupAddress?.match(/\b\d{6}\b/);
-                    const originPincode = pincodeMatch ? pincodeMatch[0] : '110001'; // Default if not found
-
-                    const serviceability = await checkServiceability({
-                        pickup_postcode: originPincode,
-                        delivery_postcode: buyer.pincode,
-                        weight: deal.shippingWeight || 1.0,
-                        cod: 0
-                    });
-
-                    if (serviceability.status === 200 && serviceability.data.available_courier_companies?.length > 0) {
-                        shippingFee = serviceability.data.available_courier_companies[0].rate;
-                    } else {
-                        return res.status(400).json({ error: 'Delivery is not serviceable to your pincode.' });
-                    }
-                } catch (shippingErr) {
-                    console.error('Shipping calculation error:', shippingErr);
-                    return res.status(500).json({ error: 'Failed to calculate shipping cost.' });
-                }
-            }
-
-            const totalAmount = deal.price + shippingFee;
+            // For shipping deals, the shipping fee will be calculated later 
+            // when the buyer strictly provides their delivery address on the checkout page.
+            const totalAmount = deal.price;
 
             // Create a new EscrowDeal in pending_payment status
             escrowDeal = await prisma.escrowDeal.create({
@@ -435,7 +430,7 @@ router.post('/:shareCode/accept', auth, async (req, res) => {
                     clientId: buyerId,
                     vendorId: deal.sellerId,
                     title: deal.title,
-                    description: deal.description + (shippingFee > 0 ? `\n\nIncludes ₹${shippingFee} shipping fee.` : ''),
+                    description: deal.description,
                     totalAmount: totalAmount,
                     status: 'pending_payment',
                     paymentStatus: 'pending',
@@ -447,7 +442,7 @@ router.post('/:shareCode/accept', auth, async (req, res) => {
             const buyerInfo = await prisma.user.findUnique({ where: { id: buyerId }, select: { displayName: true, username: true } });
             const buyerName = buyerInfo?.displayName || buyerInfo?.username || 'Buyer';
             const priceStr = `₹${Number(deal.price).toLocaleString('en-IN')}`;
-            const systemMessage = `🛍️ *${buyerName}* accepted the deal *${deal.title}* (${priceStr}).\n\nComplete payment to secure the deal.`;
+            const systemMessage = `��️ *${buyerName}* accepted the deal *${deal.title}* (${priceStr}).\n\nComplete payment to secure the deal.`;
 
             await prisma.message.create({
                 data: {

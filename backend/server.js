@@ -9,6 +9,12 @@ import { fileURLToPath } from 'url';
 import compression from 'compression';
 import cookieParser from 'cookie-parser';
 
+// Money columns are exact Decimal(18,2). Prisma returns them as Decimal objects
+// whose default toJSON emits a string, which would break the wallet UI's
+// numeric operations. This must be installed before any route handles a request.
+import { installDecimalJsonSerialization } from './utils/decimalJson.js';
+installDecimalJsonSerialization();
+
 // Resolve __dirname for ESM and load .env from the project root
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -41,6 +47,10 @@ import savedJobsRoutes from './routes/savedJobs.js';
 import userPreferencesRoutes from './routes/userPreferences.js';
 import collabRoutes from './routes/collab.js';
 import dealsRoutes from './routes/deals.js';
+import orderAddressRoutes from './routes/orderAddresses.js';
+import shippingRoutes from './routes/shipping.js';
+import wishlistRoutes from './routes/wishlist.js';
+import sellerStatsRoutes from './routes/sellerStats.js';
 import { initCronJobs } from './services/cronService.js';
 import setupSocket from './socket/chat.js';
 
@@ -190,6 +200,10 @@ app.use('/api/saved-jobs', savedJobsRoutes);
 app.use('/api/user-preferences', userPreferencesRoutes);
 app.use('/api/collab', collabRoutes);
 app.use('/api/deals', dealsRoutes);
+app.use('/api/order-addresses', orderAddressRoutes);
+app.use('/api/shipping', shippingRoutes);
+app.use('/api/wishlist', wishlistRoutes);
+app.use('/api/seller/stats', sellerStatsRoutes);
 
 // API 404 Handler - Catch-all for any unmatched /api routes
 app.all('/api/*', (req, res) => {

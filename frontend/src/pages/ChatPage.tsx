@@ -120,13 +120,65 @@ function formatRecordingDuration(seconds: number) {
   return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
 }
 
+function decodeMessageContent(content: string | null | undefined): string {
+  if (!content) return "";
+  let text = String(content);
+
+  // Decode URI percent-encoded sequences (e.g. %20, %27, %22, %26, %3C, %3E)
+  if (/%[0-9A-Fa-f]{2}/.test(text)) {
+    try {
+      text = decodeURIComponent(text);
+    } catch {
+      text = text.replace(/%([0-9A-Fa-f]{2})/g, (_, hex) => {
+        try {
+          return String.fromCharCode(parseInt(hex, 16));
+        } catch {
+          return _;
+        }
+      });
+    }
+  }
+
+  // Decode HTML entities
+  text = text
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#x27;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&nbsp;/g, ' ');
+
+  // Decode numeric HTML entities (decimal and hex)
+  text = text.replace(/&#(\d+);/g, (_, dec) => {
+    try {
+      return String.fromCharCode(parseInt(dec, 10));
+    } catch {
+      return _;
+    }
+  });
+  text = text.replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => {
+    try {
+      return String.fromCharCode(parseInt(hex, 16));
+    } catch {
+      return _;
+    }
+  });
+
+  // Remove unicode replacement character artifacts (e.g. \uFFFD)
+  text = text.replace(/\uFFFD/g, '');
+
+  return text;
+}
+
 function getReplySnippet(msg: MessageType | LocalMessage): string {
   if (msg.isDeleted) return 'This message was deleted';
   if (msg.isViewOnce) return '📷 View Once photo';
   if (msg.messageType === 'voice') return '🎤 Voice message';
   if (msg.messageType === 'image' || msg.attachmentUrl?.match(/\.(jpg|jpeg|png|gif|webp)$/i)) return '📷 Photo';
   if (msg.attachmentUrl) return '📎 File';
-  return msg.content || '';
+  return decodeMessageContent(msg.content || '');
 }
 
 const CHAT_LIST_LONG_PRESS_MS = 600;
@@ -488,7 +540,10 @@ const ConversationList = ({
                   </div>
                 </div>
                 <p className="text-[12px] text-muted-foreground truncate leading-tight w-full hover:overflow-visible">
-                  {chat.last_message}
+                  {decodeMessageContent(chat.last_message)
+                    .replace(/\uFFFD/g, '')
+                    .replace(/\*\*(.*?)\*\*/g, '$1')
+                    .replace(/\*(.*?)\*/g, '$1')}
                 </p>
               </div>
 
@@ -678,6 +733,7 @@ const ChatView = ({
   const highlightTimersRef = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
 
   const [activeEscrow, setActiveEscrow] = useState<EscrowDeal | null>(null);
+  const [escrowDismissed, setEscrowDismissed] = useState(false);
 
   const fetchActiveEscrow = useCallback(() => {
     if (!selectedChat) {
@@ -698,6 +754,10 @@ const ChatView = ({
   useEffect(() => {
     fetchActiveEscrow();
   }, [fetchActiveEscrow, messages.length]);
+
+  useEffect(() => {
+    setEscrowDismissed(false);
+  }, [selectedChat?.chat_id]);
 
   const getSenderId = useCallback((msg: MessageType | LocalMessage): number | null => {
     const rawSenderId =
@@ -755,7 +815,7 @@ const ChatView = ({
       if (msg.messageType === 'voice') return '[Voice Message]';
       return '[File]';
     }
-    return msg.content || '';
+    return decodeMessageContent(msg.content || '');
   }, []);
 
   // Auto-resize the textarea based on the content of newMessage state
@@ -1280,7 +1340,7 @@ const ChatView = ({
       </div>
 
       {/* Deal Status Bar */}
-      {activeEscrow && (
+      {activeEscrow && !escrowDismissed && (
         <div 
           onClick={() => navigate(`/deal/transaction/${activeEscrow.id}`)}
           className="bg-sky-50/90 dark:bg-sky-950/20 border-b border-sky-100 dark:border-sky-900/30 px-4 py-2 flex items-center justify-between gap-3 cursor-pointer hover:bg-sky-100/50 dark:hover:bg-sky-950/30 transition-all shrink-0"
@@ -1351,6 +1411,16 @@ const ChatView = ({
               </Badge>
             )}
             <Icon name="ChevronRight" className="h-3.5 w-3.5 text-slate-400" />
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setEscrowDismissed(true);
+              }}
+              className="ml-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-full transition-colors active:scale-95 shrink-0"
+              title="Dismiss"
+            >
+              <Icon name="X" className="h-4 w-4" />
+            </button>
           </div>
         </div>
       )}
@@ -1403,12 +1473,8 @@ const ChatView = ({
                 const previousDate = index > 0 ? new Date(messages[index - 1].createdAt).toDateString() : null;
                 const showDateSeparator = currentDate !== previousDate;
 
-                // Sanitize plain text message content to remove stray markdown asterisks and quotes
-                const sanitizedContent = (msg.content || "")
-                  .replace(/\*\*(.*?)\*\*/g, '$1')
-                  .replace(/\*(.*?)\*/g, '$1')
-                  .replace(/[\u201C\u201D\"]/g, '')
-                  .trim();
+                // Sanitize and decode plain text message content
+                const sanitizedContent = decodeMessageContent(msg.content || "").trim();
 
                 return (
                   <React.Fragment key={msg.id}>
@@ -1797,24 +1863,73 @@ const ChatView = ({
                                 </div>
                               )}
                               {!isCleanImageBubble && msg.content && (
-                                <p className="text-sm mt-2">{msg.content}</p>
+                                (() => {
+                                  const dealMatch = msg.content.match(/(?:.*?)\*(.*?)\*\s+is interested in buying\s+\*(.*?)\*\s+\((.*?)\)[\s\S]*?Deal:\s*(\S+)/);
+                                  if (dealMatch) {
+                                    return (
+                                      <div className={`mt-2 p-3 rounded-xl border shadow-sm ${isMine ? 'bg-primary-foreground/10 border-primary-foreground/20' : 'bg-background border-border'} space-y-2`}>
+                                        <div className="flex items-center gap-2 mb-1">
+                                          <div className={`h-8 w-8 rounded-full flex items-center justify-center ${isMine ? 'bg-primary-foreground/20' : 'bg-primary/10'}`}>
+                                            <Icon name="ShoppingBag" className={`h-4 w-4 ${isMine ? 'text-primary-foreground' : 'text-primary'}`} />
+                                          </div>
+                                          <p className="text-xs font-bold leading-tight">Deal Inquiry</p>
+                                        </div>
+                                        <p className="text-sm leading-snug">
+                                          <span className="font-bold">{dealMatch[1]}</span> wants to buy <span className="font-bold">{dealMatch[2]}</span> for <span className="font-bold text-green-500">{dealMatch[3]}</span>
+                                        </p>
+                                        <a 
+                                          href={dealMatch[4]} 
+                                          target="_blank" 
+                                          rel="noreferrer" 
+                                          className={`block text-center mt-3 text-xs font-bold py-2 rounded-lg transition-colors ${isMine ? 'bg-primary-foreground text-primary hover:bg-primary-foreground/90' : 'bg-primary text-primary-foreground hover:bg-primary/90'}`}
+                                        >
+                                          View Deal Details
+                                        </a>
+                                      </div>
+                                    );
+                                  }
+                                  const renderMessageWithLinks = (text: string) => {
+                                    const decoded = decodeMessageContent(text);
+                                    const urlRegex = /(https?:\/\/[^\s]+)/g;
+                                    const parts = decoded.split(urlRegex);
+                                    return parts.map((part, idx) => {
+                                      if (part.match(urlRegex)) {
+                                        return (
+                                          <a
+                                            key={idx}
+                                            href={part}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className={`underline break-all font-bold hover:opacity-90 ${
+                                              isMine ? 'text-white' : 'text-sky-600 dark:text-sky-400'
+                                            }`}
+                                          >
+                                            {part}
+                                          </a>
+                                        );
+                                      }
+                                      return part;
+                                    });
+                                  };
+                                  return <p className="text-sm mt-2 whitespace-pre-wrap">{renderMessageWithLinks(msg.content)}</p>;
+                                })()
                               )}
+                              <p
+                                className={
+                                  isCleanImageBubble
+                                    ? "absolute bottom-2 right-2 text-[10px] text-white bg-black/40 px-2 py-0.5 rounded-full backdrop-blur-[2px] flex items-center gap-1 z-10 select-none pointer-events-none font-sans"
+                                    : `text-[10px] mt-1 ${isMine ? "text-primary-foreground/70" : "text-muted-foreground"}`
+                                }
+                              >
+                                {formatTime(msg.createdAt)}
+                                {isMine && (
+                                  <span className={msg.read ? "text-[#53bdeb] font-bold" : "text-white/60 font-bold"}>
+                                    {msg.read ? " ✓✓" : " ✓"}
+                                  </span>
+                                )}
+                              </p>
                             </>
                           )}
-                          <p
-                            className={
-                              isCleanImageBubble
-                                ? "absolute bottom-2 right-2 text-[10px] text-white bg-black/40 px-2 py-0.5 rounded-full backdrop-blur-[2px] flex items-center gap-1 z-10 select-none pointer-events-none font-sans"
-                                : `text-[10px] mt-1 ${isMine ? "text-primary-foreground/70" : "text-muted-foreground"}`
-                            }
-                          >
-                            {formatTime(msg.createdAt)}
-                            {isMine && (
-                              <span className={msg.read ? "text-[#53bdeb] font-bold" : "text-white/60 font-bold"}>
-                                {msg.read ? " ✓✓" : " ✓"}
-                              </span>
-                            )}
-                          </p>
                         </div>
                       </div>
                     </div>
@@ -3219,12 +3334,9 @@ const ChatPage = () => {
 
   const handleSend = useCallback(async () => {
     if (!newMessage.trim() || !selectedChat || !user) return;
-    // Sanitize outgoing message: remove stray asterisks and double quotes to keep messages professional
+    // Sanitize outgoing message: trim whitespace without stripping valid characters
     const sanitizeOutgoing = (s: string) => {
-      return s
-        .replace(/[\*]+/g, "")
-        .replace(/[\u201C\u201D\"]/g, "")
-        .trim();
+      return s.trim();
     };
 
     const messageToSend = sanitizeOutgoing(newMessage);

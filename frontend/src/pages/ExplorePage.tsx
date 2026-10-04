@@ -70,14 +70,17 @@ const ExplorePage = () => {
 
 
   const filteredCollabProjects = useMemo(() => {
-    return collabProjects;
-  }, [collabProjects]);
+    if (!user) return collabProjects;
+    return collabProjects.filter(p => p.creatorId !== user.id);
+  }, [collabProjects, user]);
 
   const filteredJobs = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
     const normalizedLocation = locationFilter.trim().toLowerCase();
 
     return jobs.filter((job) => {
+      if (user && job.postedById === user.id) return false;
+
       const matchesSearch = !normalizedQuery
         || job.title.toLowerCase().includes(normalizedQuery)
         || job.company.toLowerCase().includes(normalizedQuery)
@@ -91,7 +94,7 @@ const ExplorePage = () => {
 
       return matchesSearch && matchesMode && matchesLocation;
     });
-  }, [jobs, locationFilter, searchQuery, selectedMode]);
+  }, [jobs, locationFilter, searchQuery, selectedMode, user]);
 
   const modes = useMemo(() => {
     const allModes = new Set(jobs.map((job) => job.mode.toLowerCase()));
@@ -179,9 +182,9 @@ const ExplorePage = () => {
             <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight whitespace-nowrap">Explore</h1>
           </div>
           <button 
-            onClick={() => navigate('/my-listings')} 
+            onClick={() => navigate('/seller/dashboard')} 
             className="p-2 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200 transition-colors shrink-0"
-            title="My Listings"
+            title="Seller Dashboard"
           >
             <LayoutGrid className="w-5 h-5" />
           </button>
