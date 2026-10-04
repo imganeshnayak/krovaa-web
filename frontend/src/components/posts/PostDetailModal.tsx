@@ -2,7 +2,7 @@ import { Post, addPostComment, deletePostComment, likePost, deletePost } from "@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { X, Heart, MessageCircle, Trash2, Send } from "lucide-react";
+import { X, Heart, MessageCircle, Trash2, Send, ChevronLeft, ChevronRight } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { formatDistanceToNow } from "date-fns";
 import { remoteUrl } from "@/lib/config";
@@ -30,6 +30,8 @@ export default function PostDetailModal({
   const [newComment, setNewComment] = useState("");
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [activeMediaIndex, setActiveMediaIndex] = useState(0);
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -37,12 +39,54 @@ export default function PostDetailModal({
     setLikeCount(post.likes?.length || 0);
     setIsLiked(!!user?.id && !!post.likes?.some((like) => like.userId === user.id));
     setComments(post.comments || []);
+    setActiveMediaIndex(0);
   }, [post, user?.id]);
+
+  useEffect(() => {
+    if (!isOpen || !post.media || post.media.length < 2) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "ArrowLeft") {
+        setActiveMediaIndex((current) => Math.max(0, current - 1));
+      } else if (event.key === "ArrowRight") {
+        setActiveMediaIndex((current) => Math.min(post.media!.length - 1, current + 1));
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, post.media]);
 
   if (!isOpen) return null;
 
   const getMediaUrl = (url: string) => {
     return remoteUrl(url);
+  };
+
+  const mediaItems = post.media || [];
+  const activeMedia = mediaItems[activeMediaIndex];
+
+  const showPreviousMedia = () => {
+    setActiveMediaIndex((current) => Math.max(0, current - 1));
+  };
+
+  const showNextMedia = () => {
+    setActiveMediaIndex((current) => Math.min(mediaItems.length - 1, current + 1));
+  };
+
+  const handleMediaTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
+    setTouchStartX(event.touches[0].clientX);
+  };
+
+  const handleMediaTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
+    if (touchStartX === null) return;
+
+    const swipeDistance = event.changedTouches[0].clientX - touchStartX;
+    if (Math.abs(swipeDistance) >= 40) {
+      if (swipeDistance > 0) showPreviousMedia();
+      else showNextMedia();
+    }
+    setTouchStartX(null);
   };
 
   const handleLike = async () => {
@@ -144,20 +188,62 @@ export default function PostDetailModal({
         {/* Content */}
         <div className="flex-1 overflow-y-auto">
           {/* Media */}
-          {post.media && post.media.length > 0 && (
-            <div className="w-full bg-black flex items-center justify-center max-h-[400px] overflow-hidden">
-              {post.media[0].resource_type === "video" ? (
+          {activeMedia && (
+            <div
+              className="relative w-full bg-black flex items-center justify-center max-h-[400px] overflow-hidden touch-pan-y"
+              onTouchStart={handleMediaTouchStart}
+              onTouchEnd={handleMediaTouchEnd}
+            >
+              {activeMedia.resource_type === "video" ? (
                 <video
-                  src={getMediaUrl(post.media[0].url)}
+                  src={getMediaUrl(activeMedia.url)}
                   controls
                   className="block w-full max-h-[400px] object-contain"
                 />
               ) : (
                 <img
-                  src={getMediaUrl(post.media[0].url)}
-                  alt="Post"
+                  src={getMediaUrl(activeMedia.url)}
+                  alt={`Post media ${activeMediaIndex + 1} of ${mediaItems.length}`}
                   className="block w-full max-h-[400px] object-contain"
                 />
+              )}
+
+              {mediaItems.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={showPreviousMedia}
+                    disabled={activeMediaIndex === 0}
+                    aria-label="Previous image"
+                    title="Previous image"
+                    className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-2 text-white transition-opacity disabled:invisible hover:bg-black/70"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={showNextMedia}
+                    disabled={activeMediaIndex === mediaItems.length - 1}
+                    aria-label="Next image"
+                    title="Next image"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-2 text-white transition-opacity disabled:invisible hover:bg-black/70"
+                  >
+                    <ChevronRight className="h-5 w-5" />
+                  </button>
+                  <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-1.5 rounded-full bg-black/50 px-2.5 py-1">
+                    {mediaItems.map((_, index) => (
+                      <button
+                        key={index}
+                        type="button"
+                        onClick={() => setActiveMediaIndex(index)}
+                        aria-label={`Show image ${index + 1}`}
+                        className={`h-1.5 w-1.5 rounded-full transition-colors ${
+                          index === activeMediaIndex ? "bg-white" : "bg-white/50"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </>
               )}
             </div>
           )}

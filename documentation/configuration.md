@@ -42,6 +42,7 @@ JWT_SECRET=your_jwt_secret_key_here_min_32_chars
 # Email Service
 EMAIL_HOST=smtp.zoho.in
 EMAIL_PORT=465
+EMAIL_SECURE=true
 EMAIL_USER=your_email@zoho.com
 EMAIL_PASS=your_app_specific_password
 
@@ -74,6 +75,9 @@ POSTGRES_DB=krovaa_chat
 PGADMIN_DEFAULT_EMAIL=admin@krovaa.com
 PGADMIN_DEFAULT_PASSWORD=secure_password
 ```
+
+For Gmail, use `smtp.gmail.com` on port `587` with `EMAIL_SECURE=false` and a
+Google app password rather than the normal account password.
 
 ---
 

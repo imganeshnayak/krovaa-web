@@ -32,6 +32,13 @@ function classifyAuthError(err) {
         return { status: 500, error: 'Database schema is not ready. Run Prisma migrations/db push.' };
     }
 
+    if (code === 'EAUTH') {
+        return {
+            status: 502,
+            error: 'SMTP authentication failed. Use a valid app password for EMAIL_USER and restart the backend.'
+        };
+    }
+
     if (smtpTransportErrorCodes.has(code)) {
         return { status: 502, error: 'Email service is unavailable. Check SMTP configuration.' };
     }

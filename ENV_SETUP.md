@@ -26,9 +26,22 @@ DATABASE_URL=postgresql://postgres:YOUR_PASSWORD@localhost:5433/krovaa_chat
 ```
 EMAIL_HOST=smtp.zoho.in
 EMAIL_PORT=465
+EMAIL_SECURE=true
 EMAIL_USER=your_email@zoho.com
 EMAIL_PASS=your_app_specific_password
 ```
+
+For Gmail, use an app password (not the normal account password):
+```
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_SECURE=false
+EMAIL_USER=your Gmail address
+EMAIL_PASS=your 16-character Google app password
+```
+Enable 2-Step Verification in the Google account first, then create the app
+password under **Security → App passwords**. Remove spaces from the generated
+password, update the root `.env`, and restart the backend.
 
 #### Cloudinary (Image Upload)
 ```
@@ -120,7 +133,11 @@ Error: connect ECONNREFUSED 127.0.0.1:5433
 
 ### Email Not Sending
 - Verify `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_USER`, `EMAIL_PASS`
-- Ensure Zoho app-specific password is being used (not main password)
+- Ensure a provider app-specific password is being used (not the normal account password)
+- Gmail error `535 5.7.8 Username and Password not accepted` means the credentials
+  were rejected; regenerate the app password and confirm `EMAIL_USER` is the same
+  account that generated it
+- Restart the backend after changing `.env`
 
 ### JWT Errors
 - Ensure `JWT_SECRET` is set and longer than 32 characters

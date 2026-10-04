@@ -17,7 +17,19 @@ const smtpSecure = process.env.EMAIL_SECURE
   ? process.env.EMAIL_SECURE.toLowerCase() === 'true'
   : smtpPort === 465;
 
-const isConfigured = process.env.EMAIL_USER && process.env.EMAIL_USER !== 'your_email@zoho.com';
+const configuredEmailUser = process.env.EMAIL_USER?.trim();
+const configuredEmailPass = process.env.EMAIL_PASS?.trim();
+const placeholderValues = new Set([
+  'your_email@zoho.com',
+  'your_app_specific_password',
+  'your_email_password',
+]);
+const isConfigured = Boolean(
+  configuredEmailUser &&
+  configuredEmailPass &&
+  !placeholderValues.has(configuredEmailUser) &&
+  !placeholderValues.has(configuredEmailPass)
+);
 
 let transporter;
 
@@ -40,7 +52,14 @@ if (isConfigured) {
 
   transporter.verify((err) => {
     if (err) {
-      console.error('Email service error:', err.message);
+      if (err.code === 'EAUTH') {
+        console.error(
+          'Email service authentication failed. Check EMAIL_USER and EMAIL_PASS; ' +
+          'Gmail and Zoho require an app-specific password.'
+        );
+      } else {
+        console.error('Email service error:', err.message);
+      }
     } else {
       console.log('Email service ready:', process.env.EMAIL_USER);
     }
